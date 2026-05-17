@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://cg03q3055q3ee"]
+[gd_scene format=3 uid="uid://cg03q3055q3ee"]
 
 [ext_resource type="Theme" uid="uid://dyco6ncgsxu3m" path="res://Themes/editor.tres" id="1_1ixhk"]
 
@@ -11,9 +11,10 @@ var current_version: int
 
 signal new_message(version: int)
 
+
 func _ready():
-	
 	%HTTPRequest.request(\"https://textdb.online/MindVisualLogic\")
+
 
 func _on_http_request_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray):
 	var json = JSON.parse_string(body.get_string_from_utf8())
@@ -37,13 +38,10 @@ func _on_http_request_request_completed(result: int, response_code: int, headers
 		
 		if i.has(\"message\") and i.has(\"time\"):
 			message_bar.call_deferred(\"set_text\", i[\"message\"], i[\"time\"])
-	
-	
 
 
 func _on_close_requested() -> void:
 	self.visible = false
-
 
 func _on_close_button_pressed() -> void:
 	self.visible = false
@@ -59,8 +57,9 @@ bg_color = Color(0.258824, 0.223529, 0.309804, 1)
 border_width_top = 5
 border_color = Color(0, 0, 0, 0.419608)
 
-[node name="MessageWindow" type="Window"]
+[node name="MessageWindow" type="Window" unique_id=708320155]
 transparent_bg = true
+oversampling_override = 1.0
 title = "公告"
 initial_position = 1
 size = Vector2i(360, 480)
@@ -68,7 +67,7 @@ transparent = true
 theme = ExtResource("1_1ixhk")
 script = SubResource("GDScript_1ixhk")
 
-[node name="PanelContainer" type="PanelContainer" parent="."]
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=2102809211]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -77,12 +76,12 @@ grow_vertical = 2
 theme = ExtResource("1_1ixhk")
 theme_override_styles/panel = SubResource("StyleBoxFlat_a50fk")
 
-[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer" unique_id=226150338]
 layout_mode = 2
 follow_focus = true
 horizontal_scroll_mode = 0
 
-[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/ScrollContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/ScrollContainer" unique_id=288843391]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -91,29 +90,29 @@ theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 5
 
-[node name="Messages" type="VBoxContainer" parent="PanelContainer/ScrollContainer/MarginContainer"]
+[node name="Messages" type="VBoxContainer" parent="PanelContainer/ScrollContainer/MarginContainer" unique_id=787255391]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="PanelContainer" type="PanelContainer" parent="PanelContainer"]
+[node name="PanelContainer" type="PanelContainer" parent="PanelContainer" unique_id=213829850]
 layout_mode = 2
 size_flags_vertical = 8
 theme_override_styles/panel = SubResource("StyleBoxFlat_1ixhk")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/PanelContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/PanelContainer" unique_id=909851750]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 100
 
-[node name="CloseButton" type="Button" parent="PanelContainer/PanelContainer/HBoxContainer"]
+[node name="CloseButton" type="Button" parent="PanelContainer/PanelContainer/HBoxContainer" unique_id=1432316611]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "关闭
 "
 
-[node name="HTTPRequest" type="HTTPRequest" parent="."]
+[node name="HTTPRequest" type="HTTPRequest" parent="." unique_id=1041946570]
 unique_name_in_owner = true
 use_threads = true
 
