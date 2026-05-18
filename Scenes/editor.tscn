@@ -623,24 +623,24 @@ split_offsets = PackedInt32Array(-450)
 dragger_visibility = 1
 split_offset = -450
 
-[node name="PanelContainer2" type="PanelContainer" parent="WorkArea/MainSpilt" unique_id=70361237]
+[node name="BlockArea" type="PanelContainer" parent="WorkArea/MainSpilt" unique_id=70361237]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_wlowb")
 
-[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/PanelContainer2" unique_id=2040477687]
+[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/BlockArea" unique_id=2040477687]
 clip_contents = true
 layout_mode = 2
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 3
 theme_override_constants/margin_bottom = 3
 
-[node name="ScrollContainer" type="ScrollContainer" parent="WorkArea/MainSpilt/PanelContainer2/MarginContainer" unique_id=2063301245]
+[node name="ScrollContainer" type="ScrollContainer" parent="WorkArea/MainSpilt/BlockArea/MarginContainer" unique_id=2063301245]
 clip_contents = false
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/PanelContainer2/MarginContainer/ScrollContainer" unique_id=932348345]
+[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/BlockArea/MarginContainer/ScrollContainer" unique_id=932348345]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -649,30 +649,30 @@ theme_override_constants/margin_top = 50
 theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 20
 
-[node name="GivenBlocks" type="VBoxContainer" parent="WorkArea/MainSpilt/PanelContainer2/MarginContainer/ScrollContainer/MarginContainer" unique_id=1085479223]
+[node name="GivenBlocks" type="VBoxContainer" parent="WorkArea/MainSpilt/BlockArea/MarginContainer/ScrollContainer/MarginContainer" unique_id=1085479223]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="PanelContainer" type="PanelContainer" parent="WorkArea/MainSpilt" unique_id=1911048559]
+[node name="EditArea" type="PanelContainer" parent="WorkArea/MainSpilt" unique_id=1911048559]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_qdoku")
 
-[node name="Panel" type="Panel" parent="WorkArea/MainSpilt/PanelContainer" unique_id=1501358803]
+[node name="Panel" type="Panel" parent="WorkArea/MainSpilt/EditArea" unique_id=1501358803]
 z_as_relative = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wkuwf")
 
-[node name="TextureRect" type="TextureRect" parent="WorkArea/MainSpilt/PanelContainer" unique_id=597007681]
+[node name="TextureRect" type="TextureRect" parent="WorkArea/MainSpilt/EditArea" unique_id=597007681]
 visible = false
 self_modulate = Color(1, 1, 1, 0.0392157)
 layout_mode = 2
 texture = ExtResource("2_vjobr")
 stretch_mode = 1
 
-[node name="TextureRect2" type="TextureRect" parent="WorkArea/MainSpilt/PanelContainer" unique_id=1496732191]
+[node name="TextureRect2" type="TextureRect" parent="WorkArea/MainSpilt/EditArea" unique_id=1496732191]
 visible = false
 self_modulate = Color(1, 1, 1, 0.00392157)
 layout_mode = 2
@@ -681,7 +681,7 @@ size_flags_vertical = 4
 texture = ExtResource("3_wrb8p")
 stretch_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/PanelContainer" unique_id=295291010]
+[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/EditArea" unique_id=295291010]
 clip_contents = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -690,14 +690,14 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 0
 
-[node name="UserBlockScroll" type="ScrollContainer" parent="WorkArea/MainSpilt/PanelContainer/MarginContainer" unique_id=1576589318]
+[node name="UserBlockScroll" type="ScrollContainer" parent="WorkArea/MainSpilt/EditArea/MarginContainer" unique_id=1576589318]
 unique_name_in_owner = true
 clip_contents = false
 layout_mode = 2
 size_flags_horizontal = 3
 follow_focus = true
 
-[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/PanelContainer/MarginContainer/UserBlockScroll" unique_id=1224192810]
+[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll" unique_id=1224192810]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -706,31 +706,31 @@ theme_override_constants/margin_top = 50
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 100
 
-[node name="UserBlocks" type="VBoxContainer" parent="WorkArea/MainSpilt/PanelContainer/MarginContainer/UserBlockScroll/MarginContainer" unique_id=1926500811]
+[node name="UserBlocks" type="VBoxContainer" parent="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll/MarginContainer" unique_id=1926500811]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 2
 script = SubResource("GDScript_a7iym")
 
-[node name="EasyInput" type="Node2D" parent="WorkArea/MainSpilt/PanelContainer/MarginContainer/UserBlockScroll/MarginContainer" unique_id=831448670]
+[node name="EasyInput" type="Node2D" parent="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll/MarginContainer" unique_id=831448670]
 unique_name_in_owner = true
 position = Vector2(-185, -15)
 
-[node name="PanelContainer2" type="PanelContainer" parent="WorkArea/MainSpilt/PanelContainer" unique_id=1117537777]
+[node name="ScrollButton" type="PanelContainer" parent="WorkArea/MainSpilt/EditArea" unique_id=1117537777]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 size_flags_horizontal = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_b78su")
 
-[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer2" unique_id=1660560088]
+[node name="MarginContainer" type="MarginContainer" parent="WorkArea/MainSpilt/EditArea/ScrollButton" unique_id=1660560088]
 layout_mode = 2
 theme_override_constants/margin_top = 40
 
-[node name="VBoxContainer" type="VBoxContainer" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer2/MarginContainer" unique_id=1061171092]
+[node name="VBoxContainer" type="VBoxContainer" parent="WorkArea/MainSpilt/EditArea/ScrollButton/MarginContainer" unique_id=1061171092]
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 
-[node name="UpButton" type="Button" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=1308488381]
+[node name="UpButton" type="Button" parent="WorkArea/MainSpilt/EditArea/ScrollButton/MarginContainer/VBoxContainer" unique_id=1308488381]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -740,7 +740,7 @@ theme_override_styles/hover = SubResource("StyleBoxEmpty_b78su")
 theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_8howc")
 action_mode = 0
 
-[node name="DownButton" type="Button" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=1279171837]
+[node name="DownButton" type="Button" parent="WorkArea/MainSpilt/EditArea/ScrollButton/MarginContainer/VBoxContainer" unique_id=1279171837]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -750,7 +750,7 @@ theme_override_styles/hover = SubResource("StyleBoxEmpty_b78su")
 theme_override_styles/hover_pressed = SubResource("StyleBoxEmpty_8howc")
 action_mode = 0
 
-[node name="PanelContainer" type="PanelContainer" parent="WorkArea/MainSpilt/PanelContainer" unique_id=1103823226]
+[node name="Toolbar" type="PanelContainer" parent="WorkArea/MainSpilt/EditArea" unique_id=1103823226]
 z_index = 1
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
@@ -758,16 +758,16 @@ size_flags_vertical = 0
 theme = ExtResource("4_7wlcy")
 theme_override_styles/panel = SubResource("StyleBoxFlat_7wlcy")
 
-[node name="Tools" type="HBoxContainer" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer" unique_id=1759145372]
+[node name="Tools" type="HBoxContainer" parent="WorkArea/MainSpilt/EditArea/Toolbar" unique_id=1759145372]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Lefts" type="HBoxContainer" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools" unique_id=455811901]
+[node name="Lefts" type="HBoxContainer" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools" unique_id=455811901]
 layout_mode = 2
 size_flags_horizontal = 2
 theme_override_constants/separation = 8
 
-[node name="RenameEdit" type="LineEdit" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Lefts" unique_id=1481372322]
+[node name="RenameEdit" type="LineEdit" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Lefts" unique_id=1481372322]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_8howc")
@@ -779,7 +779,7 @@ emoji_menu_enabled = false
 flat = true
 select_all_on_focus = true
 
-[node name="CopyButton" type="Button" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Lefts" unique_id=1169438668]
+[node name="CopyButton" type="Button" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Lefts" unique_id=1169438668]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
@@ -787,12 +787,12 @@ icon = ExtResource("5_yl2l4")
 icon_alignment = 1
 expand_icon = true
 
-[node name="Rights" type="HBoxContainer" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools" unique_id=1291905389]
+[node name="Rights" type="HBoxContainer" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools" unique_id=1291905389]
 layout_mode = 2
 size_flags_horizontal = 10
 theme_override_constants/separation = 8
 
-[node name="ImportButton" type="Button" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights" unique_id=1269619111]
+[node name="ImportButton" type="Button" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights" unique_id=1269619111]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
@@ -800,7 +800,7 @@ icon = ExtResource("6_eo2o7")
 icon_alignment = 1
 expand_icon = true
 
-[node name="ClearButton" type="Button" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights" unique_id=86064245]
+[node name="ClearButton" type="Button" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights" unique_id=86064245]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
@@ -808,19 +808,19 @@ icon = ExtResource("5_b78su")
 icon_alignment = 1
 expand_icon = true
 
-[node name="ConfirmClear" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ClearButton" unique_id=2029939672 instance=ExtResource("6_yl2l4")]
+[node name="ConfirmClear" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton" unique_id=2029939672 instance=ExtResource("6_yl2l4")]
 unique_name_in_owner = true
 title = "清空项目"
 visible = false
 window_text = "是否清空该编辑器下的所有积木？"
 
-[node name="Label" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ClearButton/ConfirmClear/Control/MarginContainer2/VBoxContainer" parent_id_path=PackedInt32Array(2029939672, 293426841) index="0" unique_id=1666603729]
+[node name="Label" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton/ConfirmClear/Control/MarginContainer2/VBoxContainer" parent_id_path=PackedInt32Array(2029939672, 293426841) index="0" unique_id=1666603729]
 text = "是否清空该编辑器下的所有积木？"
 
-[node name="Title" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ClearButton/ConfirmClear/Control/PanelContainer/TitlePanel" parent_id_path=PackedInt32Array(2029939672, 1146131521) index="1" unique_id=391144446]
+[node name="Title" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton/ConfirmClear/Control/PanelContainer/TitlePanel" parent_id_path=PackedInt32Array(2029939672, 1146131521) index="1" unique_id=391144446]
 text = "清空项目"
 
-[node name="CloseButton" type="Button" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights" unique_id=2025555271]
+[node name="CloseButton" type="Button" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights" unique_id=2025555271]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
@@ -828,16 +828,16 @@ icon = ExtResource("6_7fkqn")
 icon_alignment = 1
 expand_icon = true
 
-[node name="ConfirmClose" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/CloseButton" unique_id=688577729 instance=ExtResource("6_yl2l4")]
+[node name="ConfirmClose" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton" unique_id=688577729 instance=ExtResource("6_yl2l4")]
 unique_name_in_owner = true
 title = "关闭编辑器"
 visible = false
 window_text = "是否关闭当前编辑器？"
 
-[node name="Label" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/CloseButton/ConfirmClose/Control/MarginContainer2/VBoxContainer" parent_id_path=PackedInt32Array(688577729, 293426841) index="0" unique_id=1666603729]
+[node name="Label" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton/ConfirmClose/Control/MarginContainer2/VBoxContainer" parent_id_path=PackedInt32Array(688577729, 293426841) index="0" unique_id=1666603729]
 text = "是否关闭当前编辑器？"
 
-[node name="Title" parent="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/CloseButton/ConfirmClose/Control/PanelContainer/TitlePanel" parent_id_path=PackedInt32Array(688577729, 1146131521) index="1" unique_id=391144446]
+[node name="Title" parent="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton/ConfirmClose/Control/PanelContainer/TitlePanel" parent_id_path=PackedInt32Array(688577729, 1146131521) index="1" unique_id=391144446]
 text = "关闭编辑器"
 
 [node name="SetLoadEdit" parent="." unique_id=987061477 instance=ExtResource("5_wkuwf")]
@@ -893,19 +893,19 @@ script = SubResource("GDScript_eo2o7")
 wait_time = 0.001
 one_shot = true
 
-[connection signal="sort_children" from="WorkArea/MainSpilt/PanelContainer/MarginContainer/UserBlockScroll/MarginContainer/UserBlocks" to="WorkArea/MainSpilt/PanelContainer/MarginContainer/UserBlockScroll/MarginContainer/UserBlocks" method="_on_block_moved"]
-[connection signal="editing_toggled" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Lefts/RenameEdit" to="." method="_on_rename_edit_editing_toggled"]
-[connection signal="text_submitted" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Lefts/RenameEdit" to="." method="_on_rename_edit_text_submitted"]
-[connection signal="pressed" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ImportButton" to="." method="_on_import_button_pressed"]
-[connection signal="pressed" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ClearButton" to="." method="_on_clear_pressed"]
-[connection signal="confirmed" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ClearButton/ConfirmClear" to="." method="_on_confirm_clear_confirmed"]
-[connection signal="pressed" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/CloseButton" to="." method="_on_close_pressed"]
-[connection signal="confirmed" from="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/CloseButton/ConfirmClose" to="." method="_on_confirm_close_confirmed"]
+[connection signal="sort_children" from="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll/MarginContainer/UserBlocks" to="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll/MarginContainer/UserBlocks" method="_on_block_moved"]
+[connection signal="editing_toggled" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Lefts/RenameEdit" to="." method="_on_rename_edit_editing_toggled"]
+[connection signal="text_submitted" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Lefts/RenameEdit" to="." method="_on_rename_edit_text_submitted"]
+[connection signal="pressed" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ImportButton" to="." method="_on_import_button_pressed"]
+[connection signal="pressed" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton" to="." method="_on_clear_pressed"]
+[connection signal="confirmed" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton/ConfirmClear" to="." method="_on_confirm_clear_confirmed"]
+[connection signal="pressed" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton" to="." method="_on_close_pressed"]
+[connection signal="confirmed" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton/ConfirmClose" to="." method="_on_confirm_close_confirmed"]
 [connection signal="confirmed" from="SetLoadEdit" to="." method="_on_set_load_edit_confirmed"]
 [connection signal="confirmed" from="LoadConfirm" to="." method="_on_load_confirm_confirmed"]
 [connection signal="timeout" from="CompileManager/CompileWait" to="CompileManager" method="_on_timer_timeout"]
 
-[editable path="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/ClearButton/ConfirmClear"]
-[editable path="WorkArea/MainSpilt/PanelContainer/PanelContainer/Tools/Rights/CloseButton/ConfirmClose"]
+[editable path="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton/ConfirmClear"]
+[editable path="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton/ConfirmClose"]
 [editable path="LoadConfirm"]
 [editable path="LoadWarning"]

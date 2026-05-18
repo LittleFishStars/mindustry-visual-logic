@@ -27,17 +27,13 @@ func _on_http_request_request_completed(result: int, response_code: int, headers
 	if json.has(\"title\"):
 		title = json[\"title\"]
 	
-	if not json.has(\"messages\"):
-		return false
-	
-	for i in json[\"messages\"]:
-		var message_bar = message_bar_scene.instantiate()
-		%Messages.add_child(message_bar)
-		
-		%Messages.move_child(message_bar, 0)
-		
-		if i.has(\"message\") and i.has(\"time\"):
-			message_bar.call_deferred(\"set_text\", i[\"message\"], i[\"time\"])
+	if json.has(\"messages\"):
+		json[\"messages\"].reverse()
+		for i in json[\"messages\"]:
+			var message_bar = message_bar_scene.instantiate()
+			%NoticeList.add_child(message_bar)
+			message_bar.time = i.get(\"time\")
+			message_bar.content = i.get(\"message\")
 
 
 func _on_close_requested() -> void:
@@ -90,7 +86,7 @@ theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 5
 
-[node name="Messages" type="VBoxContainer" parent="PanelContainer/ScrollContainer/MarginContainer" unique_id=787255391]
+[node name="NoticeList" type="VBoxContainer" parent="PanelContainer/ScrollContainer/MarginContainer" unique_id=787255391]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 5

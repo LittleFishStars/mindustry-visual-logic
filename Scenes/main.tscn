@@ -2,7 +2,7 @@
 
 [ext_resource type="Theme" uid="uid://dyco6ncgsxu3m" path="res://Themes/editor.tres" id="1_bo1nx"]
 [ext_resource type="PackedScene" uid="uid://cvj60qdn0mft7" path="res://Scenes/theme_confirm.tscn" id="3_8gbba"]
-[ext_resource type="PackedScene" uid="uid://cg03q3055q3ee" path="res://Scenes/message_window.tscn" id="4_jjvhh"]
+[ext_resource type="PackedScene" uid="uid://cg03q3055q3ee" path="res://Scenes/notice_window.tscn" id="4_jjvhh"]
 
 [sub_resource type="GDScript" id="GDScript_bo1nx"]
 resource_name = "main"
@@ -27,15 +27,15 @@ var fdiagsize_cursor = preload(\"res://Sprites/Cursor/fdiagsize.png\")
 
 func _ready() -> void:
 	# 链接窗口信号
-	self.get_tree().root.focus_exited.connect(_on_window_focus_exited)
+	get_tree().root.focus_exited.connect(_on_window_focus_exited)
 	
 	# 从文件读取配置
 	self.editor_configs = EditorConfig.new()
 	self.apply_config()
 	
 	# 重写关闭窗口按钮
-	self.get_tree().auto_accept_quit = false
-	self.get_viewport().get_window().close_requested.connect(_on_window_close_requested)
+	get_tree().auto_accept_quit = false
+	get_window().close_requested.connect(_on_window_close_requested)
 	
 	# 设置鼠标指针
 	Input.set_custom_mouse_cursor(custom_cursor, Input.CURSOR_ARROW, Vector2(32, 32))
@@ -53,48 +53,36 @@ func _ready() -> void:
 	self.new_editor()
 
 
+## 新建页面
+func new_page(title: StringName, scn: Resource) -> Node:
+	var node = scn.instantiate()
+	var count = 1
+	%Editors.add_child(node)
+	%Editors.current_tab = node.get_index()
+	while %Editors.has_node(title + str(count)):
+		count += 1
+	node.name = title + str(count)
+	return node
+
+## 新建编辑器页面
 func new_editor():
-	var editor_node = self.editor_scn.instantiate()
-	var editor_name = \"Untitled\"
-	var editor_count = 1
-
-	%Editors.add_child(editor_node)
-	%Editors.current_tab = editor_node.get_index()
-
-	while %Editors.has_node(editor_name + str(editor_count)):
-		editor_count += 1
-
-	editor_node.name = editor_name + str(editor_count)
+	var editor_node = self.new_page(\"Untitled\", self.editor_scn)
 	editor_node.reset_nodes(%Dragging)
-	
-
-func new_file():
-	var file_node = self.file_scn.instantiate()
-	var file_name = \"File\"
-	var file_count = 1
-
-	%Editors.add_child(file_node)
-	%Editors.current_tab = file_node.get_index()
-
-	while %Editors.has_node(file_name + str(file_count)):
-		file_count += 1
-
-	file_node.name = file_name + str(file_count)
 
 
+## 应用配置
 func apply_config():
-	\"\"\" 应用配置 \"\"\"
 	Engine.max_fps = editor_configs.max_fps  # 最大帧率
 	get_tree().root.content_scale_factor = editor_configs.ui_scale  # ui缩放
 	new_version = editor_configs.current_version  # 版本号
 
 
+## 保存当前编辑器
 func save_editor(node, path) -> bool:
-	set_all_owner(node, node, 0, 64)
+	self.set_all_owner(node, node, 0, 64)
 
 	var packed_scene = PackedScene.new()
-	
-	var error = packed_scene.pack( %Editors.get_child(%Editors.current_tab) )
+	var error = packed_scene.pack(%Editors.get_current_tab_control())
 	if error != OK:
 		push_error(\"编辑器打包失败：\", str(error))
 		return false
@@ -107,6 +95,8 @@ func save_editor(node, path) -> bool:
 	print(\"保存了一个编辑器场景到：\", path)
 	return true
 
+
+## 读取编辑器
 func load_editor(path):
 	if not FileAccess.file_exists(path):
 		push_error(\"未在指定目录找到文件：\", path)
@@ -119,6 +109,8 @@ func load_editor(path):
 	
 	return packed_scene.instantiate()
 
+
+## 批量设置节点及其子节点的所有者
 func set_all_owner(node, root, depth, max_depth) -> bool:
 	for i in node.get_children():
 		i.set_owner(root)
@@ -131,9 +123,8 @@ func set_all_owner(node, root, depth, max_depth) -> bool:
 
 
 func _on_window_close_requested():
-	self.editor_configs.save()
-	%ConfirmCloseApp.visible = true
-	get_window().grab_focus()
+	self.editor_configs.save()  # 保存配置
+	%ConfirmCloseApp.visible = true  # 二次确认对话框
 
 func _on_window_focus_exited():
 	if editor_configs.compile_when_close:
@@ -152,19 +143,20 @@ func _on_files_pressed(index):
 			%FileDialog.visible = true
 		4:
 			new_editor()
-			%Editors.get_child(%Editors.current_tab).read_from_clipboard()
+			%Editors.get_current_tab_control().read_from_clipboard()
 		5:
-			%Editors.get_child(%Editors.current_tab).bind_confirm()
+			%Editors.get_current_tab_control().bind_confirm()
 		8:
+			self.editor_configs.save()
 			get_tree().quit()
 
 
 func _on_compile_button_pressed() -> void:
-	%Editors.get_child(%Editors.current_tab).compile()
+	%Editors.get_current_tab_control().compile()
 
 
-func _on_file_pressed() -> void:
-	new_file()
+func _on_document_pressed() -> void:
+	self.new_page(\"Document\", self.file_scn)
 
 
 func _on_confirm_close_app_confirmed(edit) -> void:
@@ -176,7 +168,7 @@ func _on_file_dialog_file_selected(path: String) -> void:
 		path += \".tscn\"
 	
 	if %FileDialog.file_mode == 4:
-		save_editor(%Editors.get_child(%Editors.current_tab), path)
+		save_editor(%Editors.get_current_tab_control(), path)
 		
 	if %FileDialog.file_mode == 0:
 		var scene = load_editor(path)
@@ -184,15 +176,15 @@ func _on_file_dialog_file_selected(path: String) -> void:
 			%Editors.add_child(scene)
 
 
-func _on_message_pressed() -> void:
-	%MessageWindow.visible = true
-	%Message.add_theme_color_override(\"font_color\", Color(\"ffffff\"))
+func _on_notic_pressed() -> void:
+	%NoticeWindow.visible = true
+	%Notice.add_theme_color_override(\"font_color\", Color(\"ffffff\"))
 	editor_configs.current_version = new_version
 	apply_config()
 
 
 func _on_message_window_new_message(version) -> void:
-	%Message.add_theme_color_override(\"font_color\", Color(\"ffff00\"))
+	%Notice.add_theme_color_override(\"font_color\", Color(\"ffff00\"))
 	new_version = version
 "
 
@@ -225,15 +217,15 @@ layout_mode = 2
 theme = ExtResource("1_bo1nx")
 theme_override_styles/panel = SubResource("StyleBoxFlat_jjvhh")
 
-[node name="ToolControl" type="HBoxContainer" parent="UI/VBoxContainer/SetArea" unique_id=1345763078]
+[node name="ToolContainer" type="HBoxContainer" parent="UI/VBoxContainer/SetArea" unique_id=1345763078]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
-[node name="LeftTool" type="HBoxContainer" parent="UI/VBoxContainer/SetArea/ToolControl" unique_id=1411435311]
+[node name="LeftTool" type="HBoxContainer" parent="UI/VBoxContainer/SetArea/ToolContainer" unique_id=1411435311]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Files" type="MenuButton" parent="UI/VBoxContainer/SetArea/ToolControl/LeftTool" unique_id=775682676]
+[node name="Files" type="MenuButton" parent="UI/VBoxContainer/SetArea/ToolContainer/LeftTool" unique_id=775682676]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
@@ -261,7 +253,7 @@ popup/item_7/separator = true
 popup/item_8/text = "强制关闭应用"
 popup/item_8/id = 8
 
-[node name="Settings" type="MenuButton" parent="UI/VBoxContainer/SetArea/ToolControl/LeftTool" unique_id=489870649]
+[node name="Settings" type="MenuButton" parent="UI/VBoxContainer/SetArea/ToolContainer/LeftTool" unique_id=489870649]
 custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 text = "设置"
@@ -275,24 +267,25 @@ popup/item_2/id = 2
 popup/item_3/text = "选项"
 popup/item_3/id = 3
 
-[node name="File" type="Button" parent="UI/VBoxContainer/SetArea/ToolControl/LeftTool" unique_id=653660207]
+[node name="Document" type="Button" parent="UI/VBoxContainer/SetArea/ToolContainer/LeftTool" unique_id=653660207]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "文档"
 
-[node name="Message" type="Button" parent="UI/VBoxContainer/SetArea/ToolControl/LeftTool" unique_id=790288570]
+[node name="Notice" type="Button" parent="UI/VBoxContainer/SetArea/ToolContainer/LeftTool" unique_id=790288570]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 text = "公告"
 icon_alignment = 2
 
-[node name="RightTool" type="HBoxContainer" parent="UI/VBoxContainer/SetArea/ToolControl" unique_id=573212797]
+[node name="RightTool" type="HBoxContainer" parent="UI/VBoxContainer/SetArea/ToolContainer" unique_id=573212797]
 layout_mode = 2
 size_flags_horizontal = 3
 alignment = 2
 
-[node name="CompileButton" type="Button" parent="UI/VBoxContainer/SetArea/ToolControl/RightTool" unique_id=757701364]
+[node name="QuickExport" type="Button" parent="UI/VBoxContainer/SetArea/ToolContainer/RightTool" unique_id=757701364]
 custom_minimum_size = Vector2(100, 30)
 layout_mode = 2
 size_flags_horizontal = 0
@@ -345,13 +338,13 @@ access = 2
 show_hidden_files = true
 use_native_dialog = true
 
-[node name="MessageWindow" parent="." unique_id=743659409 instance=ExtResource("4_jjvhh")]
+[node name="NoticeWindow" parent="." unique_id=743659409 instance=ExtResource("4_jjvhh")]
 unique_name_in_owner = true
 visible = false
 
-[connection signal="pressed" from="UI/VBoxContainer/SetArea/ToolControl/LeftTool/File" to="." method="_on_file_pressed"]
-[connection signal="pressed" from="UI/VBoxContainer/SetArea/ToolControl/LeftTool/Message" to="." method="_on_message_pressed"]
-[connection signal="pressed" from="UI/VBoxContainer/SetArea/ToolControl/RightTool/CompileButton" to="." method="_on_compile_button_pressed"]
+[connection signal="pressed" from="UI/VBoxContainer/SetArea/ToolContainer/LeftTool/Document" to="." method="_on_document_pressed"]
+[connection signal="pressed" from="UI/VBoxContainer/SetArea/ToolContainer/LeftTool/Notice" to="." method="_on_notic_pressed"]
+[connection signal="pressed" from="UI/VBoxContainer/SetArea/ToolContainer/RightTool/QuickExport" to="." method="_on_compile_button_pressed"]
 [connection signal="confirmed" from="ConfirmCloseApp" to="." method="_on_confirm_close_app_confirmed"]
 [connection signal="file_selected" from="FileDialog" to="." method="_on_file_dialog_file_selected"]
-[connection signal="new_message" from="MessageWindow" to="." method="_on_message_window_new_message"]
+[connection signal="new_message" from="NoticeWindow" to="." method="_on_message_window_new_message"]
