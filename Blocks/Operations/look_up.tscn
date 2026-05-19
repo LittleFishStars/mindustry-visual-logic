@@ -9,27 +9,29 @@
 resource_name = "lookup"
 script/source = "extends LogicBlocks
 
+
 func load_value(value: Array):
 	option_get_item(%op1,value[1])
 	%a.text = value[2]
 	%b.text = value[3]
-	pass
 
-func option_get_item(node: OptionButton, optext : String):
+
+func option_get_item(node: OptionButton, optext: String):
 	for i in range(node.get_popup().item_count):
 		if node.get_item_text(i) == optext:
 			node.select(i)
 
+
 func compile():
-	var op_list = {
-		0 : \"block\" ,
-		1 : \"unit\" ,
-		2 : \"item\" ,
-		3 : \"liquid\" ,
-		4 : \"team\" ,
-	}
+	const op_list = [
+		\"block\",
+		\"unit\",
+		\"item\",
+		\"liquid\",
+		\"team\",
+	]
 	
-	return(\"lookup \" + op_list[%op1.selected] + \" \" + %a.text + \" \" + %b.text + \"\\n\" )
+	return \"lookup %s %s %s\\n\" % [op_list[%op1.selected], %a.text, %b.text]
 "
 
 [sub_resource type="LabelSettings" id="LabelSettings_nmdwr"]

@@ -31,14 +31,8 @@ func _ready():
 	
 	%MainSpilt.split_offset = DisplayServer.window_get_size().x * -0.5 + 200
 	user_blocks = %UserBlocks
-
-	# 放出积木的计时器
-	timer = Timer.new()
-	add_child(timer)
-	timer.wait_time = 0.1
-	timer.one_shot = true
-	timer.timeout.connect(_on_place_blocks)
-	timer.start()
+	
+	self.place_blocks()
 
 
 func _physics_process(delta: float) -> void:
@@ -47,48 +41,54 @@ func _physics_process(delta: float) -> void:
 	
 	if %DownButton.button_pressed:
 		%UserBlockScroll.scroll_vertical += 5
+
+
+func compile():
+	# 复制一份积木列表到自己之下
+	var blocks_dup = %UserBlocks.duplicate()
+	blocks_dup.visible = false
+	self.add_child(blocks_dup)
+	
+	# 确保所有积木的内置变量不出错
+	for i in blocks_dup.get_children():
+		i.origin_node = blocks_dup
+	
+	# 第一步，jump锁定目标
+	for i in blocks_dup.get_children():
+		i.pre_compile(0)
+	
+	# 第二步，删除需要忽略的积木
+	for i in blocks_dup.get_children():
+		i.pre_compile(1)
+	# 刷新
+	for i in blocks_dup.get_children():
+		i._on_any_block_moved()
+	await get_tree().create_timer(0).timeout
+	
+	# 最后一步，导出到剪贴板
+	var compile_text: String
+	# 所有积木进行二级导出
+	for i in blocks_dup.get_children():
+		compile_text += i.compile()
+	
+	# 删除临时积木列表
+	blocks_dup.queue_free()
+	DisplayServer.clipboard_set(compile_text)
 	
 
-func compile() -> void:
-	%CompileManager.compile()
-	
-
-func add_block_shell(instance , index = -1):
-	#var block_shell = load(\"res://Blocks/block_shell.tscn\")
-	#block_shell = block_shell.instantiate()
-	#%UserBlocks.add_child(block_shell)
-	#block_shell.add_block(instance)
-	#block_shell.reset_nodes(dragging_node, %UserBlocks)
-	#
-	#if index == -1:
-		#pass
-	#else:
-		#block_shell.get_parent().move_child(block_shell, index)
-	#
-	#return(block_shell)
-	
+func add_block_shell(instance, index = -1):
 	var block = load(instance)
 	block = block.instantiate()
 	%UserBlocks.add_child(block)
 	block.origin_node = %UserBlocks
 	block.input_node = %EasyInput
-	if index == -1:
-		pass
-	else:
+	if index != -1:
 		block.get_parent().move_child(block, index)
 	
-	return(block)
+	return block
+
 
 func add_given_block(instance):
-	#var block_shell = load(\"res://Blocks/block_shell.tscn\")
-	#block_shell = block_shell.instantiate()
-	#%GivenBlocks.add_child(block_shell)
-	#block_shell.add_block(instance)
-	#block_shell.reset_nodes(dragging_node, %UserBlocks)
-	#block_shell.is_given_block = true
-	#
-	#return(block_shell)
-	
 	var block = load(instance)
 	block = block.instantiate()
 	block.is_given_block = true
@@ -101,13 +101,7 @@ func add_given_block(instance):
 	return block
 
 
-func _on_place_blocks():
-	if timer:
-		timer.queue_free
-	
-	for i in %GivenBlocks.get_children():
-		i.queue_free()
-	
+func place_blocks():
 	%RenameEdit.text = self.name
 	
 	var spilt_pack = load(\"res://Blocks/spilt_line.tscn\")
@@ -249,32 +243,32 @@ func read_from_clipboard(add = false, index = -1):
 		for i in codes:
 			# 检查此行是否符合要求
 			if code_list.has(i.split(\" \")[0]):
-				var node = add_block_shell( code_list[i.split(\" \")[0]] ,index)
+				var node = add_block_shell(code_list[i.split(\" \")[0]], index)
 				
 				if i.split(\" \")[0] == \"print\":
-					node.load_value( [\"print\", i.right(i.length() - 6)]  )
+					node.load_value([\"print\", i.right(i.length() - 6)])
 				elif i.split(\" \")[0] == \"format\":
-					node.load_value( [\"format\", i.right(i.length() - 7)] )
+					node.load_value([\"format\", i.right(i.length() - 7)])
 				elif i.split(\" \")[0] == \"jump\":
 					var jump_load_value = i.split(\" \")
 					jump_load_value[1] = str(int(jump_load_value[1]) + origin_index)
 					
-					node.load_value( jump_load_value )
+					node.load_value(jump_load_value)
 				else:
-					node.load_value( i.split(\" \") )
+					node.load_value(i.split(\" \"))
 			elif i.split(\" \")[0] == \"ucontrol\":
-				if code_list.has( i.split(\" \")[0] + \" \" + i.split(\" \")[1]):
-					var node = add_block_shell( code_list[ i.split(\" \")[0] + \" \" + i.split(\" \")[1] ] ,index)
-					node.load_value( i.split(\" \") )
+				if code_list.has(i.split(\" \")[0] + \" \" + i.split(\" \")[1]):
+					var node = add_block_shell(code_list[i.split(\" \")[0] + \" \" + i.split(\" \")[1]], index)
+					node.load_value(i.split(\" \"))
 			elif i.begins_with(\"#\"):
-				var node = add_block_shell( code_list[\"expression\"] ,index)
+				var node = add_block_shell(code_list[\"expression\"], index)
 				if i[1] == \" \":
-					node.load_value( [i.erase(0, 2)] )
+					node.load_value([i.erase(0, 2)])
 				else:
-					node.load_value( [i.erase(0)] )
+					node.load_value([i.erase(0)])
 			elif i.ends_with(\":\") and (not i.contains(\" \")):
-				var node = add_block_shell( code_list[\"jumplabel\"] ,index)
-				node.load_value( [i.replace(\":\", \"\")] )
+				var node = add_block_shell(code_list[\"jumplabel\"], index)
+				node.load_value([i.replace(\":\", \"\")])
 			index += 1
 			
 		# 修复jump问题
@@ -284,9 +278,9 @@ func read_from_clipboard(add = false, index = -1):
 				var jump_load_value = i.split(\" \")
 				if jump_load_value[1].is_valid_int():
 					jump_load_value[1] = str(int(jump_load_value[1]) + origin_index)
-				%UserBlocks.get_child(check_index).load_value( jump_load_value )
+				%UserBlocks.get_child(check_index).load_value(jump_load_value)
 				
-			if code_list.has( i.split(\" \")[0] ):
+			if code_list.has(i.split(\" \")[0]):
 				check_index += 1
 			elif i.split(\" \")[0] == \"ucontrol\":
 				check_index += 1
@@ -298,40 +292,40 @@ func read_from_clipboard(add = false, index = -1):
 		# 遍历剪贴板的每一行
 		for i in codes:
 			# 检查此行是否符合要求
-			if code_list.has( i.split(\" \")[0] ):
+			if code_list.has(i.split(\" \")[0]):
 				
-				var node = add_block_shell( code_list[i.split(\" \")[0]] )
+				var node = add_block_shell(code_list[i.split(\" \")[0]])
 				
 				if i.split(\" \")[0] == \"print\":
-					node.load_value( [\"print\", i.right(i.length() - 6)]  )
+					node.load_value([\"print\", i.right(i.length() - 6)])
 				elif i.split(\" \")[0] == \"format\":
-					node.load_value( [\"format\", i.right(i.length() - 7)] )
+					node.load_value([\"format\", i.right(i.length() - 7)])
 				else:
-					node.load_value( i.split(\" \") )
+					node.load_value(i.split(\" \"))
 				
 			elif i.split(\" \")[0] == \"ucontrol\":
-				if code_list.has( i.split(\" \")[0] + \" \" + i.split(\" \")[1]):
-					var node = add_block_shell( code_list[ i.split(\" \")[0] + \" \" + i.split(\" \")[1] ] )
-					node.load_value( i.split(\" \") )
+				if code_list.has(i.split(\" \")[0] + \" \" + i.split(\" \")[1]):
+					var node = add_block_shell(code_list[i.split(\" \")[0] + \" \" + i.split(\" \")[1]])
+					node.load_value(i.split(\" \"))
 			
 			elif i.begins_with(\"#\"):
-				var node = add_block_shell( code_list[\"expression\"] ,index)
+				var node = add_block_shell(code_list[\"expression\"], index)
 				if i[1] == \" \":
-					node.load_value( [i.erase(0, 2)] )
+					node.load_value([i.erase(0, 2)])
 				else:
-					node.load_value( [i.erase(0)] )
+					node.load_value([i.erase(0)])
 
 			elif i.ends_with(\":\") and (not i.contains(\" \")):
-				var node = add_block_shell( code_list[\"jumplabel\"] ,index)
-				node.load_value( [i.replace(\":\", \"\")] )
+				var node = add_block_shell(code_list[\"jumplabel\"], index)
+				node.load_value([i.replace(\":\", \"\")])
 			
 		# 修复jump问题
 		var check_index = 0
 		for i in codes:
 			if i.split(\" \")[0] == \"jump\":
-				%UserBlocks.get_child(check_index).load_value( i.split(\" \") )
+				%UserBlocks.get_child(check_index).load_value(i.split(\" \"))
 		
-			if code_list.has( i.split(\" \")[0] ):
+			if code_list.has(i.split(\" \")[0]):
 				check_index += 1
 			elif i.split(\" \")[0] == \"ucontrol\":
 				check_index += 1
@@ -373,7 +367,7 @@ func bind_confirm():
 
 
 func _on_set_load_edit_confirmed(value: int) -> void:
-	read_from_clipboard(true , int(min(value, %UserBlocks.get_child_count() )) )
+	read_from_clipboard(true , int(min(value, %UserBlocks.get_child_count())))
 
 
 func _on_import_button_pressed() -> void:
@@ -382,7 +376,7 @@ func _on_import_button_pressed() -> void:
 
 func _on_load_confirm_confirmed(edit: String) -> void:
 	if edit.is_valid_int():
-		read_from_clipboard(true , min(int(edit), %UserBlocks.get_child_count() ) )
+		read_from_clipboard(true , min(int(edit), %UserBlocks.get_child_count()))
 	else:
 		%LoadWarning.visible = true
 "
@@ -523,67 +517,6 @@ bg_color = Color(0, 0, 0, 0.352941)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wkuwf"]
 
-[sub_resource type="GDScript" id="GDScript_eo2o7"]
-resource_name = "compile_manager"
-script/source = "extends Node
-
-var blocks_dup
-var step := 0
-
-func compile():
-	blocks_dup = %UserBlocks.duplicate()
-	blocks_dup.visible = false
-	
-	# 复制一份积木列表到自己之下
-	self.add_child(blocks_dup)
-	
-	# 确保所有积木的内置变量不出错
-	for i in blocks_dup.get_children():
-		i.origin_node = blocks_dup
-	
-	step = 0
-	$CompileWait.start()
-
-## 每次计时器结束计时时，进行下一步。返回true时结束。
-func _on_timer_timeout() -> bool:
-	
-	# 第一步，jump锁定目标
-	if step == 0:
-		for i in blocks_dup.get_children():
-			i.pre_compile(0)
-		
-		step = 1
-	
-	# 第二步，删除需要忽略的积木
-	elif step == 1:
-		for i in blocks_dup.get_children():
-			i.pre_compile(1)
-		
-		step = 128
-	
-	# 最后一步，导出到剪贴板
-	elif step == 128:
-	
-		var compile_text: String
-		
-		# 所有积木进行二级导出
-		for i in blocks_dup.get_children():
-			compile_text += i.compile()
-		
-		# 删除临时积木列表
-		blocks_dup.queue_free()
-		
-		DisplayServer.clipboard_set(compile_text)
-		return true
-	
-	# 刷新
-	for i in blocks_dup.get_children():
-		i._on_any_block_moved()
-		
-	$CompileWait.start()
-	return false
-"
-
 [node name="Editor" type="Control" unique_id=1995262411]
 layout_mode = 3
 anchors_preset = 15
@@ -645,9 +578,9 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/margin_left = 30
-theme_override_constants/margin_top = 50
+theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 20
+theme_override_constants/margin_bottom = 30
 
 [node name="GivenBlocks" type="VBoxContainer" parent="WorkArea/MainSpilt/BlockArea/MarginContainer/ScrollContainer/MarginContainer" unique_id=1085479223]
 unique_name_in_owner = true
@@ -885,14 +818,6 @@ visible = false
 [node name="Title" parent="LoadWarning/Control/PanelContainer/TitlePanel" parent_id_path=PackedInt32Array(1624154998, 1146131521) index="1" unique_id=391144446]
 text = "错误"
 
-[node name="CompileManager" type="Node" parent="." unique_id=660542486]
-unique_name_in_owner = true
-script = SubResource("GDScript_eo2o7")
-
-[node name="CompileWait" type="Timer" parent="CompileManager" unique_id=1852358545]
-wait_time = 0.001
-one_shot = true
-
 [connection signal="sort_children" from="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll/MarginContainer/UserBlocks" to="WorkArea/MainSpilt/EditArea/MarginContainer/UserBlockScroll/MarginContainer/UserBlocks" method="_on_block_moved"]
 [connection signal="editing_toggled" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Lefts/RenameEdit" to="." method="_on_rename_edit_editing_toggled"]
 [connection signal="text_submitted" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Lefts/RenameEdit" to="." method="_on_rename_edit_text_submitted"]
@@ -903,7 +828,6 @@ one_shot = true
 [connection signal="confirmed" from="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton/ConfirmClose" to="." method="_on_confirm_close_confirmed"]
 [connection signal="confirmed" from="SetLoadEdit" to="." method="_on_set_load_edit_confirmed"]
 [connection signal="confirmed" from="LoadConfirm" to="." method="_on_load_confirm_confirmed"]
-[connection signal="timeout" from="CompileManager/CompileWait" to="CompileManager" method="_on_timer_timeout"]
 
 [editable path="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/ClearButton/ConfirmClear"]
 [editable path="WorkArea/MainSpilt/EditArea/Toolbar/Tools/Rights/CloseButton/ConfirmClose"]

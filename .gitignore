@@ -7,6 +7,9 @@ android/
 # 忽略插件文件夹
 addons/
 
+# 忽略导出文件夹
+build/
+
 # 忽略项目根目录下可能生成的特定文件
 *.translation
 *.remap
