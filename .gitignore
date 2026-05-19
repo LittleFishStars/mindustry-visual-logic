@@ -16,3 +16,5 @@ build/
 
 # 可选：如果你不希望提交导出模板，可以忽略 export_presets.cfg
 export_presets.cfg
+    
+old/

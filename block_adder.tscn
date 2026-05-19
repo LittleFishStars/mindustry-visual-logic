@@ -1,8 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://baqmvbpwlds4b"]
+[gd_scene format=3 uid="uid://baqmvbpwlds4b"]
 
-[ext_resource type="Theme" uid="uid://bwqifwabah580" path="res://Themes/logic_block.tres" id="1_hbebx"]
-[ext_resource type="StyleBox" uid="uid://ndwncrglcvfk" path="res://LogicBlockStyles/test.tres" id="2_u1jsu"]
-[ext_resource type="PackedScene" uid="uid://dhi8fvs1yj6rp" path="res://Blocks/test_1.tscn" id="3_u1jsu"]
+[ext_resource type="Theme" uid="uid://bwqifwabah580" path="res://old/Themes/logic_block.tres" id="1_hbebx"]
+[ext_resource type="StyleBox" uid="uid://ndwncrglcvfk" path="res://Stytes/LogicBlockStyles/test.tres" id="2_u1jsu"]
+[ext_resource type="PackedScene" uid="uid://dhi8fvs1yj6rp" path="res://old/Blocks/test_1.tscn" id="3_u1jsu"]
 
 [sub_resource type="GDScript" id="GDScript_186in"]
 resource_name = "block_adder"
