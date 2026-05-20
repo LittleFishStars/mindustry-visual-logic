@@ -1,8 +1,77 @@
 [gd_scene format=3 uid="uid://c5aww1ajt7842"]
 
+[ext_resource type="Texture2D" uid="uid://vve5nvl1huwc" path="res://icon.png" id="1_eyy8u"]
+
+[sub_resource type="GDScript" id="GDScript_eyy8u"]
+resource_name = "sort_children"
+script/source = "@tool
+extends SubViewportContainer
+
+
+@onready var nViewport: SubViewport = $EditSpace
+
+
+func _on_sort_children() -> void:
+	self.nViewport.size = self.size
+"
+
+[sub_resource type="GDScript" id="GDScript_a7iym"]
+resource_name = "camera"
+script/source = "extends Camera2D
+
+
+var moving := false
+var last_pos := Vector2.ZERO
+
+
+func _input(event: InputEvent) -> void:
+	match event:
+		var e when e is InputEventMouseButton:
+			self.moving = e.pressed
+			self.last_pos = e.position
+		var e when e is InputEventMouseMotion:
+			if self.moving:
+				self.position += self.last_pos - e.position
+				self.last_pos = e.position
+"
+
 [node name="Editor" type="HSplitContainer" unique_id=780963395]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+split_offsets = PackedInt32Array(48, 400)
+split_offset = 48
+
+[node name="BlockKindList" type="VBoxContainer" parent="." unique_id=257232201]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="BlockKindList" unique_id=29758645]
+layout_mode = 2
+
+[node name="BlockArea" type="ScrollContainer" parent="." unique_id=1696841059]
+layout_mode = 2
+
+[node name="BlockList" type="VBoxContainer" parent="BlockArea" unique_id=791066670]
+layout_mode = 2
+
+[node name="EditArea" type="SubViewportContainer" parent="." unique_id=1170802899]
+layout_mode = 2
+script = SubResource("GDScript_eyy8u")
+
+[node name="EditSpace" type="SubViewport" parent="EditArea" unique_id=2012217599]
+size = Vector2i(740, 648)
+render_target_update_mode = 4
+
+[node name="Camera" type="Camera2D" parent="EditArea/EditSpace" unique_id=2146618060]
+limit_smoothed = true
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
+script = SubResource("GDScript_a7iym")
+
+[node name="Icon" type="Sprite2D" parent="EditArea/EditSpace" unique_id=1680872891]
+position = Vector2(111, 100)
+texture = ExtResource("1_eyy8u")
+
+[connection signal="sort_children" from="EditArea" to="EditArea" method="_on_sort_children"]

@@ -44,7 +44,8 @@ item_2/id = 2
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-tab_alignment = 2
+current_tab = 0
+tabs_position = 1
 drag_to_rearrange_enabled = true
 
 [node name="NoticeWindow" parent="." unique_id=1993725999 instance=ExtResource("4_jjvhh")]

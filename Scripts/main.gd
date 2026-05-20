@@ -2,13 +2,35 @@
 extends Container
 
 
-var Editor = preload("res://Scenes/editor.tscn")
-
 @onready var nMenuBar: Control 	= $MenuBar
 @onready var nEditors: Control 	= $Editors
 @onready var nBackground: Panel = $Panel
 
 @onready var wNotice: Window 	= $NoticeWindow
+
+var Editor = preload("res://Scenes/editor.tscn")
+
+var custom_cursor 		= preload("res://Sprites/Cursor/cursor.png")
+var ibeam_cursor 		= preload("res://Sprites/Cursor/ibeam.png")
+var hand_cursor 		= preload("res://Sprites/Cursor/hand.png")
+var hsize_cursor 		= preload("res://Sprites/Cursor/hsize.png")
+var vsize_cursor 		= preload("res://Sprites/Cursor/vsize.png")
+var bdiagsize_cursor 	= preload("res://Sprites/Cursor/bdiagsize.png")
+var fdiagsize_cursor 	= preload("res://Sprites/Cursor/fdiagsize.png")
+
+
+func _ready() -> void:
+	# 设置鼠标指针
+	Input.set_custom_mouse_cursor(custom_cursor, Input.CURSOR_ARROW, Vector2(32, 32))
+	Input.set_custom_mouse_cursor(ibeam_cursor, Input.CURSOR_IBEAM, Vector2(32, 32))
+	Input.set_custom_mouse_cursor(hand_cursor, Input.CURSOR_POINTING_HAND, Vector2(32, 32))
+	Input.set_custom_mouse_cursor(vsize_cursor, Input.CURSOR_VSIZE, Vector2(32, 32))
+	Input.set_custom_mouse_cursor(hsize_cursor, Input.CURSOR_HSIZE, Vector2(32, 32))
+	Input.set_custom_mouse_cursor(bdiagsize_cursor, Input.CURSOR_BDIAGSIZE, Vector2(32, 32))
+	Input.set_custom_mouse_cursor(fdiagsize_cursor, Input.CURSOR_FDIAGSIZE, Vector2(32, 32))
+	
+	# 创建初始编辑器
+	self.new_editor()
 
 
 func _on_sort_children() -> void:
@@ -28,12 +50,15 @@ func new_page(title: StringName, scn: Resource) -> Node:
 	node.name = title + str(count)
 	return node
 
+## 新建编辑器页面
+func new_editor():
+	self.new_page(tr("File", "main"), self.Editor)
 
 ## 文件菜单
 func _on_file_id_pressed(id: int) -> void:
 	match id:
 		0:
-			self.new_page("File", self.Editor)
+			self.new_editor()
 		1:
 			# 保存文件
 			pass
