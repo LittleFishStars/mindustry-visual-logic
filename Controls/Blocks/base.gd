@@ -42,7 +42,7 @@ func _create_element(element: String, options: Dictionary) -> Control:
 	if element.begins_with("%"):
 		var tmp := element.substr(1).split(".")
 		var t := tmp[0]  # 类型: in/bu/op/li
-		var id := tmp[1]  # options 中的 key
+		var id := tmp.get(1)  # options 中的 key
 		var params: Dictionary = options.get(id, {})
 		match t:
 			"in":  # %in.id -> LineEdit
