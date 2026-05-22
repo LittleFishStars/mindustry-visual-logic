@@ -108,4 +108,14 @@ CS
 bg_color = Color(0.72156864, 0.63529414, 0.4117647, 1)
 metadata/_custom_type_script = "uid://dmebxhgn1ucse"
 
+[node name="CSBlock2" type="Container" parent="EditArea/EditSpace" unique_id=31892501]
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_eyy8u")
+template = "CS %in CS end
+%li
+CS"
+bg_color = Color(0.29803923, 0.6862745, 0.3137255, 1)
+metadata/_custom_type_script = "uid://dmebxhgn1ucse"
+
 [connection signal="sort_children" from="EditArea" to="EditArea" method="_on_sort_children"]

@@ -1,5 +1,3 @@
 extends HSplitContainer
 
-
-func _ready() -> void:
-	pass # Replace with function body.
+const BlockData := preload("res://Scripts/block_data.gd")

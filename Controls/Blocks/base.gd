@@ -42,15 +42,16 @@ func _create_element(element: String, options: Dictionary) -> Control:
 	if element.begins_with("%"):
 		var tmp := element.substr(1).split(".")
 		var t := tmp[0]  # 类型: in/bu/op/li
-		var p := tmp.get(1)  # 参数
+		var id := tmp[1]  # options 中的 key
+		var params: Dictionary = options.get(id, {})
 		match t:
-			"in":
-				return self.line_edit(p)
-			"bu":
-				return self.button(p.get_slice("@", 1), options[p.get_slice("@", 0)])
-			"op":
-				return self.option_button(options[p])
-			"li":
+			"in":  # %in.id -> LineEdit
+				return self.line_edit(params.get("placeholder", id))
+			"bu":  # %bu.id -> Button
+				return self.button(params.get("text", id), params.get("pressed", Callable()))
+			"op":  # %op.id -> OptionButton
+				return self.option_button(params.get("items", []), params.get("changed", Callable()))
+			"li":  # %li -> Box
 				return Box.new()
 	return self.label(element)
 
@@ -118,10 +119,12 @@ func line_edit(prompt: String) -> LineEdit:
 	Nline_edit.placeholder_text = prompt if prompt != null else ""
 	return Nline_edit
 
-func option_button(options: Array[String]) -> OptionButton:
+func option_button(items: Array[String], callback: Callable) -> OptionButton:
 	var Noption_button := OptionButton.new()
-	for o in options:
+	for o in items:
 		Noption_button.add_item(o)
+	if not callback.is_null():
+		Noption_button.item_selected.connect(callback)
 	return Noption_button
 
 
