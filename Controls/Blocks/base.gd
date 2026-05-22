@@ -2,10 +2,11 @@ class_name BaseBlock
 extends Container
 
 
+signal block_drag_started
+
 @export var margin: int = 6
 @export var separation: int = 10
 @export var height: int = 40
-
 
 @export_group("styles")
 @export var bg_color: Color
@@ -16,6 +17,9 @@ extends Container
 
 var _bg_rects: Array[Rect2] = []
 var _style_boxes: Array[StyleBoxFlat] = []
+
+var _is_dragging: bool = false
+var _drag_offset: Vector2 = Vector2.ZERO
 
 
 class Box extends VBoxContainer:
@@ -37,8 +41,8 @@ func _init(
 func _create_element(element: String, options: Dictionary) -> Control:
 	if element.begins_with("%"):
 		var tmp := element.substr(1).split(".")
-		var t := tmp[0]               # token: in/bu/op/li
-		var p := tmp.get(1)           # payload: placeholder/key/label
+		var t := tmp[0]  # 类型: in/bu/op/li
+		var p := tmp.get(1)  # 参数
 		match t:
 			"in":
 				return self.line_edit(p)
@@ -59,7 +63,6 @@ func parsing(template: String, options: Dictionary[String, Variant] = {}):
 		if elements.is_empty():
 			continue
 		if elements.size() == 1 and elements[0] == "%li":
-			# 嵌套 Box：独占一行
 			var box := Box.new()
 			box.set_meta("li_row", true)
 			self.add_child(box)
@@ -101,7 +104,6 @@ func _btn_style(color: Color) -> StyleBoxFlat:
 	sb.content_margin_bottom = self.margin / 2.0
 	return sb
 
-## 积木内置按钮：normal/hover/pressed 三态皆基于 bg_color 调亮暗
 func button(text: String, pressed: Callable) -> Button:
 	var Nbutton := Button.new()
 	Nbutton.text = text
@@ -131,16 +133,16 @@ func _get_minimum_size() -> Vector2:
 		var row_h := self.height
 		var row_w: int
 		if row.has_meta("li_tail"):
-			row_h = int(self.height / 4.0)      # 尾行，细条
+			row_h = int(self.height / 4.0)
 			row_w = self.separation * 8
 		elif row.has_meta("li_row"):
 			var box := row as Box
 			var box_min := box.get_combined_minimum_size()
 			row_h = int(box_min.y if box.get_child_count() else self.height / 2.0)
-			row_w = int(box_min.x)              # Box 内部撑开
+			row_w = int(box_min.x)
 		else:
 			var row_min := row.get_combined_minimum_size()
-			row_w = int(row_min.x)              # HBoxContainer 内部撑开
+			row_w = int(row_min.x)
 		min_w = max(min_w, row_w + self.margin * 4)
 		total_h += row_h
 	return Vector2(min_w, total_h)
@@ -151,16 +153,16 @@ func _on_sort_children():
 	_style_boxes.clear()
 	var children := self.get_children()
 	var total := children.size()
-	var y := 0.0                       # 当前行 y 偏移
+	var y := 0.0
 	for i in total:
 		var row: Control = children[i]
 		var row_h := self.height
 		var row_w := row.size.x
-		if row.has_meta("li_tail"):           # 尾行：缩进 + 固定尺寸
+		if row.has_meta("li_tail"):
 			row_h = int(self.height / 4.0)
 			row_w = self.separation * 8
 			fit_child_in_rect(row, Rect2(0, y, row_w, row_h))
-		elif row.has_meta("li_row"):           # 嵌套 Box：动态高度
+		elif row.has_meta("li_row"):
 			var box := row as Box
 			row_h = int(box.size.y if box.get_child_count() else self.height / 2.0)
 			fit_child_in_rect(row, Rect2(
@@ -168,7 +170,7 @@ func _on_sort_children():
 				row_w, row_h - self.margin * 2
 			))
 			row_w = 0
-		else:                                  # 普通行：HBoxContainer
+		else:
 			fit_child_in_rect(row, Rect2(
 				self.margin * 2, y + self.margin, 
 				row_w, row_h - self.margin * 2
@@ -179,7 +181,7 @@ func _on_sort_children():
 	queue_redraw()
 
 
-## 构建行级 StyleBoxFlat，首行/末行/中间行圆角配置不同，%li 行无圆角
+## 构建行级 StyleBoxFlat
 func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = self.bg_color
@@ -187,14 +189,29 @@ func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 	sb.shadow_offset = self.shadow_offset
 	sb.shadow_color = self.shadow_color
 	if row.has_meta("li_row"):
-		return sb                        # li 行不设圆角
+		return sb
 	sb.corner_radius_top_right = self.corner_radius
 	sb.corner_radius_bottom_right = self.corner_radius
 	if index == 0:
-		sb.corner_radius_top_left = self.corner_radius    # 首行开左上
+		sb.corner_radius_top_left = self.corner_radius
 	if index == total - 1:
-		sb.corner_radius_bottom_left = self.corner_radius # 末行开左下
+		sb.corner_radius_bottom_left = self.corner_radius
 	return sb
+
+
+## 拖拽：左键按下开始，松开结束；拖动时发射信号阻止摄像机平移
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				self._is_dragging = true
+				self._drag_offset = self.global_position - event.global_position
+				self.block_drag_started.emit()
+				self.accept_event()
+			else:
+				self._is_dragging = false
+	elif self._is_dragging and event is InputEventMouseMotion:
+		self.global_position = event.global_position + self._drag_offset
 
 
 ## 逐行绘制圆角矩形背景和阴影

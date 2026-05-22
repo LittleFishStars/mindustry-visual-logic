@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://c5aww1ajt7842"]
 
+[ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://Scripts/editor.gd" id="1_24ceq"]
 [ext_resource type="Script" uid="uid://dmebxhgn1ucse" path="res://Controls/Blocks/cs_block.gd" id="1_eyy8u"]
 
 [sub_resource type="GDScript" id="GDScript_eyy8u"]
@@ -20,27 +21,42 @@ resource_name = "camera"
 script/source = "extends Camera2D
 
 
-@export var zoom_speed: float = 1.1  ## 缩放速度（每次缩放放大/缩小的倍数）
+@export var zoom_speed: float = 1.1
 
 var moving := false
 var last_pos := Vector2.ZERO
 
 
+func _ready() -> void:
+	var parent := get_parent()
+	parent.child_entered_tree.connect(_on_child_added)
+	for child in parent.get_children():
+		_on_child_added(child)
+
+
+func _on_child_added(node: Node) -> void:
+	if node.has_signal(\"block_drag_started\"):
+		node.block_drag_started.connect(_on_block_drag_started)
+
+
+func _on_block_drag_started() -> void:
+	self.moving = false
+
+
 func _input(event: InputEvent) -> void:
-	match event:
-		var e when e is InputEventMouseButton:
-			match e.button_index:
-				MOUSE_BUTTON_LEFT:
-					self.moving = e.pressed
-					self.last_pos = e.position
-				MOUSE_BUTTON_WHEEL_UP:
-					self.zoom *= zoom_speed
-				MOUSE_BUTTON_WHEEL_DOWN:
-					self.zoom /= zoom_speed
-		var e when e is InputEventMouseMotion:
-			if self.moving:
-				self.position += self.last_pos - e.position
-				self.last_pos = e.position
+	if event is InputEventMouseButton:
+		match event.button_index:
+			MOUSE_BUTTON_LEFT:
+				self.moving = event.pressed
+				self.last_pos = event.position
+			MOUSE_BUTTON_WHEEL_UP:
+				self.zoom *= zoom_speed
+			MOUSE_BUTTON_WHEEL_DOWN:
+				self.zoom /= zoom_speed
+	elif event is InputEventMouseMotion:
+		if self.moving:
+			self.position += self.last_pos - event.position
+			self.last_pos = event.position
 "
 
 [node name="Editor" type="HSplitContainer" unique_id=780963395]
@@ -51,6 +67,7 @@ grow_horizontal = 2
 grow_vertical = 2
 split_offsets = PackedInt32Array(48, 400)
 split_offset = 48
+script = ExtResource("1_24ceq")
 
 [node name="BlockKindList" type="VBoxContainer" parent="." unique_id=257232201]
 layout_mode = 2
