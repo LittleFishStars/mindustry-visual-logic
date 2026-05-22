@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c5aww1ajt7842"]
 
-[ext_resource type="Texture2D" uid="uid://vve5nvl1huwc" path="res://icon.png" id="1_eyy8u"]
+[ext_resource type="Script" uid="uid://dmebxhgn1ucse" path="res://Controls/Blocks/cs_block.gd" id="1_eyy8u"]
 
 [sub_resource type="GDScript" id="GDScript_eyy8u"]
 resource_name = "sort_children"
@@ -20,6 +20,8 @@ resource_name = "camera"
 script/source = "extends Camera2D
 
 
+@export var zoom_speed: float = 1.1  ## 缩放速度（每次缩放放大/缩小的倍数）
+
 var moving := false
 var last_pos := Vector2.ZERO
 
@@ -27,8 +29,14 @@ var last_pos := Vector2.ZERO
 func _input(event: InputEvent) -> void:
 	match event:
 		var e when e is InputEventMouseButton:
-			self.moving = e.pressed
-			self.last_pos = e.position
+			match e.button_index:
+				MOUSE_BUTTON_LEFT:
+					self.moving = e.pressed
+					self.last_pos = e.position
+				MOUSE_BUTTON_WHEEL_UP:
+					self.zoom *= zoom_speed
+				MOUSE_BUTTON_WHEEL_DOWN:
+					self.zoom /= zoom_speed
 		var e when e is InputEventMouseMotion:
 			if self.moving:
 				self.position += self.last_pos - e.position
@@ -61,6 +69,7 @@ layout_mode = 2
 script = SubResource("GDScript_eyy8u")
 
 [node name="EditSpace" type="SubViewport" parent="EditArea" unique_id=2012217599]
+handle_input_locally = false
 size = Vector2i(740, 648)
 render_target_update_mode = 4
 
@@ -70,8 +79,16 @@ position_smoothing_enabled = true
 position_smoothing_speed = 4.0
 script = SubResource("GDScript_a7iym")
 
-[node name="Icon" type="Sprite2D" parent="EditArea/EditSpace" unique_id=1680872891]
-position = Vector2(111, 100)
-texture = ExtResource("1_eyy8u")
+[node name="CSBlock" type="Container" parent="EditArea/EditSpace" unique_id=2056309173]
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_eyy8u")
+template = "CS %in CS end
+%li
+CS
+%li
+%in a %bu.a@button end"
+bg_color = Color(0.72156864, 0.63529414, 0.4117647, 1)
+metadata/_custom_type_script = "uid://dmebxhgn1ucse"
 
 [connection signal="sort_children" from="EditArea" to="EditArea" method="_on_sort_children"]
