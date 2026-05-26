@@ -2,17 +2,13 @@ class_name Block
 extends BaseBlock
 
 
-var BlockData := preload("res://Scripts/block_data.gd").new()
+static func kinds() -> Array[String]:
+	return BlockData.kinds()
 
-var kinds: Array[String] = self.BlockData.BLOCKS.keys()
-var blocks: Array[String] = kinds.reduce(func(acc, k): 
-	acc[k] = self.BlockData.BLOCKS.get(k).keys()
-	return acc
-, {})
+static func blocks() -> Dictionary:
+	return BlockData.blocks()
 
 
 func _init(kind: String, block_name: String) -> void:
-	var block: Dictionary[String, Dictionary] = self.BlockData.BLOCKS.get(kind, {}).get(block_name, {})
-	var template: String = block.get("template", "")
-	var options: Dictionary[String, Dictionary] = block.get("options", "")
-	super(template, options)
+	var block = BlockData.get_block(kind, block_name)
+	super(block.get("template", ""), block.get("options", {}))

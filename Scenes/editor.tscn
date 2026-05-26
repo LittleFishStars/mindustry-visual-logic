@@ -95,4 +95,5 @@ position_smoothing_enabled = true
 position_smoothing_speed = 4.0
 script = SubResource("GDScript_a7iym")
 
+[connection signal="resized" from="EditArea" to="EditArea" method="_on_resized"]
 [connection signal="sort_children" from="EditArea" to="EditArea" method="_on_sort_children"]
