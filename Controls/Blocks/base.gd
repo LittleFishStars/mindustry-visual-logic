@@ -29,7 +29,7 @@ class Box extends VBoxContainer:
 
 func _init(
 	template: String,
-	options: Dictionary[String, Variant] = {},
+	options: Dictionary = {},
 	color: Color = Color.WHITE
 ) -> void:
 	self.parsing(template, options)
@@ -57,7 +57,7 @@ func _create_element(element: String, options: Dictionary) -> Control:
 
 
 ## 解析块样式，按换行分行，每行创建一个 HBoxContainer
-func parsing(template: String, options: Dictionary[String, Variant] = {}):
+func parsing(template: String, options: Dictionary = {}):
 	var lines := template.split("\n", false)
 	for i in lines.size():
 		var elements := lines[i].split(" ", false)
@@ -119,7 +119,7 @@ func line_edit(prompt: String) -> LineEdit:
 	Nline_edit.placeholder_text = prompt if prompt != null else ""
 	return Nline_edit
 
-func option_button(items: Array[String], callback: Callable) -> OptionButton:
+func option_button(items: Array, callback: Callable) -> OptionButton:
 	var Noption_button := OptionButton.new()
 	for o in items:
 		Noption_button.add_item(o)
@@ -204,16 +204,16 @@ func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 
 ## 拖拽：左键按下开始，松开结束；拖动时发射信号阻止摄像机平移
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed:
-				self._is_dragging = true
-				self._drag_offset = self.global_position - event.global_position
-				self.block_drag_started.emit()
-				self.accept_event()
-			else:
-				self._is_dragging = false
-	elif self._is_dragging and event is InputEventMouseMotion:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			self._is_dragging = true
+			self._drag_offset = self.global_position - event.global_position
+			self.block_drag_started.emit()
+			self.get_parent().move_child(self, 0)
+			self.accept_event()
+		else:
+			self._is_dragging = false
+	elif event is InputEventMouseMotion and self._is_dragging:
 		self.global_position = event.global_position + self._drag_offset
 
 

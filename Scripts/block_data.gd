@@ -29,7 +29,7 @@ const COLORS: Dictionary = {
 static func _stub() -> void: pass
 
 
-var BLOCKS: Dictionary = {
+var BLOCKS: Dictionary[String, Dictionary] = {
 	"Controls": {
 		"Drawflush": {
 			template = tr("Drawflush to %in.display"),
@@ -335,7 +335,7 @@ static func _instance() -> BlockData:
 	return _inst
 
 
-static func kinds() -> Array[String]:
+static func kinds() -> Array:
 	return _instance().BLOCKS.keys()
 
 

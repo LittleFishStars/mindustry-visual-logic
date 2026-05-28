@@ -11,7 +11,7 @@ Mindustry Visual Logic (MVL) — a visual logic editor for Mindustry, built in G
 ```
 Scripts/          # GDScript entry points
   main.gd         # Main container: menu bar, tab management, custom cursors (@tool)
-  editor.gd       # Editor page stub (extends HSplitContainer; UI built in scene)
+  editor.gd       # Editor page: populates BlockKindList buttons & BlockArea block lists (@onready)
   block_data.gd   # Pure data: all Mindustry logic block definitions (extends RefCounted)
 Controls/Blocks/
   base.gd         # BaseBlock — parses template strings into UI rows of LineEdit/Button/OptionButton/Label
