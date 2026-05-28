@@ -1,8 +1,10 @@
-class_name BaseBlock
+class_name BaseBlock 
 extends Container
 
 
-signal block_drag_started
+signal drag_started(node: BaseBlock, offset: Vector2)
+signal drag_ended
+signal drag_moved(position: Vector2)
 
 @export var margin: int = 6
 @export var separation: int = 10
@@ -19,7 +21,6 @@ var _bg_rects: Array[Rect2] = []
 var _style_boxes: Array[StyleBoxFlat] = []
 
 var _is_dragging: bool = false
-var _drag_offset: Vector2 = Vector2.ZERO
 
 
 class Box extends VBoxContainer:
@@ -30,10 +31,12 @@ class Box extends VBoxContainer:
 func _init(
 	template: String,
 	options: Dictionary = {},
+	export_f: Callable = func(): pass,
 	color: Color = Color.WHITE
 ) -> void:
-	self.parsing(template, options)
 	self.bg_color = color
+	self.export = export_f
+	self.parsing(template, options)
 	self.sort_children.connect(self._on_sort_children)
 	self.theme = load("res://Stytes/block.tres")
 
@@ -202,19 +205,19 @@ func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 	return sb
 
 
-## 拖拽：左键按下开始，松开结束；拖动时发射信号阻止摄像机平移
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			self._is_dragging = true
-			self._drag_offset = self.global_position - event.global_position
-			self.block_drag_started.emit()
-			self.get_parent().move_child(self, 0)
+			var drag_offset: Vector2 = self.global_position - event.global_position
+			self.drag_started.emit(self, drag_offset)
 			self.accept_event()
 		else:
-			self._is_dragging = false
+			if self._is_dragging:
+				self._is_dragging = false
+				self.drag_ended.emit()
 	elif event is InputEventMouseMotion and self._is_dragging:
-		self.global_position = event.global_position + self._drag_offset
+		self.drag_moved.emit(event.global_position)
 
 
 ## 逐行绘制圆角矩形背景和阴影
@@ -223,4 +226,4 @@ func _draw() -> void:
 		draw_style_box(_style_boxes[i], _bg_rects[i])
 
 
-func export(): pass
+var export: Callable

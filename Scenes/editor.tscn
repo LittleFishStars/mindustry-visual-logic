@@ -21,11 +21,11 @@ func _ready() -> void:
 
 
 func _on_child_added(node: Node) -> void:
-	if node.has_signal(\"block_drag_started\"):
-		node.block_drag_started.connect(_on_block_drag_started)
+	if node.has_signal(\"drag_started\"):
+		node.drag_started.connect(_on_drag_started)
 
 
-func _on_block_drag_started() -> void:
+func _on_drag_started() -> void:
 	self.moving = false
 
 
@@ -45,7 +45,16 @@ func _input(event: InputEvent) -> void:
 			self.last_pos = event.position
 "
 
-[node name="Editor" type="HSplitContainer" unique_id=1636190308]
+[node name="Editor" type="Control" unique_id=1394798813]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 1160.0
+offset_right = 1160.0
+offset_bottom = 648.0
+script = ExtResource("1_24ceq")
+
+[node name="Editor" type="HSplitContainer" parent="." unique_id=1636190308]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -54,12 +63,11 @@ grow_horizontal = 2
 grow_vertical = 2
 dragging_enabled = false
 dragger_visibility = 2
-script = ExtResource("1_24ceq")
 
-[node name="BlockKindList" type="VBoxContainer" parent="." unique_id=257232201]
+[node name="BlockKindList" type="VBoxContainer" parent="Editor" unique_id=257232201]
 layout_mode = 2
 
-[node name="EditorSplit" type="HSplitContainer" parent="." unique_id=780963395]
+[node name="EditorSplit" type="HSplitContainer" parent="Editor" unique_id=780963395]
 layout_mode = 2
 theme_override_constants/separation = 0
 theme_override_constants/minimum_grab_thickness = 12
@@ -68,19 +76,19 @@ split_offsets = PackedInt32Array(400)
 dragger_visibility = 1
 split_offset = 400
 
-[node name="BlockArea" type="ScrollContainer" parent="EditorSplit" unique_id=1696841059]
+[node name="BlockArea" type="ScrollContainer" parent="Editor/EditorSplit" unique_id=1696841059]
 layout_mode = 2
 
-[node name="EditArea" type="SubViewportContainer" parent="EditorSplit" unique_id=74387859]
+[node name="EditArea" type="SubViewportContainer" parent="Editor/EditorSplit" unique_id=74387859]
 layout_mode = 2
 stretch = true
 
-[node name="EditSpace" type="SubViewport" parent="EditorSplit/EditArea" unique_id=428449786]
+[node name="EditSpace" type="SubViewport" parent="Editor/EditorSplit/EditArea" unique_id=428449786]
 handle_input_locally = false
-size = Vector2i(752, 648)
+size = Vector2i(2, 648)
 render_target_update_mode = 4
 
-[node name="Camera" type="Camera2D" parent="EditorSplit/EditArea/EditSpace" unique_id=1870116405]
+[node name="Camera" type="Camera2D" parent="Editor/EditorSplit/EditArea/EditSpace" unique_id=1870116405]
 limit_smoothed = true
 position_smoothing_enabled = true
 position_smoothing_speed = 4.0
