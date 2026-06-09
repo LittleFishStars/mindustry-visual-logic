@@ -1,0 +1,119 @@
+<Kind name="Operations" color="#644DA3">
+    <Block name="Set" export="set %result %value">
+        <Text id="T1">Set</Text>
+        <LineBox id="result" placeholder="result" />
+        <Text id="T2">=</Text>
+        <LineBox id="value" placeholder="0" />
+    </Block>
+    <Block name="Operation" export="op %ops %result %a %b">
+        <Text id="T1">Operation</Text>
+        <LineBox id="result" placeholder="result" />
+        <Text id="T2">=</Text>
+        <LineBox id="a" placeholder="a" />
+        <Option id="ops" default="0">
+            <Item>add</Item>
+            <Item>sub</Item>
+            <Item>mul</Item>
+            <Item>div</Item>
+            <Item>idiv</Item>
+            <Item>mod</Item>
+            <Item>pow</Item>
+            <Item>equal</Item>
+            <Item>notEqual</Item>
+            <Item>land</Item>
+            <Item>lessThan</Item>
+            <Item>lessThanEq</Item>
+            <Item>greaterThan</Item>
+            <Item>greaterThanEq</Item>
+            <Item>strictEqual</Item>
+            <Item>shl</Item>
+            <Item>shr</Item>
+            <Item>ushr</Item>
+            <Item>or</Item>
+            <Item>and</Item>
+            <Item>xor</Item>
+            <Item>not</Item>
+            <Item>max</Item>
+            <Item>min</Item>
+            <Item>angle</Item>
+            <Item>angleDiff</Item>
+            <Item>len</Item>
+            <Item>noise</Item>
+            <Item>abs</Item>
+            <Item>sign</Item>
+            <Item>log</Item>
+            <Item>logn</Item>
+            <Item>log10</Item>
+            <Item>floor</Item>
+            <Item>ceil</Item>
+            <Item>round</Item>
+            <Item>sqrt</Item>
+            <Item>rand</Item>
+            <Item>sin</Item>
+            <Item>cos</Item>
+            <Item>tan</Item>
+            <Item>asin</Item>
+            <Item>acos</Item>
+            <Item>atan</Item>
+        </Option>
+        <LineBox id="b" placeholder="b" />
+    </Block>
+    <Block name="Select" export="select %result %cmp %x %t %f %value">
+        <Text id="T1">Select</Text>
+        <LineBox id="result" placeholder="result" />
+        <Text id="T2">=</Text>
+        <Text id="T3">if</Text>
+        <LineBox id="x" placeholder="x" />
+        <Option id="cmp" default="0">
+            <Item>equal</Item>
+            <Item>notEqual</Item>
+            <Item>lessThan</Item>
+            <Item>lessThanEq</Item>
+            <Item>greaterThan</Item>
+            <Item>greaterThanEq</Item>
+            <Item>strictEqual</Item>
+            <Item>always</Item>
+        </Option>
+        <LineBox id="value" placeholder="false" />
+        <Br />
+        <Text id="T4">then</Text>
+        <LineBox id="t" placeholder="false" />
+        <Text id="T5">else</Text>
+        <LineBox id="f" placeholder="false" />
+    </Block>
+    <Block name="Lookup" export="lookup %type %result %id">
+        <Text id="T1">Lookup</Text>
+        <LineBox id="result" placeholder="result" />
+        <Text id="T2">=</Text>
+        <Text id="T3">lookup</Text>
+        <Option id="type" default="0">
+            <Item>block</Item>
+            <Item>unit</Item>
+            <Item>item</Item>
+            <Item>liquid</Item>
+            <Item>team</Item>
+        </Option>
+        <Text id="T4">#</Text>
+        <LineBox id="id" placeholder="0" />
+    </Block>
+    <Block name="PackColor" export="packcolor %r %g %b %a %result">
+        <Text id="T1">PackColor</Text>
+        <LineBox id="result" placeholder="result" />
+        <Text id="T2">=</Text>
+        <Text id="T3">pack</Text>
+        <LineBox id="r" placeholder="1" />
+        <LineBox id="g" placeholder="0" />
+        <LineBox id="b" placeholder="0" />
+        <LineBox id="a" placeholder="1" />
+    </Block>
+    <Block name="UnpackColor" export="unpackcolor %r %g %b %a %result">
+        <Text id="T1">UnpackColor</Text>
+        <LineBox id="r" placeholder="r" />
+        <LineBox id="g" placeholder="g" />
+        <LineBox id="b" placeholder="b" />
+        <LineBox id="a" placeholder="a" />
+        <Text id="T2">=</Text>
+        <Text id="T3">unpack</Text>
+        <LineBox id="result" placeholder="result" />
+    </Block>
+</Kind>

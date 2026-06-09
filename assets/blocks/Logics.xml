@@ -1,0 +1,51 @@
+<Kind name="Logics" color="#4199A8">
+    <Block name="Wait" export="wait %time">
+        <Text id="T1">Wait</Text>
+        <LineBox id="time" placeholder="0.5" />
+        <Text id="T2">sec</Text>
+    </Block>
+    <Block name="Stop" export="stop" />
+    <Block name="End" export="end" />
+    <Block name="JumpLabel" export="%label:">
+        <Text id="T1">Label</Text>
+        <LineBox id="label" placeholder="label1" />
+    </Block>
+    <Block name="Expression" export="# %text">
+        <Text id="T1">Expression</Text>
+        <LineBox id="text" placeholder="" />
+    </Block>
+    <Block name="Jump" export="jump %target %cmp %value1 %value2">
+        <Text id="T1">Jump</Text>
+        <LineBox id="target" placeholder="0" />
+        <Text id="T2">if</Text>
+        <LineBox id="value1" placeholder="x" />
+        <Option id="cmp" default="0">
+            <Item>equal</Item>
+            <Item>notEqual</Item>
+            <Item>lessThan</Item>
+            <Item>lessThanEq</Item>
+            <Item>greaterThan</Item>
+            <Item>greaterThanEq</Item>
+            <Item>strictEqual</Item>
+            <Item>always</Item>
+        </Option>
+        <LineBox id="value2" placeholder="false" />
+    </Block>
+    <Block name="If" export="">
+        <Text id="T1">If</Text>
+        <LineBox id="a" placeholder="a" />
+        <Option id="cmp" default="0">
+            <Item>equal</Item>
+            <Item>notEqual</Item>
+            <Item>lessThan</Item>
+            <Item>lessThanEq</Item>
+            <Item>greaterThan</Item>
+            <Item>greaterThanEq</Item>
+            <Item>strictEqual</Item>
+            <Item>always</Item>
+        </Option>
+        <LineBox id="b" placeholder="b" />
+        <Br />
+        <Nest id="nest" />
+    </Block>
+</Kind>

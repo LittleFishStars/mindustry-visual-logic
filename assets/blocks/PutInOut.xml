@@ -1,0 +1,202 @@
+<Kind name="PutInOut" color="#998E6E">
+    <Block name="Read" export="read %result %cell %idx">
+        <Text id="T1">Read</Text>
+        <LineBox id="result" placeholder="result" />
+        <Text id="T2">=</Text>
+        <LineBox id="cell" placeholder="cell1" />
+        <Text id="T3">at</Text>
+        <LineBox id="idx" placeholder="0" />
+    </Block>
+    <Block name="Write" export="write %value %cell %idx">
+        <Text id="T1">Write</Text>
+        <LineBox id="value" placeholder="0" />
+        <Text id="T2">to</Text>
+        <LineBox id="cell" placeholder="cell1" />
+        <Text id="T3">at</Text>
+        <LineBox id="idx" placeholder="0" />
+    </Block>
+    <Block name="Draw" export="draw %mode %r|clr|sw|x1|x|rot %g|y1|y %b|x2|rw|s|img %a|y2|h|rd|sz %prot|x3 %y3">
+        <Text id="T1">Draw</Text>
+        <Option id="mode" default="0">
+            <Item show="T1 mode Tr r Tg g Tb b">clear</Item>
+            <Item show="T1 mode Tr r Tg g Tb b Ta a">color</Item>
+            <Item show="T1 mode Tclr clr">col</Item>
+            <Item show="T1 mode Tsw sw">stroke</Item>
+            <Item show="T1 mode Tx1 x1 Ty1 y1 Tx2 x2 Ty2 y2">line</Item>
+            <Item show="T1 mode Tx x Ty y Trw rw Th h">rect</Item>
+            <Item show="T1 mode Tx x Ty y Trw rw Th h">lineRect</Item>
+            <Item show="T1 mode Tx x Ty y Ts s Trd rd Trot prot">poly</Item>
+            <Item show="T1 mode Tx x Ty y Ts s Trd rd Trot prot">linePoly</Item>
+            <Item show="T1 mode Tx1 x1 Ty1 y1 Tx2 x2 Ty2 y2 Tx3 x3 Ty3 y3">triangle</Item>
+            <Item show="T1 mode Tx x Ty y Timg img Tsz sz Trot prot">image</Item>
+            <Item show="T1 mode">print</Item>
+            <Item show="T1 mode Tx x Ty y">translate</Item>
+            <Item show="T1 mode Tx x Ty y">scale</Item>
+            <Item show="T1 mode Trot rot">rotate</Item>
+            <Item show="T1 mode">reset</Item>
+        </Option>
+        <Text id="Tr">r</Text>
+        <LineBox id="r" placeholder="255" />
+        <Text id="Tg">g</Text>
+        <LineBox id="g" placeholder="0" />
+        <Text id="Tb">b</Text>
+        <LineBox id="b" placeholder="255" />
+        <Text id="Ta">a</Text>
+        <LineBox id="a" placeholder="255" />
+        <Text id="Tclr">color</Text>
+        <LineBox id="clr" placeholder="0" />
+        <Text id="Tsw">width</Text>
+        <LineBox id="sw" placeholder="0" />
+        <Text id="Tx1">x1</Text>
+        <LineBox id="x1" placeholder="0" />
+        <Text id="Ty1">y1</Text>
+        <LineBox id="y1" placeholder="0" />
+        <Text id="Tx2">x2</Text>
+        <LineBox id="x2" placeholder="0" />
+        <Text id="Ty2">y2</Text>
+        <LineBox id="y2" placeholder="0" />
+        <Text id="Tx">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="Ty">y</Text>
+        <LineBox id="y" placeholder="0" />
+        <Text id="Trw">width</Text>
+        <LineBox id="rw" placeholder="0" />
+        <Text id="Th">height</Text>
+        <LineBox id="h" placeholder="0" />
+        <Text id="Ts">sides</Text>
+        <LineBox id="s" placeholder="4" />
+        <Text id="Trd">radius</Text>
+        <LineBox id="rd" placeholder="0" />
+        <Text id="Tx3">x3</Text>
+        <LineBox id="x3" placeholder="0" />
+        <Text id="Ty3">y3</Text>
+        <LineBox id="y3" placeholder="0" />
+        <Text id="Timg">image</Text>
+        <LineBox id="img" placeholder="@copper" />
+        <Text id="Tsz">size</Text>
+        <LineBox id="sz" placeholder="32" />
+        <Text id="Trot">rotation</Text>
+        <LineBox id="rot" placeholder="0" />
+        <LineBox id="prot" placeholder="0" />
+    </Block>
+    <Block name="Print" export="print %content">
+        <Text id="T1">Print</Text>
+        <Text id="T2">"</Text>
+        <LineBox id="content" placeholder="frog" />
+        <Text id="T3">"</Text>
+        <Button id="txt" text="TXT">
+            <Pressed show="T1 T2 content T3" />
+            <Released show="T1 content" />
+        </Button>
+    </Block>
+    <Block name="PrintChar" export="printchar %char">
+        <Text id="T1">PrintChar</Text>
+        <Option id="char" default="0">
+            <Item> </Item>
+            <Item>!</Item>
+            <Item>&quot;</Item>
+            <Item>#</Item>
+            <Item>$</Item>
+            <Item>%</Item>
+            <Item>&amp;</Item>
+            <Item>'</Item>
+            <Item>(</Item>
+            <Item>)</Item>
+            <Item>*</Item>
+            <Item>+</Item>
+            <Item>,</Item>
+            <Item>-</Item>
+            <Item>.</Item>
+            <Item>/</Item>
+            <Item>0</Item>
+            <Item>1</Item>
+            <Item>2</Item>
+            <Item>3</Item>
+            <Item>4</Item>
+            <Item>5</Item>
+            <Item>6</Item>
+            <Item>7</Item>
+            <Item>8</Item>
+            <Item>9</Item>
+            <Item>:</Item>
+            <Item>;</Item>
+            <Item>&lt;</Item>
+            <Item>=</Item>
+            <Item>&gt;</Item>
+            <Item>?</Item>
+            <Item>@</Item>
+            <Item>A</Item>
+            <Item>B</Item>
+            <Item>C</Item>
+            <Item>D</Item>
+            <Item>E</Item>
+            <Item>F</Item>
+            <Item>G</Item>
+            <Item>H</Item>
+            <Item>I</Item>
+            <Item>J</Item>
+            <Item>K</Item>
+            <Item>L</Item>
+            <Item>M</Item>
+            <Item>N</Item>
+            <Item>O</Item>
+            <Item>P</Item>
+            <Item>Q</Item>
+            <Item>R</Item>
+            <Item>S</Item>
+            <Item>T</Item>
+            <Item>U</Item>
+            <Item>V</Item>
+            <Item>W</Item>
+            <Item>X</Item>
+            <Item>Y</Item>
+            <Item>Z</Item>
+            <Item>[</Item>
+            <Item>\</Item>
+            <Item>]</Item>
+            <Item>^</Item>
+            <Item>_</Item>
+            <Item>`</Item>
+            <Item>a</Item>
+            <Item>b</Item>
+            <Item>c</Item>
+            <Item>d</Item>
+            <Item>e</Item>
+            <Item>f</Item>
+            <Item>g</Item>
+            <Item>h</Item>
+            <Item>i</Item>
+            <Item>j</Item>
+            <Item>k</Item>
+            <Item>l</Item>
+            <Item>m</Item>
+            <Item>n</Item>
+            <Item>o</Item>
+            <Item>p</Item>
+            <Item>q</Item>
+            <Item>r</Item>
+            <Item>s</Item>
+            <Item>t</Item>
+            <Item>u</Item>
+            <Item>v</Item>
+            <Item>w</Item>
+            <Item>x</Item>
+            <Item>y</Item>
+            <Item>z</Item>
+            <Item>{</Item>
+            <Item>|</Item>
+            <Item>}</Item>
+            <Item>~</Item>
+        </Option>
+    </Block>
+    <Block name="Format" export="format %content">
+        <Text id="T1">Format</Text>
+        <Text id="T2">"</Text>
+        <LineBox id="content" placeholder="frog" />
+        <Text id="T3">"</Text>
+        <Button id="txt" text="TXT">
+            <Pressed show="T1 T2 content T3" />
+            <Released show="T1 content" />
+        </Button>
+    </Block>
+</Kind>

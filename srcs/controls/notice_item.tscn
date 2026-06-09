@@ -1,0 +1,56 @@
+[gd_scene format=3 uid="uid://mn7j5dd475ta"]
+
+[ext_resource type="FontFile" uid="uid://i8tur3ohx1u2" path="res://assets/fonts/font.woff" id="1_ghewx"]
+[ext_resource type="FontFile" uid="uid://bhll3agi3g24y" path="res://assets/fonts/tech.ttf" id="2_0tpui"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mfnnl"]
+content_margin_left = 15.0
+content_margin_top = 15.0
+content_margin_right = 15.0
+content_margin_bottom = 15.0
+bg_color = Color(0.17598, 0.1533, 0.21, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.25792, 0.2232, 0.31, 1)
+
+[sub_resource type="GDScript" id="GDScript_qo052"]
+resource_name = "notice_item"
+script/source = "extends PanelContainer
+
+
+@onready var nTime: Label = $Box/Time
+@onready var nContent: RichTextLabel = $Box/Content
+
+
+func init(time: String, content: String) -> void:
+	self.nTime.text = time if time != null else \"未知时间\"
+	self.nContent.text = content if content != null else \"无\"
+"
+
+[node name="NoticeItem" type="PanelContainer" unique_id=1257117258]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_mfnnl")
+script = SubResource("GDScript_qo052")
+
+[node name="Box" type="VBoxContainer" parent="." unique_id=1419070842]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Time" type="Label" parent="Box" unique_id=475368417]
+layout_mode = 2
+
+[node name="Content" type="RichTextLabel" parent="Box" unique_id=1958970355]
+layout_mode = 2
+focus_mode = 2
+theme_override_fonts/normal_font = ExtResource("1_ghewx")
+theme_override_fonts/bold_font = ExtResource("2_0tpui")
+text = "消息文本"
+fit_content = true
+context_menu_enabled = true
+selection_enabled = true

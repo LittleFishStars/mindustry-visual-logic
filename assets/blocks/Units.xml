@@ -1,0 +1,199 @@
+<Kind name="Units" color="#B8A269">
+    <Block name="UnitBind" export="ubind %type">
+        <Text id="T1">UnitBind</Text>
+        <LineBox id="type" placeholder="@unit" />
+    </Block>
+    <Block name="UnitIdle" export="ucontrol idle 0 0 0 0 0">
+        <Text id="T1">UnitIdle</Text>
+    </Block>
+    <Block name="UnitStop" export="ucontrol stop 0 0 0 0 0">
+        <Text id="T1">UnitStop</Text>
+    </Block>
+    <Block name="UnitMove" export="ucontrol %mode %x %y %t 0 0">
+        <Text id="T1">UnitMove</Text>
+        <Option id="mode" default="0">
+            <Item>move</Item>
+            <Item>approach</Item>
+            <Item>pathfind</Item>
+            <Item>autoPathfind</Item>
+        </Option>
+        <Text id="T2">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="T3">y</Text>
+        <LineBox id="y" placeholder="0" />
+        <LineBox id="t" placeholder="0" />
+    </Block>
+    <Block name="UnitBoost" export="ucontrol boost %id 0 0 0 0">
+        <Text id="T1">UnitBoost</Text>
+        <LineBox id="id" placeholder="0" />
+    </Block>
+    <Block name="UnitShoot" export="ucontrol %mode %x %y %s 0 0">
+        <Text id="T1">UnitShoot</Text>
+        <Option id="mode" default="0">
+            <Item>target</Item>
+            <Item>targetp</Item>
+        </Option>
+        <Text id="T2">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="T3">y</Text>
+        <LineBox id="y" placeholder="0" />
+        <Text id="T4">shoot</Text>
+        <LineBox id="s" placeholder="0" />
+    </Block>
+    <Block name="UnitItem" export="ucontrol %mode %to %amount %ext 0 0">
+        <Text id="T1">UnitItem</Text>
+        <Option id="mode" default="0">
+            <Item>itemDrop</Item>
+            <Item>itemTake</Item>
+        </Option>
+        <Text id="T2">to</Text>
+        <LineBox id="to" placeholder="0" />
+        <Text id="T3">amount</Text>
+        <LineBox id="amount" placeholder="999" />
+        <LineBox id="ext" placeholder="0" />
+    </Block>
+    <Block name="UnitPay" export="ucontrol %mode %unit 0 0 0 0">
+        <Text id="T1">UnitPay</Text>
+        <Option id="mode" default="0">
+            <Item>payTake</Item>
+            <Item>payDrop</Item>
+            <Item>payEnter</Item>
+        </Option>
+        <Text id="T2">unit</Text>
+        <LineBox id="unit" placeholder="0" />
+    </Block>
+    <Block name="UnitMine" export="ucontrol mine %x %y 0 0 0">
+        <Text id="T1">UnitMine</Text>
+        <Text id="T2">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="T3">y</Text>
+        <LineBox id="y" placeholder="0" />
+    </Block>
+    <Block name="UnitFlag" export="ucontrol flag %id 0 0 0 0">
+        <Text id="T1">UnitFlag</Text>
+        <LineBox id="id" placeholder="0" />
+    </Block>
+    <Block name="UnitBuild" export="ucontrol build %x %y %block %rot %cfg">
+        <Text id="T1">UnitBuild</Text>
+        <Text id="T2">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="T3">y</Text>
+        <LineBox id="y" placeholder="0" />
+        <Br />
+        <Text id="T4">block</Text>
+        <LineBox id="block" placeholder="0" />
+        <Text id="T5">rotation</Text>
+        <LineBox id="rot" placeholder="0" />
+        <Text id="T6">config</Text>
+        <LineBox id="cfg" placeholder="0" />
+    </Block>
+    <Block name="UnitGetblock" export="ucontrol getBlock %x %y %type %bld %flr">
+        <Text id="T1">UnitGetBlock</Text>
+        <Text id="T2">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="T3">y</Text>
+        <LineBox id="y" placeholder="0" />
+        <Br />
+        <Text id="T4">type</Text>
+        <LineBox id="type" placeholder="0" />
+        <Text id="T5">building</Text>
+        <LineBox id="bld" placeholder="0" />
+        <Text id="T6">floor</Text>
+        <LineBox id="flr" placeholder="0" />
+    </Block>
+    <Block name="UnitWithin" export="ucontrol within %x %y %radius %result 0">
+        <Text id="T1">UnitWithin</Text>
+        <Text id="T2">x</Text>
+        <LineBox id="x" placeholder="0" />
+        <Text id="T3">y</Text>
+        <LineBox id="y" placeholder="0" />
+        <Text id="T4">radius</Text>
+        <LineBox id="radius" placeholder="0" />
+        <Text id="T5">result</Text>
+        <LineBox id="result" placeholder="0" />
+    </Block>
+    <Block name="UnitUnbind" export="ucontrol unbind 0 0 0 0 0">
+        <Text id="T1">UnitUnbind</Text>
+    </Block>
+    <Block name="UnitRadar" export="uradar %s1 %s2 %s3 %radar 0 %num %result">
+        <Text id="T1">UnitRadar</Text>
+        <Text id="T2">target</Text>
+        <Option id="s1" default="0">
+            <Item>any</Item>
+            <Item>enemy</Item>
+            <Item>ally</Item>
+            <Item>player</Item>
+            <Item>attacker</Item>
+            <Item>flying</Item>
+            <Item>boss</Item>
+            <Item>ground</Item>
+        </Option>
+        <Option id="s2" default="0">
+            <Item>any</Item>
+            <Item>enemy</Item>
+            <Item>ally</Item>
+            <Item>player</Item>
+            <Item>attacker</Item>
+            <Item>flying</Item>
+            <Item>boss</Item>
+            <Item>ground</Item>
+        </Option>
+        <Option id="s3" default="0">
+            <Item>any</Item>
+            <Item>enemy</Item>
+            <Item>ally</Item>
+            <Item>player</Item>
+            <Item>attacker</Item>
+            <Item>flying</Item>
+            <Item>boss</Item>
+            <Item>ground</Item>
+        </Option>
+        <Br />
+        <Text id="T3">order</Text>
+        <LineBox id="num" placeholder="1" />
+        <Text id="T4">sort</Text>
+        <Option id="radar" default="0">
+            <Item>distance</Item>
+            <Item>health</Item>
+            <Item>shield</Item>
+            <Item>armor</Item>
+            <Item>maxHealth</Item>
+        </Option>
+        <LineBox id="result" placeholder="result" />
+    </Block>
+    <Block name="UnitLocate" export="ulocate %find %group %enemy %ore %outX %outY %found %building">
+        <Text id="T1">UnitLocate</Text>
+        <Option id="find" default="0">
+            <Item show="T1 find Tore ore Br T4 outX T5 outY T6 found">ore</Item>
+            <Item show="T1 find T2 group T3 enemy Br T4 outX T5 outY T6 found T7 building">building</Item>
+            <Item show="T1 find Br T4 outX T5 outY T6 found">spawn</Item>
+            <Item show="T1 find Br T4 outX T5 outY T6 found">damaged</Item>
+        </Option>
+        <Text id="Tore">ore</Text>
+        <LineBox id="ore" placeholder="@copper" />
+        <Text id="T2">group</Text>
+        <Option id="group" default="0">
+            <Item>core</Item>
+            <Item>storage</Item>
+            <Item>generator</Item>
+            <Item>turret</Item>
+            <Item>factory</Item>
+            <Item>repair</Item>
+            <Item>battery</Item>
+            <Item>reactor</Item>
+            <Item>drill</Item>
+            <Item>shield</Item>
+        </Option>
+        <Text id="T3">enemy</Text>
+        <LineBox id="enemy" placeholder="true" />
+        <Br />
+        <Text id="T4">outX</Text>
+        <LineBox id="outX" placeholder="outx" />
+        <Text id="T5">outY</Text>
+        <LineBox id="outY" placeholder="outy" />
+        <Text id="T6">found</Text>
+        <LineBox id="found" placeholder="found" />
+        <Text id="T7">building</Text>
+        <LineBox id="building" placeholder="building" />
+    </Block>
+</Kind>
