@@ -67,7 +67,6 @@ var _drag_copy: bool
 
 
 func start_drag(offset: Vector2, node: Block, copy: bool = false):
-	node._is_dragging = false
 	_is_dragging = true
 	_drag_offset = -offset
 	_drag_copy = copy

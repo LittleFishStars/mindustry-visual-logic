@@ -4,8 +4,6 @@ extends Container
 
 ## 拖拽相关信号
 signal drag_started(offset: Vector2)
-signal drag_ended
-signal drag_moved(pos: Vector2)
 
 ## 布局间距与行高
 @export var margin: int = 6
@@ -31,7 +29,6 @@ var _current_show: String = ""  ## 当前选中 Option Item 的 show 字符串�
 ## 绘制缓存
 var _bg_rects: Array[Rect2] = []
 var _style_boxes: Array[StyleBoxFlat] = []
-var _is_dragging: bool = false
 
 
 ## 嵌套子块容器（If 块的 <Nest>）
@@ -50,6 +47,7 @@ func _init(block_data: Dictionary, p_color: Color = Color.WHITE) -> void:
 func _make_row() -> HBoxContainer:
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", separation)
+	row.size_flags_horizontal = 0
 	return row
 
 
@@ -365,15 +363,8 @@ func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			self._is_dragging = true
 			self.drag_started.emit(event.position)
 			self.accept_event()
-		else:
-			if self._is_dragging:
-				self._is_dragging = false
-				self.drag_ended.emit()
-	elif event is InputEventMouseMotion and self._is_dragging:
-		self.drag_moved.emit(event.global_position)
 
 
 ## 逐行绘制圆角背景和阴影
