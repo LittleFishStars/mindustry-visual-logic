@@ -109,6 +109,8 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 	return nSpace.get_canvas_transform().affine_inverse() * rel
 "
 
+[sub_resource type="CircleShape2D" id="CircleShape2D_fv1w6"]
+
 [node name="Editor" type="Control" unique_id=1394798813]
 layout_mode = 3
 anchors_preset = 0
@@ -161,3 +163,8 @@ script = SubResource("GDScript_a7iym")
 
 [node name="Dragger" type="Node2D" parent="." unique_id=223596747]
 script = SubResource("GDScript_dragger")
+
+[node name="ScanArea" type="Area2D" parent="Dragger" unique_id=1564166999]
+
+[node name="Shape" type="CollisionShape2D" parent="Dragger/ScanArea" unique_id=1766095388]
+shape = SubResource("CircleShape2D_fv1w6")
