@@ -39,8 +39,7 @@ func _on_sort_children() -> void:
 	fit_child_in_rect(self.nBackground, Rect2(Vector2.ZERO, self.size))
 
 
-## 新建页面: 
-## 将 [param scn] 添加到标签页，默认名称为 [param title] 。
+## 新建页面: 将 [param scn] 添加到标签页，默认名称为 [param title] 。
 func new_page(title: StringName, scn: Resource) -> Node:
 	var node = scn.instantiate()
 	var count = 1

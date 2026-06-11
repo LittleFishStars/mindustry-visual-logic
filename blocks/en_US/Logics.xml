@@ -45,7 +45,6 @@
             <Item>always</Item>
         </Option>
         <LineBox id="b" placeholder="b" />
-        <Br />
         <Nest id="nest" />
     </Block>
 </Kind>

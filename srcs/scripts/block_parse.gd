@@ -2,13 +2,17 @@ class_name BlockParse
 extends RefCounted
 
 
-const DIR = "res://assets/blocks"
+const DIR = "res://blocks"
+const DEF_LANG = "en_US"
 
 
 func parse() -> Dictionary:
 	var data: Dictionary = {}
-	for file in DirAccess.open(DIR).get_files():
-		_parse_file(DIR.path_join(file), data)
+	var dir = DIR.path_join(OS.get_locale())
+	if not DirAccess.dir_exists_absolute(dir):
+		dir = DIR.path_join(DEF_LANG)
+	for file in DirAccess.open(dir).get_files():
+		_parse_file(dir.path_join(file), data)
 	return data
 
 

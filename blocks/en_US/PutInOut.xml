@@ -15,13 +15,13 @@
         <Text id="T3">at</Text>
         <LineBox id="idx" placeholder="0" />
     </Block>
-    <Block name="Draw" export="draw %mode %r|clr|sw|x1|x|rot %g|y1|y %b|x2|rw|s|img %a|y2|h|rd|sz %prot|x3 %y3">
+    <Block name="Draw" export="draw %mode %r|clr|sk|x1|x|rot %g|y1|y %b|x2|rw|s|img %a|y2|h|rd|sz %prot|x3 %y3">
         <Text id="T1">Draw</Text>
         <Option id="mode" default="0">
             <Item show="T1 mode Tr r Tg g Tb b">clear</Item>
             <Item show="T1 mode Tr r Tg g Tb b Ta a">color</Item>
             <Item show="T1 mode Tclr clr">col</Item>
-            <Item show="T1 mode Tsw sw">stroke</Item>
+            <Item show="T1 mode Tsk sk">stroke</Item>
             <Item show="T1 mode Tx1 x1 Ty1 y1 Tx2 x2 Ty2 y2">line</Item>
             <Item show="T1 mode Tx x Ty y Trw rw Th h">rect</Item>
             <Item show="T1 mode Tx x Ty y Trw rw Th h">lineRect</Item>
@@ -45,8 +45,8 @@
         <LineBox id="a" placeholder="255" />
         <Text id="Tclr">color</Text>
         <LineBox id="clr" placeholder="0" />
-        <Text id="Tsw">width</Text>
-        <LineBox id="sw" placeholder="0" />
+        <Text id="Tsk">stroke</Text>
+        <LineBox id="sk" placeholder="0" />
         <Text id="Tx1">x1</Text>
         <LineBox id="x1" placeholder="0" />
         <Text id="Ty1">y1</Text>

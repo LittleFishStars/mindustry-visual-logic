@@ -72,7 +72,6 @@ func _build_elements():
 			current_row = _make_row()
 			add_child(current_row)
 			need_new_row = false
-
 		match el["type"]:
 			"Text":
 				if current_row == null:
@@ -81,7 +80,6 @@ func _build_elements():
 				var lbl = _make_label(el.get("text", ""))
 				_elements[el["id"]] = lbl
 				current_row.add_child(lbl)
-
 			"LineBox":
 				if current_row == null:
 					current_row = _make_row()
@@ -89,7 +87,6 @@ func _build_elements():
 				var le = _make_line_edit(el.get("placeholder", ""))
 				_elements[el["id"]] = le
 				current_row.add_child(le)
-
 			"Option":
 				if current_row == null:
 					current_row = _make_row()
@@ -99,7 +96,6 @@ func _build_elements():
 				_option_map[el["id"]] = {"button": opt, "items": el.get("items", [])}
 				opt.item_selected.connect(_on_option_changed.bind(el["id"]))
 				current_row.add_child(opt)
-
 			"Button":
 				if current_row == null:
 					current_row = _make_row()
@@ -109,20 +105,20 @@ func _build_elements():
 				_button_states[el["id"]] = "released"
 				btn.toggled.connect(_on_button_toggled.bind(el["id"]))
 				current_row.add_child(btn)
-
 			"Br":
 				need_new_row = true
 				current_row = null
-
 			"Nest":
 				var box = Box.new()
 				box.set_meta("nest_id", el["id"])
 				_elements[el["id"]] = box
 				add_child(box)
-				var tail = Control.new()
-				tail.set_meta("li_tail", true)
-				add_child(tail)
 				need_new_row = false
+	# 若 Nest 在末尾则补充 tail
+	if self.get_child(-1) is Box:
+		var tail = Control.new()
+		tail.set_meta("li_tail", true)
+		add_child(tail)
 
 	# 初始显示：取第一个有 show 属性的 Option 的选中项
 	for opt_id in _option_map:

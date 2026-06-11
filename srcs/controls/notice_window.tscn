@@ -11,14 +11,8 @@ var NoticeItem := preload(\"res://srcs/controls/notice_item.tscn\")
 @onready var nList: VBoxContainer = $Container/Scroll/Margin/NoticeList
 
 
-func _on_visibility_changed() -> void:
-	if self.visible:
-		# 获取公告
-		self.Request.request(\"https://textdb.online/MindVisualLogic\")
-	else:
-		# 清理公告
-		for child in self.nList.get_children(): 
-			child.queue_free()
+func _ready() -> void:
+	self.Request.request(\"https://textdb.online/MindVisualLogic\")
 
 
 func _on_request_completed(_result: int, _response_code: int, _headers: PackedStringArray, body: PackedByteArray):
