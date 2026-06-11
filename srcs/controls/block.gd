@@ -366,7 +366,8 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			self._is_dragging = true
-			self.drag_started.emit(self.global_position - event.global_position)
+			self.drag_started.emit(event.position)
+			self.accept_event()
 		else:
 			if self._is_dragging:
 				self._is_dragging = false

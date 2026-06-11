@@ -1,7 +1,5 @@
 [gd_scene format=3 uid="uid://bbc36pgut7e0g"]
 
-[ext_resource type="Theme" uid="uid://dyco6ncgsxu3m" path="res://old/Themes/editor.tres" id="1_c5vtr"]
-
 [sub_resource type="GDScript" id="GDScript_c5vtr"]
 resource_name = "notice_window"
 script/source = "extends Window
@@ -59,7 +57,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("1_c5vtr")
 theme_override_styles/panel = SubResource("StyleBoxFlat_c5vtr")
 
 [node name="Scroll" type="ScrollContainer" parent="Container" unique_id=1397023859]

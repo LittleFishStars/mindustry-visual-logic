@@ -52,6 +52,64 @@ func _input(event: InputEvent) -> void:
 			self.last_pos = event.position
 "
 
+[sub_resource type="GDScript" id="GDScript_dragger"]
+resource_name = "dragger"
+script/source = "extends Node2D
+
+
+var _now_drag_node: Block
+var _drag_offset: Vector2
+var _is_dragging: bool
+var _drag_copy: bool
+
+@onready var nArea: SubViewportContainer = $\"../Editor/EditorSplit/EditArea\"
+@onready var nSpace: SubViewport = $\"../Editor/EditorSplit/EditArea/EditSpace\"
+
+
+func start_drag(offset: Vector2, node: Block, copy: bool = false):
+	node._is_dragging = false
+	_is_dragging = true
+	_drag_offset = -offset
+	_drag_copy = copy
+	if copy:
+		_now_drag_node = Block.new(node._block_data, node.bg_color)
+		_now_drag_node.drag_started.connect(start_drag.bind(_now_drag_node))
+		add_child(_now_drag_node)
+	else:
+		_now_drag_node = node
+		_now_drag_node.reparent(self)
+	_now_drag_node.position = _drag_offset
+
+
+func _input(event: InputEvent):
+	if not _is_dragging:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if not event.pressed:
+			_on_drag_ended(event.global_position)
+
+
+func _process(_delta: float) -> void:
+	self.global_position = get_viewport().get_mouse_position()
+
+
+func _on_drag_ended(pos: Vector2):
+	_is_dragging = false
+	if nArea.get_global_rect().has_point(pos):
+		_now_drag_node.reparent(nSpace)
+		_now_drag_node.position = _screen_to_world(pos + _drag_offset)
+	else:
+		_now_drag_node.queue_free()
+	_now_drag_node = null
+
+
+func _screen_to_world(screen_pos: Vector2) -> Vector2:
+	var rel = screen_pos - nArea.global_position
+	if nArea.stretch and nSpace.size.x > 0:
+		rel *= Vector2(nSpace.size) / nArea.size
+	return nSpace.get_canvas_transform().affine_inverse() * rel
+"
+
 [node name="Editor" type="Control" unique_id=1394798813]
 layout_mode = 3
 anchors_preset = 0
@@ -101,3 +159,6 @@ limit_smoothed = true
 position_smoothing_enabled = true
 position_smoothing_speed = 4.0
 script = SubResource("GDScript_a7iym")
+
+[node name="Dragger" type="Node2D" parent="." unique_id=223596747]
+script = SubResource("GDScript_dragger")

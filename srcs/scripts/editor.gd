@@ -9,13 +9,10 @@ extends Control
 @onready var nArea: SubViewportContainer = $Editor/EditorSplit/EditArea
 @onready var nSpace: SubViewport = $Editor/EditorSplit/EditArea/EditSpace
 @onready var nCamera: Camera2D = $Editor/EditorSplit/EditArea/EditSpace/Camera
+@onready var nDragger: Node2D = $Dragger
 
 var _block_data: Dictionary
 var _current_kind: String
-
-var _now_drag_node: Block
-var _drag_offset: Vector2
-var _is_dragging: bool
 
 
 func _ready() -> void:
@@ -41,7 +38,7 @@ func _ready() -> void:
 				_block_data[kind]["blocks"][block_name], 
 				_block_data[kind]["color"]
 			)
-			block.drag_started.connect(self._on_drag_started.bind(block, true))
+			block.drag_started.connect(nDragger.start_drag.bind(block, true))
 			kind_list.add_child(block)
 		nBlockArea.add_child(kind_list)
 	_show_kind(_block_data.keys()[0])
@@ -55,41 +52,3 @@ func _show_kind(kind: String) -> void:
 		nBlockArea.get_node(_current_kind).hide()
 	_current_kind = kind
 	nBlockArea.get_node(kind).show()
-
-
-func _on_drag_started(offset: Vector2, node: Block, copy: bool = false):
-	node._is_dragging = false
-	self._is_dragging = true
-	self._drag_offset = offset
-	if copy:
-		self._now_drag_node = Block.new(node._block_data, node.bg_color)
-		self._now_drag_node.drag_started.connect(self._on_drag_started.bind(self._now_drag_node))
-		self.add_child(self._now_drag_node)
-	else:
-		self._now_drag_node = node
-		self._now_drag_node.reparent(self)
-	self._now_drag_node.global_position = node.global_position
-
-
-func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if not event.pressed:
-			if self._is_dragging:
-				self._is_dragging = false
-				self._on_drag_ended(event.global_position)
-	elif event is InputEventMouseMotion and self._is_dragging:
-		self._on_drag_moved(event.global_position)
-
-
-func _on_drag_moved(pos: Vector2):
-	self._now_drag_node.global_position = pos + self._drag_offset
-
-func _on_drag_ended(pos: Vector2):
-	self.remove_child(self._now_drag_node)
-	if self.nArea.get_global_rect().has_point(pos):
-		self.nSpace.add_child(self._now_drag_node)
-		self._now_drag_node.position = (
-			self.nSpace.get_canvas_transform().affine_inverse() * 
-			(pos + self._drag_offset) - 
-			self.nArea.global_position
-		)
