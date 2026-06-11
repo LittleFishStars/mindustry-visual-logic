@@ -15,44 +15,35 @@ signal drag_moved(pos: Vector2)
 ## 绘制样式
 @export_group("styles")
 @export var bg_color: Color
+@export var font: FontFile = preload("res://assets/fonts/font.woff")
 @export var corner_radius: int = 10
 @export var shadow_size: int = 4
 @export var shadow_offset: Vector2 = Vector2(2, 4)
 @export var shadow_color: Color = Color(0, 0, 0, 0.3)
 
-var _kind: String
-var _block_name: String
-## XML 解析后的块原始数据（export + elements 列表）
-var _block_data: Dictionary = {}
+var _block_data: Dictionary = {}  ## XML 解析后的块原始数据（export + elements 列表）
 
-## id → 已创建的控件（Label / LineEdit / OptionButton / Button / Box）
-var _elements: Dictionary = {}
-## Option id → { button: OptionButton, items: Array }，用于取 show 属性
-var _option_map: Dictionary = {}
-## Button id → "pressed" | "released"，控制输出加不加引号
-var _button_states: Dictionary = {}
-## 当前选中 Option Item 的 show 字符串，空则表示全部可见
-var _current_show: String = ""
+var _elements: Dictionary = {}  ## id → 已创建的控件（Label / LineEdit / OptionButton / Button / Box）
+var _option_map: Dictionary = {}  ## Option id → { button: OptionButton, items: Array }，用于取 show 属性
+var _button_states: Dictionary = {}  ## Button id → "pressed" | "released"，控制输出加不加引号
+var _current_show: String = ""  ## 当前选中 Option Item 的 show 字符串，空则表示全部可见
 
-# 绘制缓存
+## 绘制缓存
 var _bg_rects: Array[Rect2] = []
 var _style_boxes: Array[StyleBoxFlat] = []
 var _is_dragging: bool = false
 
 
-## 嵌套子块容器（If 块的 %li / <Nest>），无元素间距
+## 嵌套子块容器（If 块的 <Nest>）
 class Box extends VBoxContainer:
 	func _ready() -> void:
 		self.add_theme_constant_override("separation", 0)
 
 
-func _init(kind: String, block_name: String, p_color: Color = Color.WHITE) -> void:
-	self._kind = kind
-	self._block_name = block_name
-	self._block_data = BlockParse.new().parse().get(kind, {}).get("blocks", {}).get(block_name, {})
+func _init(block_data: Dictionary, p_color: Color = Color.WHITE) -> void:
+	self._block_data = block_data
 	self.bg_color = p_color
 	self.sort_children.connect(self._on_sort_children)
-	self.theme = load("res://Stytes/block.tres")
 	_build_elements()
 
 
@@ -62,8 +53,7 @@ func _make_row() -> HBoxContainer:
 	return row
 
 
-## 根据 XML 元素列表创建全部控件，所有元素始终存在于树中，
-## 通过 visible 切换显示，避免重建 DOM。
+## 创建全部控件，所有元素始终存在于树中，通过 visible 切换显示，避免重建 DOM。
 func _build_elements():
 	for child in get_children():
 		child.queue_free()
@@ -90,7 +80,7 @@ func _build_elements():
 				if current_row == null:
 					current_row = _make_row()
 					add_child(current_row)
-				var lbl = label(el.get("text", ""))
+				var lbl = _make_label(el.get("text", ""))
 				_elements[el["id"]] = lbl
 				current_row.add_child(lbl)
 
@@ -98,7 +88,7 @@ func _build_elements():
 				if current_row == null:
 					current_row = _make_row()
 					add_child(current_row)
-				var le = line_edit(el.get("placeholder", ""))
+				var le = _make_line_edit(el.get("placeholder", ""))
 				_elements[el["id"]] = le
 				current_row.add_child(le)
 
@@ -106,11 +96,11 @@ func _build_elements():
 				if current_row == null:
 					current_row = _make_row()
 					add_child(current_row)
-				var ob = _make_option(el)
-				_elements[el["id"]] = ob
-				_option_map[el["id"]] = {"button": ob, "items": el.get("items", [])}
-				ob.item_selected.connect(_on_option_changed.bind(el["id"]))
-				current_row.add_child(ob)
+				var opt = _make_option(el)
+				_elements[el["id"]] = opt
+				_option_map[el["id"]] = {"button": opt, "items": el.get("items", [])}
+				opt.item_selected.connect(_on_option_changed.bind(el["id"]))
+				current_row.add_child(opt)
 
 			"Button":
 				if current_row == null:
@@ -130,33 +120,85 @@ func _build_elements():
 				var box = Box.new()
 				box.set_meta("nest_id", el["id"])
 				_elements[el["id"]] = box
+				add_child(box)
 				var tail = Control.new()
 				tail.set_meta("li_tail", true)
-				add_child(box)
 				add_child(tail)
 				need_new_row = false
 
+	# 初始显示：取第一个有 show 属性的 Option 的选中项
+	for opt_id in _option_map:
+		var data = _option_map[opt_id]
+		var items: Array = data["items"]
+		if items.is_empty():
+			continue
+		var idx = data["button"].selected
+		var show_content = items[idx].get("show", "") if idx < items.size() else ""
+		if show_content != "":
+			_current_show = show_content
+			break
+
 	_apply_visibility()
-	queue_redraw()
 
 
 ## 创建 OptionButton 并填充 Item 列表及默认选中项
 func _make_option(el: Dictionary) -> OptionButton:
-	var ob = OptionButton.new()
+	var opt = OptionButton.new()
 	for item in el.get("items", []):
-		ob.add_item(item["text"])
+		opt.add_item(item["text"])
 	var def = el.get("default", "0")
 	if def is String and def.is_valid_int():
-		ob.selected = int(def)
-	return ob
+		opt.selected = int(def)
+	opt.add_theme_font_override("font", self.font)
+	opt.add_theme_stylebox_override("normal", _control_style(bg_color))
+	opt.add_theme_stylebox_override("hover", _control_style(bg_color.lightened(0.15)))
+	opt.add_theme_stylebox_override("pressed", _control_style(bg_color.darkened(0.1)))
+	return opt
 
 
-## 创建 toggle 模式按钮，用于 Print/Format 的引号切换
+## 创建 toggle 模式按钮
 func _make_button(el: Dictionary) -> Button:
 	var btn = Button.new()
 	btn.text = el.get("text", "")
 	btn.toggle_mode = true
+	btn.add_theme_font_override("font", self.font)
+	btn.add_theme_stylebox_override("normal", _control_style(bg_color))
+	btn.add_theme_stylebox_override("hover", _control_style(bg_color.lightened(0.15)))
+	btn.add_theme_stylebox_override("pressed", _control_style(bg_color.darkened(0.1)))
 	return btn
+
+
+## 样式复用：阴影、圆角、边距
+func _control_style(color: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.shadow_size = int(self.shadow_size / 2.0)
+	sb.shadow_offset = self.shadow_offset / 2.0
+	sb.shadow_color = self.shadow_color
+	sb.corner_radius_top_left = self.corner_radius
+	sb.corner_radius_top_right = self.corner_radius
+	sb.corner_radius_bottom_right = self.corner_radius
+	sb.corner_radius_bottom_left = self.corner_radius
+	sb.content_margin_left = self.margin
+	sb.content_margin_top = self.margin / 2.0
+	sb.content_margin_right = self.margin
+	sb.content_margin_bottom = self.margin / 2.0
+	return sb
+
+
+func _make_label(text: String) -> Label:
+	var Nlabel := Label.new()
+	Nlabel.text = text if text != null else ""
+	Nlabel.add_theme_font_override("font", self.font)
+	return Nlabel
+
+
+func _make_line_edit(prompt: String) -> LineEdit:
+	var Nline_edit := LineEdit.new()
+	Nline_edit.placeholder_text = prompt if prompt != null else ""
+	Nline_edit.add_theme_font_override("font", self.font)
+	return Nline_edit
+
 
 
 ## Option 选中项变更 → 更新 _current_show → 重新计算可见性
@@ -169,37 +211,14 @@ func _on_option_changed(idx: int, opt_id: String):
 	else:
 		_current_show = ""
 	_apply_visibility()
+	queue_sort()
 
 
 ## Button toggle 状态变更 → 更新 _button_states → 重新计算可见性
 func _on_button_toggled(pressed: bool, btn_id: String):
 	_button_states[btn_id] = "pressed" if pressed else "released"
 	_apply_visibility()
-
-
-## 计算并应用可见性：Option Item show ∩ Button pressed/released show
-## 空 show 视为所有元素可见，交集控制最终显示
-func _apply_visibility():
-	var ids: Array
-	if _current_show != "":
-		var parts = _current_show.split(" ")
-		ids.assign(parts)
-	else:
-		ids.assign(_elements.keys())
-
-	for btn_id in _button_states:
-		var state = _button_states[btn_id]
-		for el in _block_data.get("elements", []):
-			if el.get("id") == btn_id and el.get("type") == "Button":
-				var state_show = el.get(state, {}).get("show", "")
-				if state_show != "":
-					ids = _intersect(ids, state_show.split(" "))
-				break
-
-	for id in _elements:
-		_elements[id].visible = ids.has(id)
-
-	queue_redraw()
+	queue_sort()
 
 
 ## 数组交集
@@ -231,10 +250,10 @@ func _get_element_value(id: String) -> String:
 ## 无 % 前缀 → 字面量直接输出
 ## 所有可见控件均无值 → 输出 "0"
 func _export() -> String:
-	var raw = _block_data.get("export", "")
+	var raw: String = _block_data.get("export", "")
 	if raw == "":
 		return ""
-	var parts = raw.split(" ")
+	var parts := raw.split(" ")
 	var result: Array = []
 	for part in parts:
 		if part.begins_with("%"):
@@ -251,62 +270,51 @@ func _export() -> String:
 	return " ".join(result) + "\n"
 
 
-func label(text: String) -> Label:
-	var Nlabel := Label.new()
-	Nlabel.text = text if text != null else ""
-	return Nlabel
-
-
-## 按钮样式复用：阴影、圆角、边距
-func _btn_style(color: Color) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = color
-	sb.shadow_size = int(self.shadow_size / 2.0)
-	sb.shadow_offset = self.shadow_offset / 2.0
-	sb.shadow_color = self.shadow_color
-	sb.corner_radius_top_left = self.corner_radius
-	sb.corner_radius_top_right = self.corner_radius
-	sb.corner_radius_bottom_right = self.corner_radius
-	sb.corner_radius_bottom_left = self.corner_radius
-	sb.content_margin_left = self.margin
-	sb.content_margin_top = self.margin / 2.0
-	sb.content_margin_right = self.margin
-	sb.content_margin_bottom = self.margin / 2.0
-	return sb
-
-
-func line_edit(prompt: String) -> LineEdit:
-	var Nline_edit := LineEdit.new()
-	Nline_edit.placeholder_text = prompt if prompt != null else ""
-	return Nline_edit
-
-
 func _get_minimum_size() -> Vector2:
 	var min_w := 0.0
 	var total_h := 0.0
 	for row: Control in self.get_children():
-		var row_h := self.height
-		var row_w: int
+		var row_size := Vector2(0, self.height)
 		if row.has_meta("li_tail"):
-			row_h = int(self.height / 4.0)
-			row_w = self.separation * 8
+			row_size = Vector2(self.separation * 8, self.height / 4.0)
 		elif row.has_meta("nest_id"):
 			var box := row as Box
 			var box_min := box.get_combined_minimum_size()
-			row_h = int(box_min.y if box.get_child_count() else self.height / 2.0)
-			row_w = int(box_min.x)
+			row_size = Vector2(box_min.x, box_min.y if box.get_child_count() else self.height / 2.0)
 		else:
 			var row_min := row.get_combined_minimum_size()
-			row_w = int(row_min.x)
-		min_w = max(min_w, row_w + self.margin * 4)
-		total_h += row_h
+			row_size.x = int(row_min.x)
+		min_w = max(min_w, row_size.x + self.margin * 4)
+		total_h += row_size.y
 	return Vector2(min_w, total_h)
+
+
+## 计算并应用可见性：Option Item show ∩ Button show 空 show 视为所有元素可见，交集控制最终显示
+func _apply_visibility():
+	var ids: Array
+	if _current_show != "":
+		var parts = _current_show.split(" ")
+		ids.assign(parts)
+	else:
+		ids.assign(_elements.keys())
+
+	for btn_id in _button_states:
+		var state = _button_states[btn_id]
+		for el in _block_data.get("elements", []):
+			if el.get("id") == btn_id and el.get("type") == "Button":
+				var state_show = el.get(state, {}).get("show", "")
+				if state_show != "":
+					ids = _intersect(ids, state_show.split(" "))
+				break
+
+	for id in _elements:
+		_elements[id].visible = ids.has(id)
 
 
 func _on_sort_children():
 	_bg_rects.clear()
 	_style_boxes.clear()
-	var children := self.get_children()
+	var children := self.get_children().filter(func(child): return child.visible)
 	var total := children.size()
 	var y := 0.0
 	for i in total:
@@ -334,7 +342,6 @@ func _on_sort_children():
 		_style_boxes.append(_make_row_style(row, i, total))
 		y += row_h
 	queue_redraw()
-
 
 ## 构建行级 StyleBoxFlat：nest 行无圆角，首尾行保留左上 / 左下圆角
 func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:

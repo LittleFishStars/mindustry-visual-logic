@@ -2,6 +2,25 @@
 
 [ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/scripts/editor.gd" id="1_x6qec"]
 
+[sub_resource type="GDScript" id="GDScript_editspace"]
+resource_name = "edit_space"
+script/source = "extends SubViewport
+
+
+@onready var nCamera := $Camera
+
+
+func _ready() -> void:
+	child_entered_tree.connect(_on_child_entered)
+	for child in get_children():
+		_on_child_entered(child)
+
+
+func _on_child_entered(node: Node) -> void:
+	if node is Block and node.has_signal(\"drag_started\"):
+		node.drag_started.connect(self.nCamera.stop_moving)
+"
+
 [sub_resource type="GDScript" id="GDScript_a7iym"]
 resource_name = "camera"
 script/source = "extends Camera2D
@@ -13,22 +32,7 @@ var moving := false
 var last_pos := Vector2.ZERO
 
 
-func _ready() -> void:
-	var parent := get_parent()
-	parent.child_entered_tree.connect(_on_child_added)
-	for child in parent.get_children():
-		if child is Block:
-			self._on_child_added(child)
-
-
-func _on_child_added(node: Block) -> void:
-	print(node)
-	if node.has_signal(\"drag_started\"):
-		node.drag_started.connect(_on_drag_started)
-
-
-func _on_drag_started() -> void:
-	print(1)
+func stop_moving(_offset: Vector2) -> void:
 	self.moving = false
 
 
@@ -44,7 +48,7 @@ func _input(event: InputEvent) -> void:
 				self.zoom /= zoom_speed
 	elif event is InputEventMouseMotion:
 		if self.moving:
-			self.position += self.last_pos - event.position
+			self.position += (self.last_pos - event.position) / self.zoom
 			self.last_pos = event.position
 "
 
@@ -90,6 +94,7 @@ stretch = true
 handle_input_locally = false
 size = Vector2i(2, 648)
 render_target_update_mode = 4
+script = SubResource("GDScript_editspace")
 
 [node name="Camera" type="Camera2D" parent="Editor/EditorSplit/EditArea/EditSpace" unique_id=1870116405]
 limit_smoothed = true

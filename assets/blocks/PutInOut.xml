@@ -85,8 +85,8 @@
         <LineBox id="content" placeholder="frog" />
         <Text id="T3">"</Text>
         <Button id="txt" text="TXT">
-            <Pressed show="T1 T2 content T3" />
-            <Released show="T1 content" />
+            <Pressed show="T1 T2 content T3 txt" />
+            <Released show="T1 content txt" />
         </Button>
     </Block>
     <Block name="PrintChar" export="printchar %char">
@@ -195,8 +195,8 @@
         <LineBox id="content" placeholder="frog" />
         <Text id="T3">"</Text>
         <Button id="txt" text="TXT">
-            <Pressed show="T1 T2 content T3" />
-            <Released show="T1 content" />
+            <Pressed show="T1 T2 content T3 txt" />
+            <Released show="T1 content txt" />
         </Button>
     </Block>
 </Kind>

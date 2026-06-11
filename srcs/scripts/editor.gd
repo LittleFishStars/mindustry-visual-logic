@@ -37,13 +37,17 @@ func _ready() -> void:
 		
 		# 填充块列表
 		for block_name in _block_data[kind]["blocks"]:
-			var block := Block.new(kind, block_name, _block_data[kind]["color"])
-			block.drag_started.connect(self._on_drag_started.bind(block))
+			var block := Block.new(
+				_block_data[kind]["blocks"][block_name], 
+				_block_data[kind]["color"]
+			)
+			block.drag_started.connect(self._on_drag_started.bind(block, true))
 			kind_list.add_child(block)
 		nBlockArea.add_child(kind_list)
 	_show_kind(_block_data.keys()[0])
 
 
+## 切换类别显示
 func _show_kind(kind: String) -> void:
 	if kind == _current_kind:
 		return
@@ -53,12 +57,17 @@ func _show_kind(kind: String) -> void:
 	nBlockArea.get_node(kind).show()
 
 
-func _on_drag_started(offset: Vector2, node: Block):
+func _on_drag_started(offset: Vector2, node: Block, copy: bool = false):
 	node._is_dragging = false
 	self._is_dragging = true
 	self._drag_offset = offset
-	self._now_drag_node = Block.new(node._kind, node._block_name, node.bg_color)
-	self.add_child(self._now_drag_node)
+	if copy:
+		self._now_drag_node = Block.new(node._block_data, node.bg_color)
+		self._now_drag_node.drag_started.connect(self._on_drag_started.bind(self._now_drag_node))
+		self.add_child(self._now_drag_node)
+	else:
+		self._now_drag_node = node
+		self._now_drag_node.reparent(self)
 	self._now_drag_node.global_position = node.global_position
 
 
@@ -84,4 +93,3 @@ func _on_drag_ended(pos: Vector2):
 			(pos + self._drag_offset) - 
 			self.nArea.global_position
 		)
-		self.nCamera._on_child_added(self._now_drag_node)

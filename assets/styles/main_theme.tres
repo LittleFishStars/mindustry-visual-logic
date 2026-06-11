@@ -1,11 +1,8 @@
 [gd_resource type="Theme" format=3 uid="uid://11wvq82locvq"]
 
-[ext_resource type="FontFile" uid="uid://i8tur3ohx1u2" path="res://assets/fonts/font.woff" id="1_avrt8"]
-[ext_resource type="StyleBox" uid="uid://vmm8ctmay6nf" path="res://assets/stytes/main_color/button_hover.tres" id="2_aen8i"]
-[ext_resource type="StyleBox" uid="uid://bsdtld7mfpww7" path="res://assets/stytes/main_color/background.tres" id="5_4a771"]
-[ext_resource type="StyleBox" uid="uid://buql3nr6tduq3" path="res://assets/stytes/main_color/panel.tres" id="5_avrt8"]
-[ext_resource type="FontFile" uid="uid://bhll3agi3g24y" path="res://assets/fonts/tech.ttf" id="5_uobsh"]
-[ext_resource type="FontFile" uid="uid://ctll0xc4xx8om" path="res://assets/fonts/monospace.woff" id="6_mesqp"]
+[ext_resource type="FontFile" uid="uid://i8tur3ohx1u2" path="res://assets/fonts/font.woff" id="1_6dwef"]
+[ext_resource type="FontFile" uid="uid://bhll3agi3g24y" path="res://assets/fonts/tech.ttf" id="2_p78bn"]
+[ext_resource type="FontFile" uid="uid://ctll0xc4xx8om" path="res://assets/fonts/monospace.woff" id="3_t1yj7"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wkuwf"]
 
@@ -66,6 +63,20 @@ border_width_right = 4
 border_width_bottom = 4
 border_color = Color(0.239216, 0.239216, 0.239216, 0.486275)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_25rc7"]
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.19864386, 0.16837987, 0.23428336, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_uwaol"]
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.25882354, 0.22352941, 0.30980393, 1)
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aen8i"]
 content_margin_left = 12.0
 content_margin_top = 10.0
@@ -79,6 +90,22 @@ content_margin_top = 10.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
 bg_color = Color(0.36904925, 0.31949863, 0.42512488, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_acdo5"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.2121126, 0.18175656, 0.2558968, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.14288458, 0.1245474, 0.16122636, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_d8d4h"]
 content_margin_left = 30.0
@@ -151,7 +178,7 @@ border_width_bottom = 4
 border_color = Color(0.239216, 0.239216, 0.239216, 0.486275)
 
 [resource]
-Button/fonts/font = ExtResource("1_avrt8")
+Button/fonts/font = ExtResource("1_6dwef")
 Button/styles/focus = SubResource("StyleBoxEmpty_wkuwf")
 Button/styles/hover = SubResource("StyleBoxFlat_8howc")
 Button/styles/hover_pressed = SubResource("StyleBoxFlat_b78su")
@@ -162,29 +189,29 @@ HScrollBar/styles/grabber_highlight = SubResource("StyleBoxFlat_skiga")
 HScrollBar/styles/grabber_pressed = SubResource("StyleBoxFlat_2tneq")
 HScrollBar/styles/scroll = SubResource("StyleBoxFlat_v0raj")
 HScrollBar/styles/scroll_focus = SubResource("StyleBoxFlat_0e874")
-Label/fonts/font = ExtResource("1_avrt8")
+Label/fonts/font = ExtResource("1_6dwef")
 MenuBar/constants/h_separation = 0
-MenuBar/fonts/font = ExtResource("1_avrt8")
-MenuBar/styles/hover = ExtResource("2_aen8i")
-MenuBar/styles/normal = ExtResource("5_4a771")
+MenuBar/fonts/font = ExtResource("1_6dwef")
+MenuBar/styles/hover = SubResource("StyleBoxFlat_25rc7")
+MenuBar/styles/normal = SubResource("StyleBoxFlat_uwaol")
 MenuBar/styles/pressed = SubResource("StyleBoxFlat_aen8i")
 PopupMenu/constants/v_separation = 16
 PopupMenu/font_sizes/font_size = 12
-PopupMenu/fonts/font = ExtResource("1_avrt8")
+PopupMenu/fonts/font = ExtResource("1_6dwef")
 PopupMenu/styles/hover = SubResource("StyleBoxFlat_4a771")
-PopupMenu/styles/panel = ExtResource("5_avrt8")
-RichTextLabel/fonts/bold_font = ExtResource("5_uobsh")
-RichTextLabel/fonts/mono_font = ExtResource("6_mesqp")
-RichTextLabel/fonts/normal_font = ExtResource("1_avrt8")
-TabContainer/fonts/font = ExtResource("1_avrt8")
+PopupMenu/styles/panel = SubResource("StyleBoxFlat_acdo5")
+RichTextLabel/fonts/bold_font = ExtResource("2_p78bn")
+RichTextLabel/fonts/mono_font = ExtResource("3_t1yj7")
+RichTextLabel/fonts/normal_font = ExtResource("1_6dwef")
+TabContainer/fonts/font = ExtResource("1_6dwef")
 TabContainer/styles/tab_disabled = SubResource("StyleBoxFlat_d8d4h")
 TabContainer/styles/tab_focus = SubResource("StyleBoxFlat_fyrig")
 TabContainer/styles/tab_hovered = SubResource("StyleBoxFlat_uj7to")
 TabContainer/styles/tab_selected = SubResource("StyleBoxFlat_ye5sy")
 TabContainer/styles/tab_unselected = SubResource("StyleBoxFlat_rls7m")
 TabContainer/styles/tabbar_background = SubResource("StyleBoxFlat_jy1g5")
-Tree/fonts/font = ExtResource("1_avrt8")
-Tree/fonts/title_button_font = ExtResource("1_avrt8")
+Tree/fonts/font = ExtResource("1_6dwef")
+Tree/fonts/title_button_font = ExtResource("1_6dwef")
 VScrollBar/styles/grabber = SubResource("StyleBoxFlat_ig3bv")
 VScrollBar/styles/grabber_highlight = SubResource("StyleBoxFlat_tixap")
 VScrollBar/styles/grabber_pressed = SubResource("StyleBoxFlat_e3d2g")
