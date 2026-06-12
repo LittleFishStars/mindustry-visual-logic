@@ -15,15 +15,16 @@ func _ready() -> void:
 	self.Request.request(\"https://textdb.online/MindVisualLogic\")
 
 
-func _on_request_completed(_result: int, _response_code: int, _headers: PackedStringArray, body: PackedByteArray):
-	var json = JSON.parse_string(body.get_string_from_utf8())
-	self.title = json.get(\"title\", self.title)
-	var _version = json.get(\"version\")
-	
-	for msg in json.get(\"messages\", []):
-		var item = self.NoticeItem.instantiate()
-		self.nList.add_child(item)
-		item.init(msg.get(\"time\"), msg.get(\"message\"))
+func _on_request_completed(result: int, _response_code: int, _headers: PackedStringArray, body: PackedByteArray):
+	if result == OK:
+		var json = JSON.parse_string(body.get_string_from_utf8())
+		self.title = json.get(\"title\", self.title)
+		var _version = json.get(\"version\")
+		
+		for msg in json.get(\"messages\", []):
+			var item = self.NoticeItem.instantiate()
+			self.nList.add_child(item)
+			item.init(msg.get(\"time\"), msg.get(\"message\"))
 
 
 func _on_close_requested() -> void:
@@ -90,6 +91,5 @@ text = "Close
 use_threads = true
 
 [connection signal="close_requested" from="." to="." method="_on_close_requested"]
-[connection signal="visibility_changed" from="." to="." method="_on_visibility_changed"]
 [connection signal="pressed" from="Container/BottonBox/Container/Close" to="." method="_on_close_requested"]
 [connection signal="request_completed" from="Request" to="." method="_on_request_completed"]

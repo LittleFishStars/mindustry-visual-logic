@@ -2,25 +2,6 @@
 
 [ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/scripts/editor.gd" id="1_x6qec"]
 
-[sub_resource type="GDScript" id="GDScript_editspace"]
-resource_name = "edit_space"
-script/source = "extends SubViewport
-
-
-@onready var nCamera := $Camera
-
-
-func _ready() -> void:
-	child_entered_tree.connect(_on_child_entered)
-	for child in get_children():
-		_on_child_entered(child)
-
-
-func _on_child_entered(node: Node) -> void:
-	if node is Block and node.has_signal(\"drag_started\"):
-		node.drag_started.connect(self.nCamera.stop_moving)
-"
-
 [sub_resource type="GDScript" id="GDScript_a7iym"]
 resource_name = "camera"
 script/source = "extends Camera2D
@@ -32,11 +13,7 @@ var moving := false
 var last_pos := Vector2.ZERO
 
 
-func stop_moving(_offset: Vector2) -> void:
-	self.moving = false
-
-
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
@@ -60,7 +37,6 @@ script/source = "extends Node2D
 var _now_drag_node: Block
 var _drag_offset: Vector2
 var _is_dragging: bool
-var _drag_copy: bool
 
 @onready var nArea: SubViewportContainer = $\"../Editor/EditorSplit/EditArea\"
 @onready var nSpace: SubViewport = $\"../Editor/EditorSplit/EditArea/EditSpace\"
@@ -69,7 +45,6 @@ var _drag_copy: bool
 func start_drag(offset: Vector2, node: Block, copy: bool = false):
 	_is_dragging = true
 	_drag_offset = -offset
-	_drag_copy = copy
 	if copy:
 		_now_drag_node = Block.new(node._block_data, node.bg_color)
 		_now_drag_node.drag_started.connect(start_drag.bind(_now_drag_node))
@@ -81,15 +56,13 @@ func start_drag(offset: Vector2, node: Block, copy: bool = false):
 
 
 func _input(event: InputEvent):
-	if not _is_dragging:
-		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if not event.pressed:
-			_on_drag_ended(event.global_position)
-
-
-func _process(_delta: float) -> void:
-	self.global_position = get_viewport().get_mouse_position()
+	if (
+		_is_dragging and
+		event is InputEventMouseButton and 
+		event.button_index == MOUSE_BUTTON_LEFT and 
+		event.is_released()
+	):
+		_on_drag_ended(event.global_position)
 
 
 func _on_drag_ended(pos: Vector2):
@@ -103,13 +76,13 @@ func _on_drag_ended(pos: Vector2):
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	var rel = screen_pos - nArea.global_position
-	if nArea.stretch and nSpace.size.x > 0:
-		rel *= Vector2(nSpace.size) / nArea.size
-	return nSpace.get_canvas_transform().affine_inverse() * rel
-"
+	var rel = screen_pos - nArea.global_position  # 获取相对 nArea 的坐标
+	return nSpace.get_canvas_transform().affine_inverse() * rel  # 变换为 nSpace 坐标系
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_fv1w6"]
+
+func _process(_delta: float) -> void:
+	self.global_position = get_viewport().get_mouse_position()
+"
 
 [node name="Editor" type="Control" unique_id=1394798813]
 layout_mode = 3
@@ -153,7 +126,6 @@ stretch = true
 handle_input_locally = false
 size = Vector2i(2, 648)
 render_target_update_mode = 4
-script = SubResource("GDScript_editspace")
 
 [node name="Camera" type="Camera2D" parent="Editor/EditorSplit/EditArea/EditSpace" unique_id=1870116405]
 limit_smoothed = true
@@ -163,8 +135,3 @@ script = SubResource("GDScript_a7iym")
 
 [node name="Dragger" type="Node2D" parent="." unique_id=223596747]
 script = SubResource("GDScript_dragger")
-
-[node name="ScanArea" type="Area2D" parent="Dragger" unique_id=1564166999]
-
-[node name="Shape" type="CollisionShape2D" parent="Dragger/ScanArea" unique_id=1766095388]
-shape = SubResource("CircleShape2D_fv1w6")

@@ -14,21 +14,24 @@ Godot 4.x application (GL Compatibility renderer, not Vulkan). Visual block-base
 ## Directory layout
 
 ```
-srcs/                          ← all current source code
-├── controls/block.gd          ← Block (extends Container, renders a logic block)
-├── controls/notice_*.tscn     ← notice popup window
-├── scenes/editor.tscn         ← editor workspace (3 embedded GDScripts)
-├── scenes/main.tscn           ← app entry point
+srcs/
+├── controls/
+│   ├── block.gd               ← Block (extends BlockLayout, renders a logic block)
+│   ├── block_layout.gd        ← BlockLayout (extends Container, layout + drag + drawing)
+│   ├── notice_window.tscn     ← notice popup (fetches from textdb.online)
+│   └── notice_item.tscn       ← individual notice row
+├── scenes/
+│   ├── editor.tscn            ← editor workspace (3 embedded GDScripts: EditSpace, Camera, Dragger)
+│   └── main.tscn              ← app entry point
 └── scripts/
     ├── main.gd                ← @tool, top-level UI + menu + cursors
     ├── editor.gd               ← palette builder, category switcher
-    ├── block_parse.gd          ← XML parser (assets/blocks/*.xml → Dictionary)
-    └── block_data.gd           ← LEGACY: old template-based block definitions
+    └── block_parse.gd          ← XML parser (blocks/{locale}/*.xml → Dictionary)
 
+blocks/{locale}/*.xml          ← block definitions (5 categories × multiple blocks each)
 assets/
-├── blocks/*.xml               ← block definitions (41 blocks across 5 files)
 ├── fonts/
-├── sprites/cursors/           ← custom mouse cursors (7 shapes)
+├── sprites/cursors/           ← custom mouse cursors
 ├── sprites/previews/          ← block/item/unit sprite previews
 └── styles/main_theme.tres     ← main app theme
 ```
@@ -37,7 +40,7 @@ assets/
 
 ### Block definition system (XML-based)
 
-Blocks are defined in `assets/blocks/*.xml` — one file per category. The format:
+Blocks are defined in `blocks/{locale}/*.xml` — one file per category (currently `blocks/en_US/`). The format:
 
 ```xml
 <Kind name="Controls" color="#A15800">
@@ -64,19 +67,22 @@ Element types: `Text` (Label), `LineBox` (LineEdit), `Option` + `Item` (OptionBu
 ### Parsing
 
 `BlockParse` (class_name) in `srcs/scripts/block_parse.gd`:
-- `BlockParse.new().parse()` → scans `assets/blocks/*.xml`, returns Dictionary
+- `BlockParse.new().parse()` → scans `blocks/{locale}/*.xml`, returns Dictionary
 - Structure: `{"Controls": {"color": Color, "blocks": {"Drawflush": {export:..., elements:[...]}, ...}}, ...}`
 - Called once in `editor.gd._ready()`, result stored in `_block_data`
 
 ### Block rendering
 
-`Block` (class_name) in `srcs/controls/block.gd`, extends `Container`:
+`BlockLayout` (class_name) in `srcs/controls/block_layout.gd`, extends `Container`:
+- Layout, drag input (`_gui_input`), background drawing (`_draw`), and procedural `StyleBoxFlat` per row
+- Inner class `Box` (VBoxContainer subclass) used as the container for `<Nest>` elements
+- `drag_started(offset)` signal emitted on left-click
+
+`Block` (class_name) in `srcs/controls/block.gd`, extends `BlockLayout`:
 - `_init(block_data: Dictionary, p_color: Color)` — takes parsed XML data dict directly
 - `_build_elements()` — traverses `elements` list, creates all `Text`/`LineBox`/`Option`/`Button`/`Br`/`Nest` controls
 - Visibility: all elements created once, toggled `visible` by `_apply_visibility()` (Option show ∩ Button state show)
 - `_export() → String` — resolves pipe syntax to mlog command string
-- Drag signals: `drag_started(offset)`, `drag_ended`, `drag_moved(pos)`
-- Style: procedural `StyleBoxFlat` per row with rounded corners and shadows
 
 ### Drag system
 
@@ -93,8 +99,7 @@ Embedded script on Camera2D in `editor.tscn`: `_input()` handles scroll-zoom (×
 ### Other
 
 - **`@tool`**: `main.gd` runs in the editor. `_ready` fires on scene changes.
-- **`class_name`**: `Block`, `BlockData`, `BlockParse` are globally registered.
-- **`block_data.gd`**: Legacy data source with old template-based `BLOCKS` dictionary. Not used by current rendering path; kept for reference.
+- **`class_name`**: `Block`, `BlockLayout`, `BlockParse` are globally registered.
 - **Notice window**: `notice_window.tscn` fetches from `https://textdb.online/MindVisualLogic` via HTTPRequest.
 - **Custom cursors**: Loaded from `res://assets/sprites/cursors/` in `main.gd._ready()`.
 
@@ -102,6 +107,5 @@ Embedded script on Camera2D in `editor.tscn`: `_input()` handles scroll-zoom (×
 
 - **`old/` is gitignored** — legacy code, do not modify or reference.
 - **`build/` and `export_presets.cfg` are gitignored** — do not expect these.
-- **`assets/styles/`** (not Stytes) — theme dir typo was fixed in the rewrite.
 - **GDScript is the only language** — no C#, Rust, or other.
 - **XML block files are the source of truth** — editing a block means updating the XML, not GDScript.

@@ -62,28 +62,29 @@ func _get_row_size(row: Control) -> Vector2:
 func _on_sort_children():
 	_bg_rects.clear()
 	_style_boxes.clear()
-	var visible_rows: Array[Control] = []
+	var visible_children: Array[CanvasItem] = []
 	for c in get_children():
 		if c.visible:
-			visible_rows.append(c)
+			visible_children.append(c)
 	var y := 0.0
 	
-	for i in visible_rows.size():
-		var row := visible_rows[i]
-		var rs := _get_row_size(row)
+	for i in visible_children.size():
+		var child := visible_children[i]
+		
+		var rs := _get_row_size(child)
 		var row_h := rs.y
-		var row_w := rs.x if row.has_meta("tail") else row.size.x
+		var row_w: float = rs.x if child.has_meta("tail") else child.size.x
 
-		if row.has_meta("tail"):
-			fit_child_in_rect(row, Rect2(0, y, row_w, row_h))
+		if child.has_meta("tail"):
+			fit_child_in_rect(child, Rect2(0, y, row_w, row_h))
 		else:
-			fit_child_in_rect(row, Rect2(
+			fit_child_in_rect(child, Rect2(
 				self.margin * 2, y + self.margin, 	# 位置（减上边距和左边距）
 				row_w, row_h - self.margin * 2 		# 大小（减上下边距）
 			))
 
 		_bg_rects.append(Rect2(0, y - 1, row_w + self.margin * 4, row_h + 2))
-		_style_boxes.append(_make_row_style(row, i, visible_rows.size()))
+		_style_boxes.append(_make_row_style(child, i, visible_children.size()))
 		y += row_h
 	queue_redraw()
 
@@ -108,7 +109,7 @@ func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 func _get_minimum_size() -> Vector2:
 	var min_w := 0.0
 	var total_h := 0.0
-	for row: Control in self.get_children():
+	for row: CanvasItem in self.get_children():
 		if not row.visible:
 			continue
 		var rs := _get_row_size(row)
@@ -117,10 +118,17 @@ func _get_minimum_size() -> Vector2:
 	return Vector2(min_w, total_h)
 
 
+func _has_point(point: Vector2) -> bool:
+	for rect in _bg_rects:
+		if rect.has_point(point):
+			return true
+	return false
+
+
 ## 鼠标拖拽交互
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
+		if event.pressed and _has_point(event.position):
 			self.drag_started.emit(event.position)
 			self.accept_event()
 

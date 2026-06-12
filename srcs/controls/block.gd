@@ -139,35 +139,6 @@ func _make_button(el: Dictionary) -> Button:
 	return btn
 
 
-## Option 选中项变更 → 更新 _current_show → 重新计算可见性
-func _on_option_changed(idx: int, opt_id: String):
-	if not _option_map.has(opt_id):
-		return
-	var items: Array = _option_map[opt_id]["items"]
-	if idx < items.size():
-		_current_show = items[idx].get("show", "")
-	else:
-		_current_show = ""
-	_apply_visibility()
-	queue_sort()
-
-
-## Button toggle 状态变更 → 更新 _button_states → 重新计算可见性
-func _on_button_toggled(pressed: bool, btn_id: String):
-	_button_states[btn_id]["state"] = "pressed" if pressed else "released"
-	_apply_visibility()
-	queue_sort()
-
-
-## 数组交集
-func _intersect(a: Array, b: Array) -> Array:
-	var result: Array = []
-	for x in a:
-		if b.has(x):
-			result.append(x)
-	return result
-
-
 ## 取控件当前值，用于导出 mlog
 func _get_element_value(id: String) -> String:
 	var el = _elements.get(id)
@@ -208,6 +179,15 @@ func _export() -> String:
 	return " ".join(result) + "\n"
 
 
+## 数组交集
+func _intersect(a: Array, b: Array) -> Array:
+	var result: Array = []
+	for x in a:
+		if b.has(x):
+			result.append(x)
+	return result
+
+
 ## 计算并应用可见性：Option Item show ∩ Button show 空 show 视为所有元素可见，交集控制最终显示
 func _apply_visibility():
 	var ids: Array
@@ -226,3 +206,17 @@ func _apply_visibility():
 
 	for id in _elements:
 		_elements[id].visible = ids.has(id)
+
+	queue_sort()
+
+
+## Option 选中项变更 → 更新 _current_show → 重新计算可见性
+func _on_option_changed(idx: int, opt_id: String):
+	_current_show = _option_map[opt_id]["items"][idx].get("show", "")
+	_apply_visibility()
+
+
+## Button toggle 状态变更 → 更新 _button_states → 重新计算可见性
+func _on_button_toggled(pressed: bool, btn_id: String):
+	_button_states[btn_id]["state"] = "pressed" if pressed else "released"
+	_apply_visibility()
