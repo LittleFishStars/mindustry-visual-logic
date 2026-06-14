@@ -24,10 +24,10 @@ var _style_boxes: Array[StyleBoxFlat] = []
 
 # 衍生块
 var _nest_block: Dictionary[String, Block] = {}
+var _nest_rects: Dictionary[String, Rect2] = {}
 var _next_block: Block = null
 var _last_block: Block = null
 
-var _nest_rects: Dictionary[String, Rect2] = {}
 
 
 ## 样式复用：阴影、圆角、边距
@@ -96,9 +96,6 @@ func _on_sort_children():
 func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = self.bg_color
-	sb.shadow_size = self.shadow_size
-	sb.shadow_offset = self.shadow_offset
-	sb.shadow_color = self.shadow_color
 	if row.has_meta("nest_id"):
 		return sb
 	sb.corner_radius_top_right = self.corner_radius
@@ -145,9 +142,13 @@ func _draw() -> void:
 
 func get_end_position() -> Vector2:
 	return self.position + _bg_rects.back().position + Vector2(0, _bg_rects.back().size.y)
-
 func get_end_width() -> float:
 	return _bg_rects.back().size.x
+
+func get_nest_position(nest_id: String) -> Vector2:
+	return self.position + _nest_rects[nest_id].position + Vector2(0, _nest_rects[nest_id].size.y)
+func get_nest_width(nest_id: String) -> float:
+	return _nest_rects[nest_id].size.x
 
 func get_all_rect() -> Rect2:
 	var rect = Rect2(Vector2.ZERO, _get_minimum_size())
@@ -160,7 +161,29 @@ func change_position(pos: Vector2):
 	if self._next_block != null:
 		self._next_block.change_position(get_end_position())
 
-func capture_block(block: Block):
-	block._next_block = self
+func capture_block(block: Block, id: String = ""):
 	self._last_block = block
-	change_position(block.get_end_position())
+	if id.is_empty():
+		if block._next_block == null:
+			block._next_block = self
+			change_position(block.get_end_position())
+		else:
+			var old = block._next_block
+			block._next_block = self
+			change_position(block.get_end_position())
+			add_block(old)
+	else:
+		if block._nest_block[id] == null:
+			block._nest_block[id] = self
+			change_position(block.get_nest_position(id))
+		else:
+			var old = block._next_block
+			block._nest_block[id] = self
+			change_position(block.get_nest_position(id))
+			add_block(old)
+
+func add_block(block: Block):
+	if self._next_block == null:
+		block.capture_block(self)
+	else:
+		self._next_block.add_block(block)

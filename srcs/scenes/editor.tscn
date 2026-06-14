@@ -39,6 +39,7 @@ script/source = "extends Node2D
 var _drag_block: Block = null
 var _drag_offset: Vector2 = Vector2.ZERO
 var _capture_block: Block = null
+var _capture_nest_id: String = \"\"
 
 @onready var nArea: SubViewportContainer = $\"../Editor/EditorSplit/EditArea\"
 @onready var nSpace: SubViewport = $\"../Editor/EditorSplit/EditArea/EditSpace\"
@@ -87,7 +88,7 @@ func _on_drag_ended(pos: Vector2):
 		_trans_block(_drag_block, nSpace)
 		_drag_block.change_position(_screen_to_world(pos + _drag_offset))
 		if _capture_block != null:
-			_drag_block.capture_block(_capture_block)
+			_drag_block.capture_block(_capture_block, _capture_nest_id)
 	else:
 		_drag_block.queue_free()
 	_drag_block = null
@@ -106,6 +107,7 @@ func _process(_delta: float) -> void:
 		var _is_capture = false
 		for child in nSpace.get_children():
 			if child is Block:
+				# 尾部吸附
 				if _is_near_line(
 					_screen_to_world(self.global_position), 
 					child.get_end_position(), 
@@ -114,8 +116,20 @@ func _process(_delta: float) -> void:
 					_capture_block = child
 					_is_capture = true
 					break
+				# 子块吸附
+				for id in child.nests:
+					if _is_near_line(
+						_screen_to_world(self.global_position), 
+						child.get_nest_position(id), 
+						child.get_nest_width(id)
+					):
+						_capture_block = child
+						_capture_nest_id = id
+						_is_capture = true
+						break
 		if not _is_capture:
 			_capture_block = null
+			_capture_nest_id = \"\"
 "
 
 [node name="Editor" type="Control" unique_id=1394798813]

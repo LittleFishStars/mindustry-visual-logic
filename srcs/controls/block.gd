@@ -9,6 +9,8 @@ var _option_map: Dictionary = {}  ## Option id → { button: OptionButton, items
 var _button_states: Dictionary = {}  ## Button id → { state, pressed_show, released_show }
 var _current_show: String = ""  ## 当前选中 Option Item 的 show 字符串，空则表示全部可见
 
+var nests: Array[String] = []
+
 
 func _init(block_data: Dictionary, p_color: Color = Color.WHITE) -> void:
 	self._block_data = block_data
@@ -88,6 +90,7 @@ func _build_elements():
 			"Nest":
 				var box = Control.new()
 				box.set_meta("nest_id", el["id"])
+				self.nests.append(el["id"])
 				_elements[el["id"]] = box
 				add_child(box)
 				need_new_row = false
