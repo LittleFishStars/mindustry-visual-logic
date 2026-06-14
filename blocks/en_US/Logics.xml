@@ -4,8 +4,12 @@
         <LineBox id="time" placeholder="0.5" />
         <Text id="T2">sec</Text>
     </Block>
-    <Block name="Stop" export="stop" />
-    <Block name="End" export="end" />
+    <Block name="Stop" export="stop">
+        <Text id="T">Stop</Text>
+    </Block>
+    <Block name="End" export="end">
+        <Text id="T">End</Text>
+    </Block>
     <Block name="JumpLabel" export="%label:">
         <Text id="T1">Label</Text>
         <LineBox id="label" placeholder="label1" />

@@ -1,0 +1,6 @@
+<Kind name="Special" color="#000000">
+    <Block name="Start" export="">
+        <Text id="T">Start</Text>
+    </Block>
+    <Block name="None" export="" />
+</Kind>

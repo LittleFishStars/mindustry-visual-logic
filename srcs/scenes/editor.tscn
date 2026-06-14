@@ -34,7 +34,7 @@ resource_name = "dragger"
 script/source = "extends Node2D
 
 
-@export var capture_radius: float = 10
+@export var capture_radius: float = 20
 
 var _drag_block: Block = null
 var _drag_offset: Vector2 = Vector2.ZERO
@@ -50,6 +50,9 @@ func _trans_block(block: Block, to: Node):
 	block.reparent(to)
 	if block._next_block != null:
 		_trans_block(block._next_block, to)
+	if not block._nest_blocks.is_empty():
+		for nest in block._nest_blocks:
+			_trans_block(block._nest_blocks[nest], to)
 
 func start_drag(offset: Vector2, node: Block, copy: bool = false):
 	_drag_offset = -offset
@@ -62,8 +65,14 @@ func start_drag(offset: Vector2, node: Block, copy: bool = false):
 		_drag_block = node
 		
 		if _drag_block._last_block != null:
-			_drag_block._last_block._next_block = null
-			_drag_block._last_block = null
+			if _drag_block._last_block._next_block == _drag_block:
+				_drag_block._last_block._next_block = null
+				_drag_block._last_block = null
+			else:
+				for nest in _drag_block._last_block._nest_blocks:
+					if _drag_block._last_block._nest_blocks[nest] == _drag_block:
+						_drag_block._last_block._nest_blocks[nest] = null
+						_drag_block._last_block = null
 		
 		_trans_block(_drag_block, self)
 		_drag_block.change_position(_drag_offset)

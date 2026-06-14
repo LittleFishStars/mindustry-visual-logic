@@ -23,11 +23,10 @@ var _bg_rects: Array[Rect2] = []
 var _style_boxes: Array[StyleBoxFlat] = []
 
 # 衍生块
-var _nest_block: Dictionary[String, Block] = {}
+var _nest_blocks: Dictionary[String, Block] = {}
 var _nest_rects: Dictionary[String, Rect2] = {}
 var _next_block: Block = null
 var _last_block: Block = null
-
 
 
 ## 样式复用：阴影、圆角、边距
@@ -52,8 +51,9 @@ func _get_row_size(row: Control) -> Vector2:
 	if row.has_meta("tail"):
 		return Vector2(self.separation * 8, self.height / 4.0)
 	if row.has_meta("nest_id"):
-		var box_min := row.get_minimum_size()
-		return Vector2(box_min.x, box_min.y if row.get_child_count() else self.height / 2.0)
+		var nest_id = row.get_meta("nest_id")
+		var box_min := _nest_blocks[nest_id].get_all_rect().size if _nest_blocks.has(nest_id) else Vector2.ZERO
+		return Vector2(box_min.x, box_min.y if _nest_blocks.has(nest_id) else self.height / 2.0)
 	var row_min := row.get_minimum_size()
 	return Vector2(int(row_min.x), self.height)
 
@@ -82,15 +82,17 @@ func _on_sort_children():
 				row_w, row_h - self.margin * 2 		# 大小（减上下边距）
 			))
 
-		_bg_rects.append(Rect2(0, y - 1, row_w + self.margin * 4, row_h + 2))
-		_style_boxes.append(_make_row_style(child, i, visible_children.size()))
 		if child.has_meta("nest_id"):
 			var nest_id: String = child.get_meta("nest_id")
 			_nest_rects[nest_id] = _bg_rects.back()
 			if child.get_child_count():
-				_nest_block[nest_id] = child.get_child(0)
+				_nest_blocks[nest_id] = child.get_child(0)
+		_bg_rects.append(Rect2(0, y - 1, row_w + self.margin * 4, row_h + 2))
+		_style_boxes.append(_make_row_style(child, i, visible_children.size()))
 		y += row_h
 	queue_redraw()
+	if _next_block != null:
+		_next_block.change_position(get_end_position())
 
 ## 构建行级 StyleBoxFlat：nest 行无圆角，首尾行保留左上 / 左下圆角
 func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
@@ -146,20 +148,26 @@ func get_end_width() -> float:
 	return _bg_rects.back().size.x
 
 func get_nest_position(nest_id: String) -> Vector2:
-	return self.position + _nest_rects[nest_id].position + Vector2(0, _nest_rects[nest_id].size.y)
+	return (
+		self.position + _nest_rects[nest_id].position + 
+		Vector2(self.margin * 4, _nest_rects[nest_id].size.y)
+	)
 func get_nest_width(nest_id: String) -> float:
 	return _nest_rects[nest_id].size.x
 
 func get_all_rect() -> Rect2:
-	var rect = Rect2(Vector2.ZERO, _get_minimum_size())
+	var rect = Rect2(self.position, _get_minimum_size())
 	if _next_block != null:
-		rect.expand(_next_block.get_all_rect().size)
+		rect = rect.expand(_next_block.get_all_rect().end)
 	return rect
 
 func change_position(pos: Vector2):
 	self.position = pos
 	if self._next_block != null:
 		self._next_block.change_position(get_end_position())
+	if not self._nest_blocks.is_empty():
+		for nest in self._nest_blocks:
+			self._nest_blocks[nest].change_position(get_nest_position(nest))
 
 func capture_block(block: Block, id: String = ""):
 	self._last_block = block
@@ -173,17 +181,28 @@ func capture_block(block: Block, id: String = ""):
 			change_position(block.get_end_position())
 			add_block(old)
 	else:
-		if block._nest_block[id] == null:
-			block._nest_block[id] = self
+		if not block._nest_blocks.has(id):
+			block._nest_blocks[id] = self
 			change_position(block.get_nest_position(id))
 		else:
-			var old = block._next_block
-			block._nest_block[id] = self
+			var old = block._nest_blocks[id]
+			block._nest_blocks[id] = self
 			change_position(block.get_nest_position(id))
 			add_block(old)
+	update()
 
 func add_block(block: Block):
 	if self._next_block == null:
 		block.capture_block(self)
 	else:
 		self._next_block.add_block(block)
+
+func update(up_down: bool = true):
+	queue_sort()
+	if (self._last_block != null) and up_down:
+		self._last_block.update(up_down)
+	if (self._next_block != null) and not up_down:
+		self._next_block.update(up_down)
+	if (not self._nest_blocks.is_empty()) and not up_down:
+		for nest in self._nest_blocks:
+			self._nest_blocks[nest].update(up_down)
