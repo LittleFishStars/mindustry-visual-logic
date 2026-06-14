@@ -2,7 +2,6 @@ class_name BlockLayout
 extends Container
 
 
-## 拖拽相关信号
 signal drag_started(offset: Vector2)
 
 ## 布局间距与行高
@@ -19,15 +18,16 @@ signal drag_started(offset: Vector2)
 @export var shadow_offset: Vector2 = Vector2(2, 4)
 @export var shadow_color: Color = Color(0, 0, 0, 0.3)
 
-## 绘制缓存
+# 绘制缓存
 var _bg_rects: Array[Rect2] = []
 var _style_boxes: Array[StyleBoxFlat] = []
 
+# 衍生块
+var _nest_block: Dictionary[String, Block] = {}
+var _next_block: Block = null
+var _last_block: Block = null
 
-## 嵌套子块容器（If 块的 <Nest>）
-class Box extends VBoxContainer:
-	func _ready() -> void:
-		self.add_theme_constant_override("separation", 0)
+var _nest_rects: Dictionary[String, Rect2] = {}
 
 
 ## 样式复用：阴影、圆角、边距
@@ -52,9 +52,8 @@ func _get_row_size(row: Control) -> Vector2:
 	if row.has_meta("tail"):
 		return Vector2(self.separation * 8, self.height / 4.0)
 	if row.has_meta("nest_id"):
-		var box := row as Box
-		var box_min := box.get_minimum_size()
-		return Vector2(box_min.x, box_min.y if box.get_child_count() else self.height / 2.0)
+		var box_min := row.get_minimum_size()
+		return Vector2(box_min.x, box_min.y if row.get_child_count() else self.height / 2.0)
 	var row_min := row.get_minimum_size()
 	return Vector2(int(row_min.x), self.height)
 
@@ -62,7 +61,7 @@ func _get_row_size(row: Control) -> Vector2:
 func _on_sort_children():
 	_bg_rects.clear()
 	_style_boxes.clear()
-	var visible_children: Array[CanvasItem] = []
+	var visible_children: Array[Control] = []
 	for c in get_children():
 		if c.visible:
 			visible_children.append(c)
@@ -85,6 +84,11 @@ func _on_sort_children():
 
 		_bg_rects.append(Rect2(0, y - 1, row_w + self.margin * 4, row_h + 2))
 		_style_boxes.append(_make_row_style(child, i, visible_children.size()))
+		if child.has_meta("nest_id"):
+			var nest_id: String = child.get_meta("nest_id")
+			_nest_rects[nest_id] = _bg_rects.back()
+			if child.get_child_count():
+				_nest_block[nest_id] = child.get_child(0)
 		y += row_h
 	queue_redraw()
 
@@ -109,7 +113,7 @@ func _make_row_style(row: Control, index: int, total: int) -> StyleBoxFlat:
 func _get_minimum_size() -> Vector2:
 	var min_w := 0.0
 	var total_h := 0.0
-	for row: CanvasItem in self.get_children():
+	for row: Control in get_children():
 		if not row.visible:
 			continue
 		var rs := _get_row_size(row)
@@ -137,3 +141,26 @@ func _gui_input(event: InputEvent) -> void:
 func _draw() -> void:
 	for i in _bg_rects.size():
 		draw_style_box(_style_boxes[i], _bg_rects[i])
+
+
+func get_end_position() -> Vector2:
+	return self.position + _bg_rects.back().position + Vector2(0, _bg_rects.back().size.y)
+
+func get_end_width() -> float:
+	return _bg_rects.back().size.x
+
+func get_all_rect() -> Rect2:
+	var rect = Rect2(Vector2.ZERO, _get_minimum_size())
+	if _next_block != null:
+		rect.expand(_next_block.get_all_rect().size)
+	return rect
+
+func change_position(pos: Vector2):
+	self.position = pos
+	if self._next_block != null:
+		self._next_block.change_position(get_end_position())
+
+func capture_block(block: Block):
+	block._next_block = self
+	self._last_block = block
+	change_position(block.get_end_position())

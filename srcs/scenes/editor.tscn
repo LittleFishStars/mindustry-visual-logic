@@ -34,30 +34,43 @@ resource_name = "dragger"
 script/source = "extends Node2D
 
 
-var _now_drag_node: Block
-var _drag_offset: Vector2
-var _is_dragging: bool
+@export var capture_radius: float = 10
+
+var _drag_block: Block = null
+var _drag_offset: Vector2 = Vector2.ZERO
+var _capture_block: Block = null
 
 @onready var nArea: SubViewportContainer = $\"../Editor/EditorSplit/EditArea\"
 @onready var nSpace: SubViewport = $\"../Editor/EditorSplit/EditArea/EditSpace\"
 
 
+## 将 [param block] 及其 _next_block 转移至 [param to] 下
+func _trans_block(block: Block, to: Node):
+	block.reparent(to)
+	if block._next_block != null:
+		_trans_block(block._next_block, to)
+
 func start_drag(offset: Vector2, node: Block, copy: bool = false):
-	_is_dragging = true
 	_drag_offset = -offset
 	if copy:
-		_now_drag_node = Block.new(node._block_data, node.bg_color)
-		_now_drag_node.drag_started.connect(start_drag.bind(_now_drag_node))
-		add_child(_now_drag_node)
+		_drag_block = Block.new(node._block_data, node.bg_color)
+		_drag_block.drag_started.connect(start_drag.bind(_drag_block))
+		add_child(_drag_block)
+		_drag_block.position = _drag_offset
 	else:
-		_now_drag_node = node
-		_now_drag_node.reparent(self)
-	_now_drag_node.position = _drag_offset
+		_drag_block = node
+		
+		if _drag_block._last_block != null:
+			_drag_block._last_block._next_block = null
+			_drag_block._last_block = null
+		
+		_trans_block(_drag_block, self)
+		_drag_block.change_position(_drag_offset)
 
 
 func _input(event: InputEvent):
 	if (
-		_is_dragging and
+		_drag_block != null and
 		event is InputEventMouseButton and 
 		event.button_index == MOUSE_BUTTON_LEFT and 
 		event.is_released()
@@ -65,23 +78,44 @@ func _input(event: InputEvent):
 		_on_drag_ended(event.global_position)
 
 
-func _on_drag_ended(pos: Vector2):
-	_is_dragging = false
-	if nArea.get_global_rect().has_point(pos):
-		_now_drag_node.reparent(nSpace)
-		_now_drag_node.position = _screen_to_world(pos + _drag_offset)
-	else:
-		_now_drag_node.queue_free()
-	_now_drag_node = null
-
-
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
 	var rel = screen_pos - nArea.global_position  # 获取相对 nArea 的坐标
 	return nSpace.get_canvas_transform().affine_inverse() * rel  # 变换为 nSpace 坐标系
 
+func _on_drag_ended(pos: Vector2):
+	if nArea.get_global_rect().has_point(pos):
+		_trans_block(_drag_block, nSpace)
+		_drag_block.change_position(_screen_to_world(pos + _drag_offset))
+		if _capture_block != null:
+			_drag_block.capture_block(_capture_block)
+	else:
+		_drag_block.queue_free()
+	_drag_block = null
+
+
+func _is_near_line(pos: Vector2, start: Vector2, width: float) -> bool:
+	var l := pos.x - start.x
+	var d := pos.y - start.y
+	return (l > 0 and l < width) and (abs(d) < self.capture_radius)
 
 func _process(_delta: float) -> void:
 	self.global_position = get_viewport().get_mouse_position()
+	
+	# 吸附检测
+	if _drag_block != null:
+		var _is_capture = false
+		for child in nSpace.get_children():
+			if child is Block:
+				if _is_near_line(
+					_screen_to_world(self.global_position), 
+					child.get_end_position(), 
+					child.get_end_width()
+				):
+					_capture_block = child
+					_is_capture = true
+					break
+		if not _is_capture:
+			_capture_block = null
 "
 
 [node name="Editor" type="Control" unique_id=1394798813]

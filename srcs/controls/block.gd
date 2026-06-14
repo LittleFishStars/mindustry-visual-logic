@@ -86,13 +86,13 @@ func _build_elements():
 				need_new_row = true
 				current_row = null
 			"Nest":
-				var box = Box.new()
+				var box = Control.new()
 				box.set_meta("nest_id", el["id"])
 				_elements[el["id"]] = box
 				add_child(box)
 				need_new_row = false
 	# 若 Nest 在末尾则补充 tail
-	if self.get_child(-1) is Box:
+	if self.get_child(-1).has_meta("nest_id"):
 		var tail = Control.new()
 		tail.set_meta("tail", true)
 		add_child(tail)
