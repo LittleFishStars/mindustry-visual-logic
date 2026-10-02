@@ -1,0 +1,184 @@
+class_name ConditionDef
+extends RefCounted
+
+## 一个「何时生效」的条件表达式（AST）。
+##
+## 布局与导出共用它：行、元素、导出模板都可以挂一个条件。
+## 存储里写的是字符串（手写友好），解析后变成这棵树 —— 于是可以静态校验、
+## 可以求值、也可以规范化回写。
+##
+## 支持：
+## [codeblock]
+## when="(mode=col || mode=clear) && !txt"      括号 / 或 / 与 / 非
+## when="find=building && group=enemy"          多个字段共同决定
+## when="line|rect"                             裸取值列表（与块级 layout-field 比较，等价于或）
+## when="txt"                                   字段为真（Button 按下 / 值非空）
+## when="mode!=col"                             不等
+## [/codeblock]
+
+enum Kind {
+	## 恒真（没有条件）。
+	ALWAYS,
+	## 字段比较：field 的值落在 values 里（等值），或"字段为真"（values 为空）。
+	COMPARE,
+	AND,
+	OR,
+	NOT,
+}
+
+var kind: Kind = Kind.ALWAYS
+
+## COMPARE：被比较的字段。
+var field: StringName = &""
+## COMPARE：候选取值（或列表）；为空表示只判断"字段为真"。
+var values: Array[String] = []
+## COMPARE：取反（即 field != value）。
+var negated: bool = false
+
+## AND / OR 的子条件。
+var children: Array[ConditionDef] = []
+## NOT 的子条件。
+var child: ConditionDef = null
+
+
+static func always() -> ConditionDef:
+	return ConditionDef.new()
+
+
+static func compare(field_id: StringName, accepted: Array[String], is_negated: bool = false) -> ConditionDef:
+	var condition := ConditionDef.new()
+	condition.kind = Kind.COMPARE
+	condition.field = field_id
+	condition.values = accepted
+	condition.negated = is_negated
+	return condition
+
+
+## 全部成立。空列表 = 恒真，单个子条件时直接返回它（避免无谓嵌套）。
+static func all_of(list: Array[ConditionDef]) -> ConditionDef:
+	if list.is_empty():
+		return always()
+	if list.size() == 1:
+		return list[0]
+	var condition := ConditionDef.new()
+	condition.kind = Kind.AND
+	condition.children = list
+	return condition
+
+
+## 任一成立；空列表 = 恒假（用一个永不成立的条件表示）。
+static func any_of(list: Array[ConditionDef]) -> ConditionDef:
+	if list.is_empty():
+		return compare(&"", [""])
+	if list.size() == 1:
+		return list[0]
+	var condition := ConditionDef.new()
+	condition.kind = Kind.OR
+	condition.children = list
+	return condition
+
+
+static func negate(inner: ConditionDef) -> ConditionDef:
+	if inner == null:
+		return always()
+	var condition := ConditionDef.new()
+	condition.kind = Kind.NOT
+	condition.child = inner
+	return condition
+
+
+## 求值。[param value_of] 收字段 id、返回其当前值字符串（数据层为准）。
+func matches(value_of: Callable) -> bool:
+	match kind:
+		Kind.COMPARE:
+			var raw := String(value_of.call(field))
+			var hit := false
+			if values.is_empty():
+				hit = raw != "" and raw != "false"
+			else:
+				hit = values.has(raw)
+			return not hit if negated else hit
+		Kind.AND:
+			for item in children:
+				if not item.matches(value_of):
+					return false
+			return true
+		Kind.OR:
+			for item in children:
+				if item.matches(value_of):
+					return true
+			return false
+		Kind.NOT:
+			return not (child != null and child.matches(value_of))
+		_:
+			return true
+
+
+## 表达式里引用到的字段（去重，按出现顺序）。
+func fields() -> Array[StringName]:
+	var out: Array[StringName] = []
+	_collect_fields(out)
+	return out
+
+
+func _collect_fields(out: Array[StringName]) -> void:
+	if kind == Kind.COMPARE:
+		if field != &"" and not out.has(field):
+			out.append(field)
+		return
+	for item in children:
+		item._collect_fields(out)
+	if child != null:
+		child._collect_fields(out)
+
+
+func is_always() -> bool:
+	return kind == Kind.ALWAYS
+
+
+## 规范化回写成字符串（加必要的括号），便于日志、比对与报错。
+func describe() -> String:
+	match kind:
+		Kind.COMPARE:
+			if values.is_empty():
+				var plain := String(field) if field != &"" else "false"
+				return ("!" + plain) if negated else plain
+			var parts := PackedStringArray()
+			for value in values:
+				parts.append(_quote_if_needed(value))
+			var joined := "|".join(parts)
+			if field == &"":
+				return joined if not negated else "!(" + joined + ")"
+			return "%s%s%s" % [String(field), "!=" if negated else "=", joined]
+		Kind.AND, Kind.OR:
+			var glue := " && " if kind == Kind.AND else " || "
+			var pieces := PackedStringArray()
+			for item in children:
+				var text := item.describe()
+				if _needs_parens(item, kind):
+					text = "(" + text + ")"
+				pieces.append(text)
+			if pieces.is_empty():
+				return "true" if kind == Kind.AND else "false"
+			return glue.join(pieces)
+		Kind.NOT:
+			var inner := child.describe() if child != null else "false"
+			if child != null and child.kind in [Kind.COMPARE] and child.values.size() <= 1:
+				return "!" + inner
+			return "!(" + inner + ")"
+		_:
+			return "true"
+
+
+static func _needs_parens(item: ConditionDef, parent: Kind) -> bool:
+	if parent == Kind.AND:
+		return item.kind == Kind.OR or item.kind == Kind.NOT
+	if parent == Kind.OR:
+		return item.kind == Kind.NOT
+	return false
+
+
+static func _quote_if_needed(text: String) -> String:
+	if text == "" or text.contains(" ") or text.contains("|") or text.contains("(") or text.contains(")"):
+		return "\"" + text + "\""
+	return text
