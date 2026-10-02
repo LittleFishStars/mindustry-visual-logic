@@ -86,12 +86,12 @@
         </Option>
         <LineBox id="result" placeholder="result" />
     </Block>
-    <Block name="Sensor" export="sensor %result %prop %block">
+    <Block name="Sensor" export="sensor %result %block %prop">
         <Text id="T1">Sensor</Text>
         <LineBox id="result" placeholder="result" />
         <Text id="T2">=</Text>
         <Text id="T3">@</Text>
-        <LineBox id="prop" placeholder="" />
+        <LineBox id="prop" placeholder="@copper" />
         <Text id="T4">in</Text>
         <LineBox id="block" placeholder="block1" />
     </Block>

@@ -58,7 +58,7 @@
         </Option>
         <LineBox id="b" placeholder="b" />
     </Block>
-    <Block name="Select" export="select %result %cmp %x %t %f %value">
+    <Block name="Select" export="select %result %cmp %x %value %t %f">
         <Text id="T1">Select</Text>
         <LineBox id="result" placeholder="result" />
         <Text id="T2">=</Text>
@@ -96,7 +96,7 @@
         <Text id="T4">#</Text>
         <LineBox id="id" placeholder="0" />
     </Block>
-    <Block name="PackColor" export="packcolor %r %g %b %a %result">
+    <Block name="PackColor" export="packcolor %result %r %g %b %a">
         <Text id="T1">PackColor</Text>
         <LineBox id="result" placeholder="result" />
         <Text id="T2">=</Text>
