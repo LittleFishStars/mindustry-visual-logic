@@ -32,6 +32,10 @@ var _exclude: Dictionary[int, bool] = {}
 var _target: Dictionary = {}
 
 
+## 按下时的鼠标位置：用来判断"原地松手"（没有真正搬动）
+var _start_mouse: Vector2 = Vector2.ZERO
+
+
 func _ready() -> void:
 	set_process(false)
 
@@ -75,6 +79,7 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 
 
 func _begin() -> void:
+	_start_mouse = _world_mouse()
 	if not _active:
 		return
 	if canvas.nCamera != null:
@@ -93,11 +98,13 @@ func _begin() -> void:
 func _input(event: InputEvent) -> void:
 	if not _active:
 		return
-	if event is InputEventMouseButton and event.pressed:
+	# 按下鼠标拿起、松开放下：左键松开即落地；右键/Esc 仍然是取消
+	if event is InputEventMouseButton and not event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_finish()
 			get_viewport().set_input_as_handled()
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
 			cancel()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -141,9 +148,11 @@ func _finish() -> void:
 	var inside := _inside_canvas()
 	var source := _source_node
 	var type_id := _type_id
+	var moved := (world - _start_mouse).length() > 4.0
 	_cleanup()
-	if not inside:
-		# 落在画布外 = 取消：不动数据（旧实现这里会 queue_free 掉整块及其下游）
+	if not inside or not moved:
+		# 画布外松手 = 取消；原地松手 = 没搬动，都不动数据
+		# （旧实现落在画布外会 queue_free 掉整块及其下游）
 		canvas.relayout()
 		return
 	if not target.is_empty():
