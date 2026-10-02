@@ -13,9 +13,11 @@ extends RefCounted
 static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[String] = []) -> String:
 	if graph == null or library == null:
 		return ""
+	var context := _make_context(graph, library, warnings)
+	_pre_export(graph, library, context)
 	var lines := PackedStringArray()
 	for chain_id in graph.chain_ids():
-		_emit_chain(graph, library, graph.slot_items(LogicGraph.ROOT, chain_id), lines, warnings)
+		_emit_chain(graph, library, graph.slot_items(LogicGraph.ROOT, chain_id), lines, warnings, context)
 	if lines.is_empty():
 		return ""
 	return "\n".join(lines) + "\n"
@@ -23,16 +25,34 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 
 ## 只导出某一个块（含其子树），用于块级预览/单独复制。
 static func export_node(graph: LogicGraph, library: BlockLibrary, id: int, warnings: Array[String] = []) -> String:
+	var context := _make_context(graph, library, warnings)
+	_pre_export_chain(graph, library, [id] as Array[int], context)
 	var lines := PackedStringArray()
-	_emit_node(graph, library, id, lines, warnings)
+	_emit_node(graph, library, id, lines, warnings, context)
 	if lines.is_empty():
 		return ""
 	return "\n".join(lines) + "\n"
 
 
-## 渲染单行 mlog（不含换行）。模板为空（如 If 这类纯容器）时返回空串。
-static func render_node(def: BlockDef, node: LogicNode) -> String:
+## 渲染单行 mlog（不含换行；行为脚本可以返回含 \n 的多行）。模板为空时返回空串。
+##
+## 块可以挂行为脚本接管这一行：脚本实现 [code]export_line(node, def, render, context)[/code]，
+## 返回字符串就覆盖模板；返回 null（或非字符串）表示"用模板"。
+## [param render] 是可调用的模板渲染器，所以脚本既能完全自己拼一行，
+## 也能只对模板结果做后处理（[code]render.call() + " always"[/code]）。
+static func render_node(def: BlockDef, node: LogicNode, context: Dictionary = {}) -> String:
 	var value_of := _reader_of(node)
+	var render_template := func() -> String:
+		return _render_template(def, node, value_of)
+	if def.behavior != null and def.behavior.has_method(&"export_line"):
+		var custom: Variant = def.behavior.call(&"export_line", node, def, render_template, context)
+		if custom is String:
+			return String(custom)
+	return render_template.call()
+
+
+## 按块定义里的模板渲染（默认路径）。
+static func _render_template(def: BlockDef, node: LogicNode, value_of: Callable) -> String:
 	var parts := def.export_parts_for(value_of)
 	if parts.is_empty():
 		return ""
@@ -49,15 +69,47 @@ static func render_node(def: BlockDef, node: LogicNode) -> String:
 	return out
 
 
+## 导出上下文：行为脚本可以在"导出前的准备"里往 [code]scratch[/code] 放整图级别的信息
+## （例如给 If 分配跳转标签），渲染每一行时再读出来。
+static func _make_context(graph: LogicGraph, library: BlockLibrary, warnings: Array[String]) -> Dictionary:
+	return {"graph": graph, "library": library, "warnings": warnings, "scratch": {}}
+
+
+## 导出前的整图准备：按遍历顺序给每个块一次机会（可选钩子 [code]pre_export(node, context)[/code]）。
+static func _pre_export(graph: LogicGraph, library: BlockLibrary, context: Dictionary) -> void:
+	for chain_id in graph.chain_ids():
+		_pre_export_chain(graph, library, graph.slot_items(LogicGraph.ROOT, chain_id), context)
+
+
+static func _pre_export_chain(
+	graph: LogicGraph,
+	library: BlockLibrary,
+	ids: Array[int],
+	context: Dictionary
+) -> void:
+	for id in ids:
+		var node := graph.get_node_by_id(id)
+		if node == null:
+			continue
+		var def := library.by_id(node.type_id)
+		if def == null:
+			continue
+		if def.behavior != null and def.behavior.has_method(&"pre_export"):
+			def.behavior.call(&"pre_export", node, context)
+		for slot_id in def.slot_ids():
+			_pre_export_chain(graph, library, graph.slot_items(id, slot_id), context)
+
+
 static func _emit_chain(
 	graph: LogicGraph,
 	library: BlockLibrary,
 	ids: Array[int],
 	lines: PackedStringArray,
-	warnings: Array[String]
+	warnings: Array[String],
+	context: Dictionary
 ) -> void:
 	for id in ids:
-		_emit_node(graph, library, id, lines, warnings)
+		_emit_node(graph, library, id, lines, warnings, context)
 
 
 static func _emit_node(
@@ -65,7 +117,8 @@ static func _emit_node(
 	library: BlockLibrary,
 	id: int,
 	lines: PackedStringArray,
-	warnings: Array[String]
+	warnings: Array[String],
+	context: Dictionary
 ) -> void:
 	var node := graph.get_node_by_id(id)
 	if node == null:
@@ -74,11 +127,11 @@ static func _emit_node(
 	if def == null:
 		warnings.append("未知块类型：%s" % node.type_id)
 		return
-	var line := render_node(def, node)
+	var line := render_node(def, node, context)
 	if line != "":
 		lines.append(line)
 	for slot_id in def.slot_ids():
-		_emit_chain(graph, library, graph.slot_items(id, slot_id), lines, warnings)
+		_emit_chain(graph, library, graph.slot_items(id, slot_id), lines, warnings, context)
 
 
 static func _render_part(

@@ -132,6 +132,14 @@ assets/
 - 新增元素类型：在 `view/elements/element_builders.gd` 里加一个构建器并注册，**只改这一处**；解析器与 `BlockView` 都不用动。
 - 新增块：往 XML 里加 `<Block>`，不需要写 GDScript。
 - 新增选择器候选：改 `blocks/selectors/*.json`。
+- **导出处理（模板表达不了时）**：给块挂行为脚本 `<Block name="X" script="res://…gd">`，
+  脚本是 `RefCounted`，按需实现两个钩子：
+  - `export_line(node, def, render, context) -> Variant`：返回字符串就接管这一行（可含 `\n` 输出多行）；
+    `render.call()` 是模板渲染结果，所以能只做后处理（`render.call() + " always"`）；
+    返回 `null` 表示"用模板" —— 常见情况不必自己拼字符串。
+  - `pre_export(node, context) -> void`：整图导出前按遍历顺序每个块调一次，
+    `context["scratch"]` 可以放整图级别的信息（例如给 `If` 分配跳转标签、统计指令数）。
+  两个钩子都不改变"数据层是唯一真相"：导出仍然只读 `LogicGraph`，不碰控件。
 
 ### Other
 
