@@ -140,18 +140,19 @@ func is_always() -> bool:
 func describe() -> String:
 	match kind:
 		Kind.COMPARE:
+			var plain := String(field) if field != &"" else "false"
 			if values.is_empty():
-				var plain := String(field) if field != &"" else "false"
-				return ("!" + plain) if negated else plain
-			var parts := PackedStringArray()
+				return ("~" + plain) if negated else plain
+			if values.size() == 1:
+				return "%s%s%s" % [plain, "!=" if negated else "=", _quote_if_needed(values[0])]
+			# 多取值（旧格式迁移时可能出现）写成显式的或，避免歧义
+			var alternatives := PackedStringArray()
 			for value in values:
-				parts.append(_quote_if_needed(value))
-			var joined := "|".join(parts)
-			if field == &"":
-				return joined if not negated else "!(" + joined + ")"
-			return "%s%s%s" % [String(field), "!=" if negated else "=", joined]
+				alternatives.append("%s=%s" % [plain, _quote_if_needed(value)])
+			var joined := " | ".join(alternatives)
+			return "~(" + joined + ")" if negated else "(" + joined + ")"
 		Kind.AND, Kind.OR:
-			var glue := " && " if kind == Kind.AND else " || "
+			var glue := " & " if kind == Kind.AND else " | "
 			var pieces := PackedStringArray()
 			for item in children:
 				var text := item.describe()
@@ -163,18 +164,17 @@ func describe() -> String:
 			return glue.join(pieces)
 		Kind.NOT:
 			var inner := child.describe() if child != null else "false"
-			if child != null and child.kind in [Kind.COMPARE] and child.values.size() <= 1:
-				return "!" + inner
-			return "!(" + inner + ")"
+			if child != null and child.kind == Kind.COMPARE:
+				return "~" + inner
+			return "~(" + inner + ")"
 		_:
 			return "true"
 
 
 static func _needs_parens(item: ConditionDef, parent: Kind) -> bool:
+	# ~ 比 & 紧、& 比 | 紧，所以只有「或」嵌在「与」里才需要括号
 	if parent == Kind.AND:
-		return item.kind == Kind.OR or item.kind == Kind.NOT
-	if parent == Kind.OR:
-		return item.kind == Kind.NOT
+		return item.kind == Kind.OR
 	return false
 
 
