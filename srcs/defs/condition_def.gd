@@ -11,7 +11,7 @@ extends RefCounted
 ## [codeblock]
 ## when="(mode=col || mode=clear) && !txt"      括号 / 或 / 与 / 非
 ## when="find=building && group=enemy"          多个字段共同决定
-## when="mode=line | mode=rect"                 或
+## when="mode=line|rect"                         同字段的取值列表（或）
 ## when="txt=true"                              开关按下
 ## when="mode!=col"                             不等
 ## [/codeblock]
@@ -146,14 +146,11 @@ func describe() -> String:
 			var plain := String(field) if field != &"" else "false"
 			if values.is_empty():
 				return ("~" + plain) if negated else plain
-			if values.size() == 1:
-				return "%s%s%s" % [plain, "!=" if negated else "=", _quote_if_needed(values[0])]
-			# 多取值（旧格式迁移时可能出现）写成显式的或，避免歧义
+			# 同一字段的多个取值写成 `mode=clear|color`
 			var alternatives := PackedStringArray()
 			for value in values:
-				alternatives.append("%s=%s" % [plain, _quote_if_needed(value)])
-			var joined := " | ".join(alternatives)
-			return "~(" + joined + ")" if negated else "(" + joined + ")"
+				alternatives.append(_quote_if_needed(value))
+			return "%s%s%s" % [plain, "!=" if negated else "=", "|".join(alternatives)]
 		Kind.AND, Kind.OR:
 			var glue := " & " if kind == Kind.AND else " | "
 			var pieces := PackedStringArray()

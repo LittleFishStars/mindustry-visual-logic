@@ -4,8 +4,9 @@ extends RefCounted
 ## `when="…"` 的解析器：小布尔表达式 → [ConditionDef]。
 ##
 ## 只有三个逻辑运算符：`&`（与）、`|`（或）、`~`（非）；优先级 `~` > `&` > `|`。
-## 比较一律显式写「字段=取值」/「字段!=取值」—— 没有"默认字段"这回事，
-## 于是不存在隐式约定，也不存在"裸字段还是裸取值"的歧义。
+## 比较显式写「字段=取值」/「字段!=取值」；同一字段的多个取值可以缩写成
+## `mode=clear|color`（`|` 右边是裸取值时沿用左边那个字段）——没有"默认字段"这回事，
+## 所以不存在"裸字段还是裸取值"的歧义。
 ## `&&`、`||`、`!`、`and`、`or`、`not` 会被明确拒绝并提示改法。
 ##
 ## [codeblock]
@@ -14,7 +15,7 @@ extends RefCounted
 ## and        := unary { "&" unary }
 ## unary      := "~" unary | primary
 ## primary    := "(" expr ")" | comparison
-## comparison := FIELD ("=" | "!=") VALUE
+## comparison := FIELD ("=" | "!=") VALUE { "|" VALUE }   # `|` 后缀沿用同一字段
 ## [/codeblock]
 ##
 ## 解析失败不抛异常：返回恒真条件，把原因写进 `errors`（编辑器可以就地提示），
@@ -172,16 +173,31 @@ func _parse_comparison() -> ConditionDef:
 	if value_token.is_empty() or String(value_token.get("kind", "")) != "word":
 		_error("比较符后面缺少取值")
 		return ConditionDef.always()
-	return _validate_compare(first, String(_advance()["text"]), negated)
+	var values: Array[String] = [String(_advance()["text"])]
+	# `mode=clear|color`：`|` 后面还是裸取值（后面不接比较符）时，沿用同一个字段
+	while _peek_kind() == "|" and _is_value_at(_index + 1):
+		_index += 1
+		values.append(String(_advance()["text"]))
+	return _validate_compare(first, values, negated)
 
 #endregion
 
 
 #region 校验
 
-func _validate_compare(field: String, value: String, negated: bool) -> ConditionDef:
+## 位置 [param index] 是一个"后面不接比较符"的裸取值（取值列表的成员）。
+func _is_value_at(index: int) -> bool:
+	if index >= _tokens.size():
+		return false
+	if String(_tokens[index].get("kind", "")) != "word":
+		return false
+	var next_kind := String(_tokens[index + 1].get("kind", "")) if index + 1 < _tokens.size() else ""
+	return next_kind != "=" and next_kind != "!="
+
+
+func _validate_compare(field: String, values: Array[String], negated: bool) -> ConditionDef:
 	if _def == null:
-		return ConditionDef.compare(StringName(field), [value], negated)
+		return ConditionDef.compare(StringName(field), values, negated)
 	var element := _def.element(StringName(field))
 	if element == null:
 		_error("未知字段：%s（本块字段：%s）" % [field, _join_ids(_def.field_ids())])
@@ -192,12 +208,14 @@ func _validate_compare(field: String, value: String, negated: bool) -> Condition
 				var legal := PackedStringArray()
 				for item in element.items:
 					legal.append(item.value_or_text())
-				if not legal.has(value):
-					_error("字段 %s 没有取值 `%s`（合法值：%s）" % [field, value, ", ".join(legal)])
+				for value in values:
+					if not legal.has(value):
+						_error("字段 %s 没有取值 `%s`（合法值：%s）" % [field, value, ", ".join(legal)])
 		&"Button":
-			if value != "true" and value != "false":
-				_error("开关 %s 只能与 true / false 比较（实际 `%s`）" % [field, value])
-	return ConditionDef.compare(StringName(field), [value], negated)
+			for value in values:
+				if value != "true" and value != "false":
+					_error("开关 %s 只能与 true / false 比较（实际 `%s`" % [field, value] + "）")
+	return ConditionDef.compare(StringName(field), values, negated)
 
 
 func _is_field(name: String) -> bool:
