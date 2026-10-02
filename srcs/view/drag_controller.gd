@@ -32,6 +32,8 @@ var _exclude: Dictionary[int, bool] = {}
 var _target: Dictionary = {}
 ## 本次搬移的块：拿起的那块 + 它后面的所有块（同一容器里的后续兄弟）
 var _carried: Array[int] = []
+## 为落点占位块让位而被临时下移的块（松手/换目标时按布局结果还原）
+var _pushed: Array[int] = []
 
 
 ## 按下时的鼠标位置：用来判断"原地松手"（没有真正搬动）
@@ -149,6 +151,7 @@ func _update() -> void:
 
 ## 在落点摆出占位块：指示"现在放下会落到哪、长什么样"。
 func _update_placement_preview() -> void:
+	_release_shift()
 	if _target.is_empty() or canvas.layout == null:
 		canvas.clear_placement_preview()
 		return
@@ -156,11 +159,39 @@ func _update_placement_preview() -> void:
 	if _source_node == null:
 		# 从调色板拖出：占位块就是将要新建的那个块（默认值），左上角落在吸附点上
 		canvas.show_new_placement_preview(_type_def, at)
+		_apply_insert_shift(at)
 		return
 	if _carried.is_empty():
 		canvas.clear_placement_preview()
 		return
 	canvas.show_placement_preview(_carried, at - canvas.layout.rect_of(_carried[0]).position)
+	_apply_insert_shift(at)
+
+
+## 插在中间时给占位块腾位置：把插入点之后的块（及其子树）整体下移一个占位块的高度。
+## 每帧都"先还原、再重算"，所以换目标不会有累积偏移；松手后会重新求解布局，自然归位。
+func _apply_insert_shift(_at: Vector2) -> void:
+	var index: int = int(_target.get("index", -1))
+	var height := canvas.placement_preview_height()
+	if index < 0 or height <= 0.0:
+		return
+	var owner_id: int = int(_target.get("owner_id", LogicGraph.ROOT))
+	var slot: StringName = _target.get("slot", &"")
+	for item in canvas.graph.slot_items(owner_id, slot).slice(index):
+		for id in canvas.graph.subtree_ids(item):
+			var view := canvas.view_of(id)
+			if view != null and is_instance_valid(view):
+				view.position += Vector2(0, height)
+				_pushed.append(id)
+
+
+## 把让位造成的临时偏移还原（布局结果才是真相）。
+func _release_shift() -> void:
+	for id in _pushed:
+		var view := canvas.view_of(id)
+		if view != null and is_instance_valid(view) and canvas.layout != null:
+			view.position = canvas.layout.rect_of(id).position
+	_pushed.clear()
 
 
 func _finish() -> void:
@@ -206,6 +237,7 @@ func is_active() -> bool:
 
 
 func _cleanup() -> void:
+	_release_shift()
 	if _ghost != null and is_instance_valid(_ghost):
 		_ghost.queue_free()
 	_ghost = null

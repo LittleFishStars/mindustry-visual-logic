@@ -336,10 +336,20 @@ func show_new_placement_preview(def: BlockDef, top_left: Vector2) -> void:
 		var ghost := make_ghost(def.id)
 		if ghost != null:
 			ghost.modulate = Color(1, 1, 1, 0.5)
+			ghost.measure({})
 			_preview_views.append(ghost)
 	for view in _preview_views:
 		if is_instance_valid(view):
 			view.position = top_left
+
+
+## 落点占位块的总高度（"插在中间"时用它给后面的块让位）。
+func placement_preview_height() -> float:
+	var total := 0.0
+	for view in _preview_views:
+		if is_instance_valid(view):
+			total += maxf(view.metrics.size.y if view.metrics != null else view.size.y, 1.0)
+	return total
 
 
 func clear_placement_preview() -> void:
