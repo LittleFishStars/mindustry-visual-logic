@@ -20,6 +20,8 @@ signal picker_requested(element: ElementDef, control: Control)
 var _preview_views: Array[BlockView] = []
 var _preview_origins: Array[Vector2] = []
 var _preview_ids: Array[int] = []
+## 调色板拖出时，占位块对应的块类型（非空表示当前是"新建"预览）
+var _preview_def_id: StringName = &""
 @onready var nCamera: EditorCamera = $Camera
 
 var library: BlockLibrary
@@ -302,7 +304,7 @@ func make_ghost(type_id: StringName) -> BlockView:
 ## 复用 [method make_ghost]（半透明、不吃鼠标），但改成显示[b]真实字段值[/b]，
 ## 这样看到的就是"现在放下的样子"。视图只在目标集合变化时重建，之后每帧只更新位置。
 func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
-	if ids != _preview_ids:
+	if ids != _preview_ids or _preview_def_id != &"":
 		clear_placement_preview()
 		_preview_ids = ids.duplicate()
 		_preview_origins.clear()
@@ -323,6 +325,23 @@ func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
 			_preview_views[i].position = _preview_origins[i] + offset
 
 
+## 调色板拖出时的落点占位块：将要新建的那个块（默认值就是它入图时的取值）。
+func show_new_placement_preview(def: BlockDef, top_left: Vector2) -> void:
+	if def == null:
+		clear_placement_preview()
+		return
+	if _preview_def_id != def.id:
+		clear_placement_preview()
+		_preview_def_id = def.id
+		var ghost := make_ghost(def.id)
+		if ghost != null:
+			ghost.modulate = Color(1, 1, 1, 0.5)
+			_preview_views.append(ghost)
+	for view in _preview_views:
+		if is_instance_valid(view):
+			view.position = top_left
+
+
 func clear_placement_preview() -> void:
 	for view in _preview_views:
 		if is_instance_valid(view):
@@ -330,6 +349,7 @@ func clear_placement_preview() -> void:
 	_preview_views.clear()
 	_preview_origins.clear()
 	_preview_ids.clear()
+	_preview_def_id = &""
 
 #endregion
 

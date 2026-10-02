@@ -77,6 +77,9 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	_offset = offset
 	_subtree_positions.clear()
 	_exclude.clear()
+	# 新建块没有"要一起搬的块"，这里必须清掉上一次拖拽留下的 _carried，
+	# 否则落点会摆出上一次那几个块的占位视图
+	_carried.clear()
 	_ghost = canvas.make_ghost(_type_id)
 	if _ghost != null:
 		_ghost.position = _world_mouse() - _offset
@@ -146,12 +149,18 @@ func _update() -> void:
 
 ## 在落点摆出占位块：指示"现在放下会落到哪、长什么样"。
 func _update_placement_preview() -> void:
-	if _target.is_empty() or _carried.is_empty() or canvas.layout == null:
+	if _target.is_empty() or canvas.layout == null:
 		canvas.clear_placement_preview()
 		return
-	var delta: Vector2 = Vector2(_target.get("position", Vector2.ZERO)) \
-		- canvas.layout.rect_of(_carried[0]).position
-	canvas.show_placement_preview(_carried, delta)
+	var at := Vector2(_target.get("position", Vector2.ZERO))
+	if _source_node == null:
+		# 从调色板拖出：占位块就是将要新建的那个块（默认值），左上角落在吸附点上
+		canvas.show_new_placement_preview(_type_def, at)
+		return
+	if _carried.is_empty():
+		canvas.clear_placement_preview()
+		return
+	canvas.show_placement_preview(_carried, at - canvas.layout.rect_of(_carried[0]).position)
 
 
 func _finish() -> void:
