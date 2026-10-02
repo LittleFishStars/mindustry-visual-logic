@@ -293,6 +293,66 @@ func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -
 
 
 ## 写字段值。值相同则不产生任何信号。
+## 同一容器里"这个块及其后面的所有块"（拖动时它们要一起走）。
+func tail_ids(id: int) -> Array[int]:
+	var at := locate(id)
+	if at.is_empty():
+		return [id] as Array[int]
+	var items := slot_items(at["owner_id"], at["slot"])
+	var out: Array[int] = []
+	for i in range(int(at["index"]), items.size()):
+		out.append(items[i])
+	return out
+
+
+## 把一串有先后顺序的节点整体搬到目标容器。
+##
+## 不能逐个 [method move_node]：同一容器内前一个搬完会改变后一个的下标。
+## 这里先算出"摘出这一串之后"的目标下标（同容器时扣掉排在目标之前的自己人），
+## 再一次性整段插入。
+func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
+	if ids.is_empty():
+		return false
+	for id in ids:
+		if not _nodes.has(id):
+			return false
+		if owner_id != ROOT and (owner_id == id or _is_descendant(owner_id, id)):
+			return false
+	if owner_id != ROOT and not _nodes.has(owner_id):
+		return false
+	if owner_id == ROOT and not _chains.has(slot_id):
+		return false
+	var places: Array[Dictionary] = []
+	var same_container := true
+	var removed_before := 0
+	for id in ids:
+		var at := locate(id)
+		places.append(at)
+		if at.is_empty() or at["owner_id"] != owner_id or at["slot"] != slot_id:
+			same_container = false
+		elif index >= 0 and int(at["index"]) < index:
+			removed_before += 1
+	var target := index
+	if target < 0:
+		target = _container_size(owner_id, slot_id)
+	elif same_container:
+		target = index - removed_before
+	# 摘出必须倒序：_detach 按记录下来的下标移除，先摘前面的会让后面的下标整体左移
+	for i in range(places.size() - 1, -1, -1):
+		if not places[i].is_empty():
+			_detach(places[i])
+	for i in ids.size():
+		if owner_id == ROOT:
+			_insert_at(_chains[slot_id], ids[i], target + i)
+		else:
+			_insert_at(_nodes[owner_id].slot(slot_id), ids[i], target + i)
+	for at in places:
+		if not at.is_empty():
+			_drop_empty_container(at)
+	structure_changed.emit()
+	return true
+
+
 func set_field(id: int, field_id: StringName, value: Variant) -> bool:
 	var node := get_node_by_id(id)
 	if node == null:

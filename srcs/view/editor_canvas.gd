@@ -181,6 +181,25 @@ func move_node_to_new_chain(id: int, world_pos: Vector2) -> bool:
 	return true
 
 
+## 把一串块（拖动时"拿起的那块 + 它后面的所有块"）整体搬到目标容器。
+func move_tail(ids: Array[int], owner_id: int, slot_id: StringName, index: int) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
+		return false
+	history.record("移动块", func() -> void:
+		graph.move_tail(ids, owner_id, slot_id, index))
+	return true
+
+
+## 把一串块整体搬到画布上的一条新链。
+func move_tail_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
+		return false
+	history.record("移动块", func() -> void:
+		var chain := graph.create_chain(world_pos)
+		graph.move_tail(ids, LogicGraph.ROOT, chain, -1))
+	return true
+
+
 func remove_node(id: int) -> bool:
 	if not graph.has(id):
 		return false

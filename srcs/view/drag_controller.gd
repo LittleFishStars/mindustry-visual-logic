@@ -30,6 +30,8 @@ var _offset: Vector2 = Vector2.ZERO
 var _subtree_positions: Dictionary[int, Vector2] = {}
 var _exclude: Dictionary[int, bool] = {}
 var _target: Dictionary = {}
+## 本次搬移的块：拿起的那块 + 它后面的所有块（同一容器里的后续兄弟）
+var _carried: Array[int] = []
 
 
 ## 按下时的鼠标位置：用来判断"原地松手"（没有真正搬动）
@@ -53,11 +55,14 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 	_type_id = view.node.type_id
 	_type_def = canvas.library.by_id(_type_id)
 	_offset = offset
+	# 拿起一个块时，它"后面的所有块"一起走（Mindustry 的操作直觉：后面的跟着走，顺序不乱）
+	_carried = canvas.graph.tail_ids(_source_node.id)
 	_subtree_positions.clear()
 	_exclude.clear()
-	for id in canvas.graph.subtree_ids(_source_node.id):
-		_exclude[id] = true
-		_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
+	for carried_id in _carried:
+		for id in canvas.graph.subtree_ids(carried_id):
+			_exclude[id] = true
+			_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
 	_begin()
 
 
@@ -162,11 +167,11 @@ func _finish() -> void:
 		if source == null:
 			canvas.insert_new_node(type_id, owner_id, slot, index)
 		else:
-			canvas.move_node(source.id, owner_id, slot, index)
+			canvas.move_tail(_carried, owner_id, slot, index)
 	elif source == null:
 		canvas.insert_new_chain(type_id, origin)
 	else:
-		canvas.move_node_to_new_chain(source.id, origin)
+		canvas.move_tail_to_new_chain(_carried, origin)
 
 
 ## 右键 / Esc：取消拖拽，位置复原。
