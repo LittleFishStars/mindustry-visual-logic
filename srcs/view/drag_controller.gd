@@ -138,9 +138,25 @@ func _update() -> void:
 				view.position = (_subtree_positions[id] as Vector2) + delta
 	if not _inside_canvas():
 		_target = {}
-		canvas.clear_overlay()
+		canvas.clear_preview()
 		return
 	_target = canvas.find_anchor(world, capture_radius, _exclude)
+	_update_preview()
+
+
+## 在落点画一份"黑色副本"：把将要落下的这几个块的矩形整体平移到吸附点上。
+func _update_preview() -> void:
+	if _target.is_empty() or _carried.is_empty() or canvas.layout == null:
+		canvas.clear_preview()
+		return
+	var head: int = _carried[0]
+	var delta: Vector2 = Vector2(_target.get("position", Vector2.ZERO)) \
+		- canvas.layout.rect_of(head).position
+	var rects: Array[Rect2] = []
+	for id in _carried:
+		var rect := canvas.layout.rect_of(id)
+		rects.append(Rect2(rect.position + delta, rect.size))
+	canvas.set_preview(rects)
 
 
 func _finish() -> void:
@@ -198,7 +214,7 @@ func _cleanup() -> void:
 	_target = {}
 	set_process(false)
 	if canvas != null:
-		canvas.clear_overlay()
+		canvas.clear_preview()
 	drag_finished.emit()
 
 

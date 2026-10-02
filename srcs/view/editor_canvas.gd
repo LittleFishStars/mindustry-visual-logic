@@ -293,12 +293,12 @@ func make_ghost(type_id: StringName) -> BlockView:
 	return ghost
 
 
-func set_overlay(show_all: bool, target: Dictionary) -> void:
-	nOverlay.anchors = anchors()
-	nOverlay.set_state(show_all, anchors(), target)
+## 拖动时在落点画一份"黑色副本"（[param rects] 是画布坐标下那几个块的矩形）。
+func set_preview(rects: Array[Rect2]) -> void:
+	nOverlay.set_preview(rects)
 
 
-func clear_overlay() -> void:
+func clear_preview() -> void:
 	nOverlay.clear()
 
 #endregion
