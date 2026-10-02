@@ -1,0 +1,481 @@
+class_name LogicGraph
+extends RefCounted
+
+## 逻辑程序的纯数据模型。
+##
+## 结构 = 画布上的若干条[b]链[/b]，每条链是一个**有序的节点 id 数组**；
+## 节点内部的每个子槽位同样是有序数组。统一抽象：
+## [b]容器 = (owner_id, slot_id)[/b]
+## - [code]owner_id == ROOT[/code] 时，[param slot_id] 是画布上的链 id（画布相当于"有很多槽位的根节点"）；
+## - 否则 [param owner_id] 是宿主节点 id，[param slot_id] 是它的 <Nest> 槽位 id。
+##
+## 与旧实现的关键差别：
+## - 没有 `_next_block` / `_last_block` 双向指针，也没有用 `null` 占位的字典项；
+##   顺序 = 数组下标，空位 = 不存在。
+## - 不存块与块之间的绝对坐标，只存每条链的落点；块内相对位置由布局求解得出。
+
+## 画布（根）在「容器」概念里的 owner_id。
+const ROOT: int = 0
+
+signal node_added(id: int)
+signal node_removed(id: int)
+signal structure_changed()
+signal field_changed(id: int, field_id: StringName, value: Variant)
+signal chain_position_changed(chain_id: StringName, pos: Vector2)
+## 整体被替换（读档 / 撤销 / 重做），视图层应重建。
+signal reset()
+
+var _nodes: Dictionary[int, LogicNode] = {}
+## 链 id → 节点 id 数组。
+var _chains: Dictionary[StringName, Array] = {}
+## 链 id → 画布落点。
+var _chain_positions: Dictionary[StringName, Vector2] = {}
+var _next_id: int = 1
+var _next_chain: int = 1
+
+
+#region 查询
+
+func count() -> int:
+	return _nodes.size()
+
+
+func has(id: int) -> bool:
+	return _nodes.has(id)
+
+
+func get_node_by_id(id: int) -> LogicNode:
+	return _nodes.get(id)
+
+
+## 画布上的链 id（按创建顺序，副本）。
+func chain_ids() -> Array[StringName]:
+	var out: Array[StringName] = []
+	out.assign(_chains.keys())
+	return out
+
+
+func has_chain(chain_id: StringName) -> bool:
+	return _chains.has(chain_id)
+
+
+## 一条链的头节点 id；空链或不存在返回 [constant ROOT]。
+func chain_head(chain_id: StringName) -> int:
+	var ids: Array[int] = []
+	ids.assign(_chains.get(chain_id, []))
+	return ids[0] if not ids.is_empty() else ROOT
+
+
+## 各条链的头节点 id。
+func head_ids() -> Array[int]:
+	var out: Array[int] = []
+	for chain_id in _chains:
+		var head := chain_head(chain_id)
+		if head != ROOT:
+			out.append(head)
+	return out
+
+
+## 链的画布落点。
+func chain_position(chain_id: StringName) -> Vector2:
+	return _chain_positions.get(chain_id, Vector2.ZERO)
+
+
+## 节点所在的链 id；不在图上返回 [code]&""[/code]。
+## 节点可能深居某个块的槽位里，这里会沿宿主逐层往上走到画布为止。
+func find_chain_of(id: int) -> StringName:
+	for chain_id in _chains:
+		if (_chains[chain_id] as Array).has(id):
+			return chain_id
+	var cursor := id
+	var guard := _nodes.size() + 1
+	while cursor != ROOT and guard > 0:
+		guard -= 1
+		var where := locate(cursor)
+		if where.is_empty():
+			return &""
+		var owner_id: int = where["owner_id"]
+		if owner_id == ROOT:
+			return where["slot"]
+		cursor = owner_id
+	return &""
+
+
+## 深度优先的全部节点 id（从各条链出发，孤儿节点不包含在内）。
+func all_ids() -> Array[int]:
+	var out: Array[int] = []
+	for chain_id in _chains:
+		var ids: Array[int] = []
+		ids.assign(_chains[chain_id])
+		for id in ids:
+			_collect_subtree(id, out)
+	return out
+
+
+## 取某个容器的成员 id（副本）。
+## [param owner_id] 为 [constant ROOT] 时 [param slot_id] 必须是链 id。
+func slot_items(owner_id: int, slot_id: StringName = &"") -> Array[int]:
+	var out: Array[int] = []
+	if owner_id == ROOT:
+		out.assign(_chains.get(slot_id, []))
+		return out
+	var node := get_node_by_id(owner_id)
+	if node == null:
+		return out
+	return node.peek_slot(slot_id)
+
+
+## 定位节点所在的容器，返回 {owner_id, slot, index}；不在图中时返回空字典。
+func locate(id: int) -> Dictionary:
+	if not _nodes.has(id):
+		return {}
+	for chain_id in _chains:
+		var ids: Array[int] = []
+		ids.assign(_chains[chain_id])
+		var index := ids.find(id)
+		if index >= 0:
+			return {"owner_id": ROOT, "slot": chain_id, "index": index}
+	for owner_id in _nodes:
+		var node: LogicNode = _nodes[owner_id]
+		for slot_id in node.slots:
+			var index := node.peek_slot(slot_id).find(id)
+			if index >= 0:
+				return {"owner_id": owner_id, "slot": slot_id, "index": index}
+	return {}
+
+
+## 节点所属链的头节点 id；不在图上返回 [constant ROOT]。
+func find_head_of(id: int) -> int:
+	var chain_id := find_chain_of(id)
+	return chain_head(chain_id)
+
+
+#endregion
+
+
+#region 链管理
+
+## 新建一条空链，返回链 id。
+func create_chain(pos: Vector2 = Vector2.ZERO) -> StringName:
+	var chain_id := StringName("c%d" % _next_chain)
+	_next_chain += 1
+	var ids: Array[int] = []
+	_chains[chain_id] = ids
+	_chain_positions[chain_id] = pos
+	structure_changed.emit()
+	return chain_id
+
+
+## 取第一条链；一条都没有时按 [param fallback_pos] 新建一条。
+func primary_chain(fallback_pos: Vector2 = Vector2.ZERO) -> StringName:
+	for chain_id in _chains:
+		return chain_id
+	return create_chain(fallback_pos)
+
+
+## 设置链的画布落点。
+func set_chain_position(chain_id: StringName, pos: Vector2) -> bool:
+	if not _chains.has(chain_id):
+		return false
+	if _chain_positions.get(chain_id, Vector2.ZERO).is_equal_approx(pos):
+		return true
+	_chain_positions[chain_id] = pos
+	chain_position_changed.emit(chain_id, pos)
+	return true
+
+
+## 删除整条链及其全部节点。
+func remove_chain(chain_id: StringName) -> bool:
+	if not _chains.has(chain_id):
+		return false
+	var ids: Array[int] = []
+	ids.assign(_chains[chain_id])
+	var doomed: Array[int] = []
+	for id in ids:
+		_collect_subtree(id, doomed)
+	_chains.erase(chain_id)
+	_chain_positions.erase(chain_id)
+	for victim in doomed:
+		_nodes.erase(victim)
+		node_removed.emit(victim)
+	structure_changed.emit()
+	return true
+
+
+#endregion
+
+
+#region 结构修改
+
+## 创建一个新节点（**尚未入图**，请再用 [method insert_node] 放入容器）。
+func new_node(type_id: StringName) -> LogicNode:
+	var node := LogicNode.new(_next_id, type_id)
+	_next_id += 1
+	return node
+
+
+## 把节点插入到 [param owner_id] 的 [param slot_id] 容器的 [param index] 处。
+## [param index] 为负表示追加到末尾。容器必须已存在。
+func insert_node(node: LogicNode, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
+	if node == null or _nodes.has(node.id):
+		return false
+	if owner_id == ROOT:
+		if not _chains.has(slot_id):
+			return false
+		_sync_next_id(node.id)
+		_nodes[node.id] = node
+		_insert_at(_chains[slot_id], node.id, index)
+	else:
+		if not _nodes.has(owner_id):
+			return false
+		_sync_next_id(node.id)
+		_nodes[node.id] = node
+		_insert_at(_nodes[owner_id].slot(slot_id), node.id, index)
+	node_added.emit(node.id)
+	structure_changed.emit()
+	return true
+
+
+## 删除节点及其整棵子树。链被清空时会一并删除该链。
+func remove_node(id: int) -> bool:
+	var where := locate(id)
+	if where.is_empty():
+		return false
+	var doomed: Array[int] = []
+	_collect_subtree(id, doomed)
+	_detach(where)
+	_drop_empty_container(where)
+	for victim in doomed:
+		_nodes.erase(victim)
+		node_removed.emit(victim)
+	structure_changed.emit()
+	return true
+
+
+## 移动节点到 [param owner_id] 的 [param slot_id] 容器的 [param index] 处。
+## 拒绝把自己移进自己或自己的子孙（否则会形成环）。
+func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
+	if not _nodes.has(id):
+		return false
+	if owner_id == ROOT:
+		if not _chains.has(slot_id):
+			return false
+	else:
+		if not _nodes.has(owner_id):
+			return false
+		if owner_id == id or _is_descendant(owner_id, id):
+			return false
+	var where := locate(id)
+	if where.is_empty():
+		return false
+	var same_container: bool = where["owner_id"] == owner_id and where["slot"] == slot_id
+	var old_index: int = where["index"]
+	_detach(where)
+	var target := index
+	if target < 0:
+		target = _container_size(owner_id, slot_id)
+	elif same_container and old_index < target:
+		target -= 1
+	if owner_id == ROOT:
+		_insert_at(_chains[slot_id], id, target)
+	else:
+		_insert_at(_nodes[owner_id].slot(slot_id), id, target)
+	_drop_empty_container(where)
+	structure_changed.emit()
+	return true
+
+
+## 写字段值。值相同则不产生任何信号。
+func set_field(id: int, field_id: StringName, value: Variant) -> bool:
+	var node := get_node_by_id(id)
+	if node == null:
+		return false
+	if deep_equal(node.get_field(field_id, null), value):
+		return true
+	node.put_field(field_id, value)
+	field_changed.emit(id, field_id, value)
+	return true
+
+
+## 清空整张图。
+func clear() -> void:
+	_nodes.clear()
+	_chains.clear()
+	_chain_positions.clear()
+	_next_id = 1
+	_next_chain = 1
+	reset.emit()
+
+
+#endregion
+
+
+#region 序列化
+
+func to_dict() -> Dictionary:
+	var nodes_out: Array = []
+	for id in _nodes:
+		nodes_out.append((_nodes[id] as LogicNode).to_dict())
+	var chains_out: Dictionary = {}
+	for chain_id in _chains:
+		var ids_out: Array = []
+		ids_out.assign(slot_items(ROOT, chain_id))
+		chains_out[String(chain_id)] = ids_out
+	var positions_out: Dictionary = {}
+	for chain_id in _chain_positions:
+		var pos: Vector2 = _chain_positions[chain_id]
+		positions_out[String(chain_id)] = [pos.x, pos.y]
+	return {
+		"next_id": _next_id,
+		"next_chain": _next_chain,
+		"chains": chains_out,
+		"chain_positions": positions_out,
+		"nodes": nodes_out,
+	}
+
+
+static func from_dict(data: Dictionary) -> LogicGraph:
+	var graph := LogicGraph.new()
+	graph.load_dict(data)
+	return graph
+
+
+## 就地载入（保留对象引用，便于视图层继续持有同一张图）。载入后发出 [signal reset]。
+func load_dict(data: Dictionary) -> void:
+	_nodes.clear()
+	_chains.clear()
+	_chain_positions.clear()
+	for raw in data.get("nodes", []):
+		var node := LogicNode.from_dict(raw)
+		_nodes[node.id] = node
+	var chains_raw: Dictionary = data.get("chains", {})
+	for key in chains_raw:
+		var ids: Array[int] = []
+		ids.assign(chains_raw[key])
+		_chains[StringName(key)] = ids
+	var positions_raw: Dictionary = data.get("chain_positions", {})
+	for key in positions_raw:
+		var pair: Array = positions_raw[key]
+		if pair.size() >= 2:
+			_chain_positions[StringName(key)] = Vector2(pair[0], pair[1])
+	_next_id = int(data.get("next_id", 1))
+	_next_chain = int(data.get("next_chain", 1))
+	for id in _nodes:
+		_sync_next_id(id)
+	reset.emit()
+
+
+#endregion
+
+
+#region 内部
+
+func _insert_at(arr: Array, value: int, index: int) -> void:
+	if index < 0 or index > arr.size():
+		arr.push_back(value)
+	else:
+		arr.insert(index, value)
+
+
+func _container_size(owner_id: int, slot_id: StringName) -> int:
+	if owner_id == ROOT:
+		return slot_items(ROOT, slot_id).size()
+	var node := get_node_by_id(owner_id)
+	return node.peek_slot(slot_id).size() if node != null else 0
+
+
+func _detach(where: Dictionary) -> void:
+	var owner_id: int = where["owner_id"]
+	var index: int = where["index"]
+	if owner_id == ROOT:
+		var chain_id: StringName = where["slot"]
+		if _chains.has(chain_id):
+			(_chains[chain_id] as Array).remove_at(index)
+		return
+	var owner := get_node_by_id(owner_id)
+	if owner != null:
+		owner.slot(where["slot"]).remove_at(index)
+
+
+## 容器空了就删掉它：链不留空壳，节点槽位也不留空数组当占位。
+func _drop_empty_container(where: Dictionary) -> void:
+	var owner_id: int = where["owner_id"]
+	var slot_id: StringName = where["slot"]
+	if owner_id == ROOT:
+		if _chains.has(slot_id) and (_chains[slot_id] as Array).is_empty():
+			_chains.erase(slot_id)
+			_chain_positions.erase(slot_id)
+		return
+	var owner := get_node_by_id(owner_id)
+	if owner != null and owner.slots.has(slot_id) and owner.peek_slot(slot_id).is_empty():
+		owner.slots.erase(slot_id)
+
+
+func _collect_subtree(id: int, out: Array[int]) -> void:
+	if not _nodes.has(id) or out.has(id):
+		return
+	out.append(id)
+	var node: LogicNode = _nodes[id]
+	for slot_id in node.slots:
+		for child_id in node.peek_slot(slot_id):
+			_collect_subtree(child_id, out)
+
+
+## [param candidate] 是否位于 [param ancestor] 的子树内。
+func _is_descendant(candidate: int, ancestor: int) -> bool:
+	var cursor := candidate
+	var guard := _nodes.size() + 1
+	while cursor != ROOT and guard > 0:
+		guard -= 1
+		var where := locate(cursor)
+		if where.is_empty():
+			return false
+		var owner_id: int = where["owner_id"]
+		if owner_id == ancestor:
+			return true
+		cursor = owner_id
+	return false
+
+
+func _sync_next_id(id: int) -> void:
+	if id >= _next_id:
+		_next_id = id + 1
+
+
+## 结构与数值的深比较（Dictionary / Array 在 GDScript 里不保证按值比较）。
+static func deep_equal(a: Variant, b: Variant) -> bool:
+	var ta := typeof(a)
+	var tb := typeof(b)
+	if ta != tb:
+		var a_number := ta == TYPE_INT or ta == TYPE_FLOAT
+		var b_number := tb == TYPE_INT or tb == TYPE_FLOAT
+		if a_number and b_number:
+			return is_equal_approx(float(a), float(b))
+		return false
+	match ta:
+		TYPE_DICTIONARY:
+			var da: Dictionary = a
+			var db: Dictionary = b
+			if da.size() != db.size():
+				return false
+			for key in da:
+				if not db.has(key):
+					return false
+				if not deep_equal(da[key], db[key]):
+					return false
+			return true
+		TYPE_ARRAY:
+			var aa: Array = a
+			var ab: Array = b
+			if aa.size() != ab.size():
+				return false
+			for i in aa.size():
+				if not deep_equal(aa[i], ab[i]):
+					return false
+			return true
+		TYPE_VECTOR2:
+			return (a as Vector2).is_equal_approx(b)
+		_:
+			return a == b
+
+#endregion
