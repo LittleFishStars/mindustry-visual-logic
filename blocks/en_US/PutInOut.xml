@@ -1,5 +1,9 @@
 <Kind name="PutInOut" color="#998e6e">
-	<Block name="Read" export="read {result} {cell} {idx}">
+	<Block name="Read">
+		<Literal>read</Literal>
+		<Field id="result" />
+		<Field id="cell" />
+		<Field id="idx" />
 		<Row>
 			<Text id="T1">Read</Text>
 			<LineBox id="result" placeholder="result" />
@@ -9,7 +13,11 @@
 			<LineBox id="idx" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="Write" export="write {value} {cell} {idx}">
+	<Block name="Write">
+		<Literal>write</Literal>
+		<Field id="value" />
+		<Field id="cell" />
+		<Field id="idx" />
 		<Row>
 			<Text id="T1">Write</Text>
 			<LineBox id="value" placeholder="0" />
@@ -19,7 +27,15 @@
 			<LineBox id="idx" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="Draw" export="draw {mode} {r|clr|sk|x1|x|rot} {g|y1|y} {b|x2|rw|s|img} {a|y2|h|rd|sz} {prot|x3} {y3}">
+	<Block name="Draw">
+		<Literal>draw</Literal>
+		<Field id="mode" />
+		<FirstOf ids="r clr sk x1 x rot" />
+		<FirstOf ids="g y1 y" />
+		<FirstOf ids="b x2 rw s img" />
+		<FirstOf ids="a y2 h rd sz" />
+		<FirstOf ids="prot x3" />
+		<Field id="y3" />
 		<Row>
 			<Text id="T1">Draw</Text>
 			<Option id="mode">
@@ -85,9 +101,19 @@
 			<LineBox id="prot" placeholder="0" when="mode=poly | mode=linePoly | mode=image" />
 		</Row>
 	</Block>
-	<Block name="Print" export="print {content}">
-		<Export when="txt=true">print "{content}"</Export>
-		<Export when="txt=false">print {content}</Export>
+	<Block name="Print">
+		<Literal>print</Literal>
+		<Field id="content" />
+		<Export when="txt=true">
+			<Literal>print</Literal>
+			<Literal>"</Literal>
+			<Field id="content" glue="true" />
+			<Literal glue="true">"</Literal>
+		</Export>
+		<Export when="txt=false">
+			<Literal>print</Literal>
+			<Field id="content" />
+		</Export>
 		<Row>
 			<Text id="T1">Print</Text>
 			<Text id="T2" when="txt=true">"</Text>
@@ -96,7 +122,9 @@
 			<Button id="txt" text="TXT" />
 		</Row>
 	</Block>
-	<Block name="PrintChar" export="printchar {char}">
+	<Block name="PrintChar">
+		<Literal>printchar</Literal>
+		<Field id="char" />
 		<Row>
 			<Text id="T1">PrintChar</Text>
 			<Option id="char">
@@ -198,9 +226,19 @@
 		</Option>
 		</Row>
 	</Block>
-	<Block name="Format" export="format {content}">
-		<Export when="txt=true">format "{content}"</Export>
-		<Export when="txt=false">format {content}</Export>
+	<Block name="Format">
+		<Literal>format</Literal>
+		<Field id="content" />
+		<Export when="txt=true">
+			<Literal>format</Literal>
+			<Literal>"</Literal>
+			<Field id="content" glue="true" />
+			<Literal glue="true">"</Literal>
+		</Export>
+		<Export when="txt=false">
+			<Literal>format</Literal>
+			<Field id="content" />
+		</Export>
 		<Row>
 			<Text id="T1">Format</Text>
 			<Text id="T2" when="txt=true">"</Text>

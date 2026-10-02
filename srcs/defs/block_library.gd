@@ -108,13 +108,7 @@ func _parse_file(path: String) -> void:
 	var row: BlockDef.RowDef = null
 	var group_condition: ConditionDef = null
 	var variant: BlockDef.ExportVariant = null
-	var pressed_variant: BlockDef.ExportVariant = null
-	# 导出模板：<Export> 里那段文本 / 该模板写进哪个变体（null = 默认模板）
-	var export_text := ""
-	var export_variant: BlockDef.ExportVariant = null
-	var in_export := false
-	var export_has_children := false
-	# 下一个文本节点该写给谁（Text / Item）
+	# 下一个文本节点该写给谁（Text / Item / Literal）
 	var text_target: Variant = null
 	var order := 0
 
@@ -157,38 +151,21 @@ func _parse_file(path: String) -> void:
 								else ConditionDef.all_of([group_condition, condition])
 					"Export":
 						if block != null:
-							export_text = ""
-							in_export = true
-							export_has_children = false
-							if variant != null:
-								export_variant = variant
-							else:
-								var when_text := String(attrs.get("when", "")).strip_edges()
-								if when_text == "":
-									export_variant = null
-								else:
-									var fresh := BlockDef.ExportVariant.new()
-									fresh.condition = _condition_of(block, attrs)
-									fresh.derive_button_from_condition()
-									block.export_variants.append(fresh)
-									export_variant = fresh
+							variant = _start_variant(block, attrs, variant)
 					"Literal":
 						if block != null:
-							export_has_children = true
 							var part := ExportPart.make_literal("")
 							part.space_before = _space_before(attrs)
-							_export_target(block, export_variant if export_variant != null else variant).append(part)
+							_export_target(block, variant).append(part)
 							text_target = part
 					"Field":
 						if block != null:
-							export_has_children = true
 							var field_part := ExportPart.make_field(StringName(attrs.get("id", "")))
 							field_part.space_before = _space_before(attrs)
-							_export_target(block, export_variant if export_variant != null else variant).append(field_part)
+							_export_target(block, variant).append(field_part)
 					"FirstOf":
 						if block != null:
-							export_has_children = true
-							_export_target(block, export_variant if export_variant != null else variant).append(
+							_export_target(block, variant).append(
 								ExportPart.make_first_visible(_ids(String(attrs.get("ids", ""))))
 							)
 					"Item":
@@ -200,10 +177,8 @@ func _parse_file(path: String) -> void:
 							text_target = item
 					"Pressed":
 						variant = _apply_button_state(block, attrs, true)
-						pressed_variant = variant
 					"Released":
 						variant = _apply_button_state(block, attrs, false)
-						pressed_variant = variant
 					"Event":
 						if block != null:
 							action = ActionDef.new()
@@ -242,13 +217,10 @@ func _parse_file(path: String) -> void:
 					if tag == "Option":
 						option_element = null
 			XMLParser.NODE_TEXT:
-				# 结构化子标签（旧写法）优先吃文本；只有"<Export> 里直接写模板"时才累积模板
 				if text_target != null:
 					var text := xml.get_node_data()
 					if text != "":
 						text_target.set_text(text)
-				elif in_export and not export_has_children:
-					export_text += xml.get_node_data()
 			XMLParser.NODE_ELEMENT_END:
 				match xml.get_node_name():
 					"Text", "Item", "Literal":
@@ -260,23 +232,10 @@ func _parse_file(path: String) -> void:
 					"Group":
 						group_condition = null
 					"Export":
-						in_export = false
-						# 结构化子标签（旧写法）已经自己填好了段落，这里不要再覆盖
-						if not export_has_children:
-							var parts := ExportPart.parse_template(export_text.strip_edges())
-							if export_variant != null:
-								export_variant.parts = parts
-							else:
-								block.export_parts = parts
-						export_text = ""
-						export_variant = null
-						export_has_children = false
+						variant = null
 					"Event":
 						action = null
 					"Pressed", "Released":
-						if block != null and pressed_variant != null and not pressed_variant.parts.is_empty():
-							block.export_variants.append(pressed_variant)
-						pressed_variant = null
 						variant = null
 					"Block":
 						if block != null:
@@ -349,7 +308,7 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	var block := BlockDef.new(StringName(attrs.get("name", "")), current_kind.id)
 	block.color = current_kind.color
 	block.order = order
-	block.export_parts = ExportPart.parse_template(String(attrs.get("export", "")).strip_edges())
+	block.export_parts = _legacy_export_parts(String(attrs.get("export", "")))
 	block.behavior_path = String(attrs.get("script", ""))
 	if block.id == &"":
 		warnings.append("存在没有 name 的 <Block>（%s）" % current_kind.id)
@@ -393,22 +352,32 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	return condition
 
 
-## 当前该把导出段写进哪里：处于 <Pressed>/<Released> 内时写进变体，否则写进默认模板。
+func _start_variant(block: BlockDef, attrs: Dictionary, enclosing: BlockDef.ExportVariant) -> BlockDef.ExportVariant:
+	# <Pressed>/<Released> 里嵌套的 <Export>：沿用外层变体
+	if enclosing != null:
+		return enclosing
+	var text := String(attrs.get("when", "")).strip_edges()
+	var variant := BlockDef.ExportVariant.new()
+	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
+	if text != "":
+		var condition := _condition_of(block, attrs)
+		variant.condition = condition
+		variant.derive_button_from_condition()
+		block.export_variants.append(variant)
+		return variant
+	# 没有 when 的块级 <Export>：就是默认模板（替换掉属性写法）
+	if block.export_parts.is_empty():
+		block.export_parts = variant.parts
+	else:
+		warnings.append("%s：同时写了 export 属性与 <Export> 子标签，以子标签为准" % block.id)
+		block.export_parts = variant.parts
+	return null
+
+
 func _export_target(block: BlockDef, variant: BlockDef.ExportVariant) -> Array[ExportPart]:
 	if variant != null:
 		return variant.parts
 	return block.export_parts
-
-
-func _space_before(attrs: Dictionary) -> bool:
-	if attrs.has("glue"):
-		return not _as_bool(attrs.get("glue", "true"))
-	return _as_bool(attrs.get("space_before", "true"))
-
-
-func _as_bool(raw: Variant) -> bool:
-	var text := String(raw).strip_edges().to_lower()
-	return not (text == "false" or text == "0" or text == "no")
 
 
 func _apply_button_state(block: BlockDef, attrs: Dictionary, pressed: bool) -> BlockDef.ExportVariant:
@@ -423,7 +392,10 @@ func _apply_button_state(block: BlockDef, attrs: Dictionary, pressed: bool) -> B
 	else:
 		last.legacy_released = shown
 	# 统一成 when：<Pressed>/<Released> 就是 `开关=true/false` 的导出模板
+	if shown.is_empty() and String(attrs.get("export", "")).strip_edges() == "":
+		return null
 	var variant := BlockDef.ExportVariant.new()
+	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
 	variant.condition = ConditionDef.compare(last.id, ["true" if pressed else "false"])
 	variant.button = last.id
 	variant.pressed = pressed
@@ -509,6 +481,29 @@ func _legacy_button_rule(button: ElementDef, element_id: StringName) -> Conditio
 
 
 #region 杂项
+
+## 旧写法：空格分隔的导出串（字面量不能含空格）。新写法请用 <Export> 子标签。
+func _legacy_export_parts(raw: String) -> Array[ExportPart]:
+	var out: Array[ExportPart] = []
+	var trimmed := raw.strip_edges()
+	if trimmed == "":
+		return out
+	for token in trimmed.split(" ", false):
+		out.append(ExportPart.from_legacy_token(token))
+	return out
+
+
+## `space_before="false"` 或 `glue="true"` 表示本段紧贴上一段（不插空格）。
+func _space_before(attrs: Dictionary) -> bool:
+	if attrs.has("glue"):
+		return not _as_bool(attrs.get("glue", "true"))
+	return _as_bool(attrs.get("space_before", "true"))
+
+
+func _as_bool(raw: Variant) -> bool:
+	var text := String(raw).strip_edges().to_lower()
+	return not (text == "false" or text == "0" or text == "no")
+
 
 func _ids(raw: String) -> Array[StringName]:
 	var out: Array[StringName] = []

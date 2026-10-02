@@ -63,7 +63,7 @@ func new_page(title: StringName, scn: Resource) -> Node:
 ## 新建编辑器页面
 func new_editor() -> LogicEditorTab:
 	var node := self.new_page(tr("File", "main"), self.Editor) as LogicEditorTab
-	if node != null and node.has_signal(&"name_changed"):
+	if node != null:
 		node.name_changed.connect(_on_editor_name_changed.bind(node))
 		_refresh_tab_title(node)
 	return node

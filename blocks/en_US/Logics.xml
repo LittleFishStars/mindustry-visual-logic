@@ -1,34 +1,47 @@
 <Kind name="Logics" color="#4199a8">
-	<Block name="Wait" export="wait {time}">
+	<Block name="Wait">
+		<Literal>wait</Literal>
+		<Field id="time" />
 		<Row>
 			<Text id="T1">Wait</Text>
 			<LineBox id="time" placeholder="0.5" />
 			<Text id="T2">sec</Text>
 		</Row>
 	</Block>
-	<Block name="Stop" export="stop">
+	<Block name="Stop">
+		<Literal>stop</Literal>
 		<Row>
 			<Text id="T">Stop</Text>
 		</Row>
 	</Block>
-	<Block name="End" export="end">
+	<Block name="End">
+		<Literal>end</Literal>
 		<Row>
 			<Text id="T">End</Text>
 		</Row>
 	</Block>
-	<Block name="JumpLabel" export="{label}:">
+	<Block name="JumpLabel">
+		<Field id="label" glue="true" />
+		<Literal glue="true">:</Literal>
 		<Row>
 			<Text id="T1">Label</Text>
 			<LineBox id="label" placeholder="label1" />
 		</Row>
 	</Block>
-	<Block name="Expression" export="# {text}">
+	<Block name="Expression">
+		<Literal>#</Literal>
+		<Field id="text" />
 		<Row>
 			<Text id="T1">Expression</Text>
 			<LineBox id="text" />
 		</Row>
 	</Block>
-	<Block name="Jump" export="jump {target} {cmp} {value1} {value2}">
+	<Block name="Jump">
+		<Literal>jump</Literal>
+		<Field id="target" />
+		<Field id="cmp" />
+		<Field id="value1" />
+		<Field id="value2" />
 		<Row>
 			<Text id="T1">Jump</Text>
 			<LineBox id="target" placeholder="0" />

@@ -1,19 +1,26 @@
 <Kind name="Controls" color="#a15800">
-	<Block name="Drawflush" export="drawflush {display}">
+	<Block name="Drawflush">
+		<Literal>drawflush</Literal>
+		<Field id="display" />
 		<Row>
 			<Text id="T1">Drawflush</Text>
 			<Text id="T2">to</Text>
 			<LineBox id="display" placeholder="display1" />
 		</Row>
 	</Block>
-	<Block name="Printflush" export="printflush {message}">
+	<Block name="Printflush">
+		<Literal>printflush</Literal>
+		<Field id="message" />
 		<Row>
 			<Text id="T1">Printflush</Text>
 			<Text id="T2">to</Text>
 			<LineBox id="message" placeholder="message1" />
 		</Row>
 	</Block>
-	<Block name="GetLink" export="getlink {result} {link}">
+	<Block name="GetLink">
+		<Literal>getlink</Literal>
+		<Field id="result" />
+		<Field id="link" />
 		<Row>
 			<Text id="T1">GetLink</Text>
 			<LineBox id="result" placeholder="result" />
@@ -22,7 +29,14 @@
 			<LineBox id="link" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="Control" export="control {mode} {block} {index|x|unit} {y|shootp} {shoot} 0">
+	<Block name="Control">
+		<Literal>control</Literal>
+		<Field id="mode" />
+		<Field id="block" />
+		<FirstOf ids="index x unit" />
+		<FirstOf ids="y shootp" />
+		<Field id="shoot" />
+		<Literal>0</Literal>
 		<Row>
 			<Text id="T1">Control</Text>
 			<Option id="mode">
@@ -47,7 +61,15 @@
 			<LineBox id="shoot" placeholder="shoot1" when="mode=shoot" />
 		</Row>
 	</Block>
-	<Block name="Radar" export="radar {s1} {s2} {s3} {radar} {turret} {num} {result}">
+	<Block name="Radar">
+		<Literal>radar</Literal>
+		<Field id="s1" />
+		<Field id="s2" />
+		<Field id="s3" />
+		<Field id="radar" />
+		<Field id="turret" />
+		<Field id="num" />
+		<Field id="result" />
 		<Row>
 			<Text id="T1">Radar</Text>
 			<Text id="T2">from</Text>
@@ -97,7 +119,11 @@
 			<LineBox id="result" placeholder="result" />
 		</Row>
 	</Block>
-	<Block name="Sensor" export="sensor {result} {block} {prop}">
+	<Block name="Sensor">
+		<Literal>sensor</Literal>
+		<Field id="result" />
+		<Field id="block" />
+		<Field id="prop" />
 		<Row>
 			<Text id="T1">Sensor</Text>
 			<LineBox id="result" placeholder="result" />
