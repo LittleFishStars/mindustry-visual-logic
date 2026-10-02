@@ -41,6 +41,8 @@ static func render_node(def: BlockDef, node: LogicNode) -> String:
 		var text := _render_part(def, node, part, value_of)
 		if text == "":
 			continue
+		# 模板字符串解析出来的段落 space_before 一律为 false（空格已写进字面量）；
+		# 旧的分段写法则靠 space_before 决定要不要补空格
 		if part.space_before and out != "":
 			out += " "
 		out += text

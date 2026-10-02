@@ -1,8 +1,5 @@
 <Kind name="Operations" color="#644da3">
-	<Block name="Set">
-		<Literal>set</Literal>
-		<Field id="result" />
-		<Field id="value" />
+	<Block name="Set" export="set {result} {value}">
 		<Row>
 			<Text id="T1">Set</Text>
 			<LineBox id="result" placeholder="result" />
@@ -10,12 +7,7 @@
 			<LineBox id="value" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="Operation">
-		<Literal>op</Literal>
-		<Field id="ops" />
-		<Field id="result" />
-		<Field id="a" />
-		<Field id="b" />
+	<Block name="Operation" export="op {ops} {result} {a} {b}">
 		<Row>
 			<Text id="T1">Operation</Text>
 			<LineBox id="result" placeholder="result" />
@@ -70,14 +62,7 @@
 			<LineBox id="b" placeholder="b" />
 		</Row>
 	</Block>
-	<Block name="Select">
-		<Literal>select</Literal>
-		<Field id="result" />
-		<Field id="cmp" />
-		<Field id="x" />
-		<Field id="value" />
-		<Field id="t" />
-		<Field id="f" />
+	<Block name="Select" export="select {result} {cmp} {x} {value} {t} {f}">
 		<Row>
 			<Text id="T1">Select</Text>
 			<LineBox id="result" placeholder="result" />
@@ -103,11 +88,7 @@
 			<LineBox id="f" placeholder="false" />
 		</Row>
 	</Block>
-	<Block name="Lookup">
-		<Literal>lookup</Literal>
-		<Field id="type" />
-		<Field id="result" />
-		<Field id="id" />
+	<Block name="Lookup" export="lookup {type} {result} {id}">
 		<Row>
 			<Text id="T1">Lookup</Text>
 			<LineBox id="result" placeholder="result" />
@@ -124,13 +105,7 @@
 			<LineBox id="id" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="PackColor">
-		<Literal>packcolor</Literal>
-		<Field id="result" />
-		<Field id="r" />
-		<Field id="g" />
-		<Field id="b" />
-		<Field id="a" />
+	<Block name="PackColor" export="packcolor {result} {r} {g} {b} {a}">
 		<Row>
 			<Text id="T1">PackColor</Text>
 			<LineBox id="result" placeholder="result" />
@@ -142,13 +117,7 @@
 			<LineBox id="a" placeholder="1" />
 		</Row>
 	</Block>
-	<Block name="UnpackColor">
-		<Literal>unpackcolor</Literal>
-		<Field id="r" />
-		<Field id="g" />
-		<Field id="b" />
-		<Field id="a" />
-		<Field id="result" />
+	<Block name="UnpackColor" export="unpackcolor {r} {g} {b} {a} {result}">
 		<Row>
 			<Text id="T1">UnpackColor</Text>
 			<LineBox id="r" placeholder="r" />

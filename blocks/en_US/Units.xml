@@ -1,44 +1,21 @@
 <Kind name="Units" color="#b8a269">
-	<Block name="UnitBind">
-		<Literal>ubind</Literal>
-		<Field id="type" />
+	<Block name="UnitBind" export="ubind {type}">
 		<Row>
 			<Text id="T1">UnitBind</Text>
 			<LineBox id="type" placeholder="@unit" />
 		</Row>
 	</Block>
-	<Block name="UnitIdle">
-		<Literal>ucontrol</Literal>
-		<Literal>idle</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitIdle" export="ucontrol idle 0 0 0 0 0">
 		<Row>
 			<Text id="T1">UnitIdle</Text>
 		</Row>
 	</Block>
-	<Block name="UnitStop">
-		<Literal>ucontrol</Literal>
-		<Literal>stop</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitStop" export="ucontrol stop 0 0 0 0 0">
 		<Row>
 			<Text id="T1">UnitStop</Text>
 		</Row>
 	</Block>
-	<Block name="UnitMove">
-		<Literal>ucontrol</Literal>
-		<Field id="mode" />
-		<Field id="x" />
-		<Field id="y" />
-		<Field id="t" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitMove" export="ucontrol {mode} {x} {y} {t} 0 0">
 		<Row>
 			<Text id="T1">UnitMove</Text>
 			<Option id="mode">
@@ -54,27 +31,13 @@
 			<LineBox id="t" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitBoost">
-		<Literal>ucontrol</Literal>
-		<Literal>boost</Literal>
-		<Field id="id" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitBoost" export="ucontrol boost {id} 0 0 0 0">
 		<Row>
 			<Text id="T1">UnitBoost</Text>
 			<LineBox id="id" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitShoot">
-		<Literal>ucontrol</Literal>
-		<Field id="mode" />
-		<Field id="x" />
-		<Field id="y" />
-		<Field id="s" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitShoot" export="ucontrol {mode} {x} {y} {s} 0 0">
 		<Row>
 			<Text id="T1">UnitShoot</Text>
 			<Option id="mode">
@@ -89,14 +52,7 @@
 			<LineBox id="s" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitItem">
-		<Literal>ucontrol</Literal>
-		<Field id="mode" />
-		<Field id="to" />
-		<Field id="amount" />
-		<Field id="ext" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitItem" export="ucontrol {mode} {to} {amount} {ext} 0 0">
 		<Row>
 			<Text id="T1">UnitItem</Text>
 			<Option id="mode">
@@ -110,14 +66,7 @@
 			<LineBox id="ext" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitPay">
-		<Literal>ucontrol</Literal>
-		<Field id="mode" />
-		<Field id="unit" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitPay" export="ucontrol {mode} {unit} 0 0 0 0">
 		<Row>
 			<Text id="T1">UnitPay</Text>
 			<Option id="mode">
@@ -129,14 +78,7 @@
 			<LineBox id="unit" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitMine">
-		<Literal>ucontrol</Literal>
-		<Literal>mine</Literal>
-		<Field id="x" />
-		<Field id="y" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitMine" export="ucontrol mine {x} {y} 0 0 0">
 		<Row>
 			<Text id="T1">UnitMine</Text>
 			<Text id="T2">x</Text>
@@ -145,27 +87,13 @@
 			<LineBox id="y" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitFlag">
-		<Literal>ucontrol</Literal>
-		<Literal>flag</Literal>
-		<Field id="id" />
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitFlag" export="ucontrol flag {id} 0 0 0 0">
 		<Row>
 			<Text id="T1">UnitFlag</Text>
 			<LineBox id="id" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitBuild">
-		<Literal>ucontrol</Literal>
-		<Literal>build</Literal>
-		<Field id="x" />
-		<Field id="y" />
-		<Field id="block" />
-		<Field id="rot" />
-		<Field id="cfg" />
+	<Block name="UnitBuild" export="ucontrol build {x} {y} {block} {rot} {cfg}">
 		<Row>
 			<Text id="T1">UnitBuild</Text>
 			<Text id="T2">x</Text>
@@ -182,14 +110,7 @@
 			<LineBox id="cfg" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitGetblock">
-		<Literal>ucontrol</Literal>
-		<Literal>getBlock</Literal>
-		<Field id="x" />
-		<Field id="y" />
-		<Field id="type" />
-		<Field id="bld" />
-		<Field id="flr" />
+	<Block name="UnitGetblock" export="ucontrol getBlock {x} {y} {type} {bld} {flr}">
 		<Row>
 			<Text id="T1">UnitGetBlock</Text>
 			<Text id="T2">x</Text>
@@ -206,14 +127,7 @@
 			<LineBox id="flr" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitWithin">
-		<Literal>ucontrol</Literal>
-		<Literal>within</Literal>
-		<Field id="x" />
-		<Field id="y" />
-		<Field id="radius" />
-		<Field id="result" />
-		<Literal>0</Literal>
+	<Block name="UnitWithin" export="ucontrol within {x} {y} {radius} {result} 0">
 		<Row>
 			<Text id="T1">UnitWithin</Text>
 			<Text id="T2">x</Text>
@@ -226,27 +140,12 @@
 			<LineBox id="result" placeholder="0" />
 		</Row>
 	</Block>
-	<Block name="UnitUnbind">
-		<Literal>ucontrol</Literal>
-		<Literal>unbind</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
-		<Literal>0</Literal>
+	<Block name="UnitUnbind" export="ucontrol unbind 0 0 0 0 0">
 		<Row>
 			<Text id="T1">UnitUnbind</Text>
 		</Row>
 	</Block>
-	<Block name="UnitRadar">
-		<Literal>uradar</Literal>
-		<Field id="s1" />
-		<Field id="s2" />
-		<Field id="s3" />
-		<Field id="radar" />
-		<Literal>0</Literal>
-		<Field id="num" />
-		<Field id="result" />
+	<Block name="UnitRadar" export="uradar {s1} {s2} {s3} {radar} 0 {num} {result}">
 		<Row>
 			<Text id="T1">UnitRadar</Text>
 			<Text id="T2">target</Text>
@@ -295,16 +194,7 @@
 			<LineBox id="result" placeholder="result" />
 		</Row>
 	</Block>
-	<Block name="UnitLocate">
-		<Literal>ulocate</Literal>
-		<Field id="find" />
-		<Field id="group" />
-		<Field id="enemy" />
-		<Field id="ore" />
-		<Field id="outX" />
-		<Field id="outY" />
-		<Field id="found" />
-		<Field id="building" />
+	<Block name="UnitLocate" export="ulocate {find} {group} {enemy} {ore} {outX} {outY} {found} {building}">
 		<Row>
 			<Text id="T1">UnitLocate</Text>
 			<Option id="find">

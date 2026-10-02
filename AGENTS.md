@@ -83,31 +83,49 @@ assets/
 
 ### 块定义格式（`blocks/{locale}/*.xml`）
 
-向后兼容旧写法（`export="drawflush %display"`），并支持：
+布局与可见性都用**条件**表达，逻辑运算符只有三个：
+
+| 写法 | 含义 |
+|---|---|
+| `when="mode=clear"` | 相等（`!=` 表示不等） |
+| `when="mode=clear|color"` | 同一字段的多取值（`|` 右边是裸取值时沿用左边的字段） |
+| `when="mode=poly|image & txt=true"` | `&` 与 |
+| `when="~(mode=col & txt=true)"` | `~` 非、括号 |
+| `when="find=building & group=enemy"` | 多个字段共同决定 |
+
+字段必须显式写（没有"默认字段"）；`&&` `||` `!` `and` `or` `not` 会被明确拒绝并提示改法。
+拼错字段或取值会在解析时报出来 —— 旧 `show` 白名单是静默失效的。
 
 ```xml
-<Block name="Print">
-  <Text id="T1">Print</Text>
-  <LineBox id="content" placeholder="frog" />     <!-- placeholder 兼作默认值，可用 default 覆盖 -->
-  <Button id="txt" text="TXT">
-    <Pressed show="T1 T2 content T3 txt">
-      <Export>                                     <!-- 导出模板随开关状态切换 -->
-        <Literal>print</Literal><Literal>"</Literal><Field id="content" glue="true" /><Literal glue="true">"</Literal>
-      </Export>
-    </Pressed>
-    <Released show="T1 content txt">
-      <Export><Literal>print</Literal><Field id="content" /></Export>
-    </Released>
-  </Button>
+<Block name="Print" export="print {content}">
+  <Export when="txt=true">print "{content}"</Export>   <!-- 条件化导出模板，第一个成立的优先 -->
+  <Export when="txt=false">print {content}</Export>
+  <Row>                                                <!-- 显式分行（取代 <Br/>） -->
+    <Text id="T1">Print</Text>
+    <Text id="T2" when="txt=true">"</Text>             <!-- 元素自己的生效条件 -->
+    <LineBox id="content" placeholder="frog" />
+    <Text id="T3" when="txt=true">"</Text>
+    <Button id="txt" text="TXT" />
+  </Row>
 </Block>
 ```
 
-- **可见性**：`show="A B !C"` —— 白名单 ∩ 非黑名单；多个 `<Option>`/`<Button>` 的规则取交集。
-- **导出段**：`<Literal>`（可含空格）、`<Field id>`、`<FirstOf ids>`；`glue="true"` 表示紧贴上一段。
+- **导出模板**：模板就是"mlog 那一行长什么样" —— 字面量照原样写（可含空格与引号），
+  取值用 `{字段}`，`{a|b|c}` 取第一个**此刻生效**的字段（都不可用时输出 `0`），
+  需要字面大括号写 `{{` `}}`。默认模板写 `export="…"`，条件化的写 `<Export when="…">…</Export>`。
+- **行**：`<Row [when]>` 显式分行；条件不成立的行**整行不参与布局**（不占位置、不绘制）。
+  `<Group when="…">` 给一串连续元素共享条件（不换行，解析时并入元素条件）。
+- **元素**：`<Text>` / `<LineBox placeholder>` / `<Option>`+`<Item [value]>` / `<Button text>` / `<Selector kind>` / `<Nest>`；
+  条件不成立的元素既不占位置也不显示，但控件不重建（输入焦点不会被打断）。
 - **选择器**：`<Selector id="unit" kind="units" />`，候选取自 `blocks/selectors/{kind}.json`。
-- **事件**：`<Event on="field_changed" field="v"><SetField id="x" value="0" /><SetVisible ids="T1 !T2" /></Event>`；
+- **事件**：`<Event on="field_changed" field="v"><SetField id="x" value="0" /><SetVisible ids="T1 T2" /></Event>`；
   更复杂的交互用 `<Script path="res://…gd" />` 挂行为脚本。
-- **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 就是显示字符、导出字符码）。
+- **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 是显示字符、导出字符码）。
+- **旧写法仍会被解析，但已无人使用**：`<Item show="A B">` / `<Br/>` / `<Pressed>`/`<Released>` /
+  `export="draw %a|b"` 旧占位符 / 结构化 `<Literal>`/`<Field>`/`<FirstOf>` 段落。
+  它们在解析时一律翻译成上面的条件与模板，所以内部只有一种机制；改块定义时不要再用。
+- **改格式时的安全做法**：先 dump 一遍行为快照（每个字段组合的生效元素集合 + 导出结果），
+  改完再 dump 比对 —— 官方迁移就是这么做的（见 git 历史），它抓出过三个"解析零警告但行为已变"的 bug。
 
 ### 扩展点
 

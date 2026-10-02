@@ -61,15 +61,79 @@ static func make_first_visible(field_ids: Array[StringName]) -> ExportPart:
 	return part
 
 
-## 解析旧语法的单个空格片段：`%a` / `%a|b` / 字面量。
-static func from_legacy_token(token: String) -> ExportPart:
-	if token.begins_with("%"):
-		var ids: Array[StringName] = []
-		for piece in token.substr(1).split("|"):
-			if piece != "":
-				ids.append(StringName(piece))
-		return make_first_visible(ids)
-	return make_literal(token)
+## 把模板字符串解析成段落。
+##
+## 模板就是"mlog 那一行长什么样"：字面量原样写（可以含空格与引号），
+## 取值用占位符 `{字段}`；`{a|b|c}` 表示取第一个「此刻生效」的字段的值。
+## 需要字面的大括号时写 `{{` / `}}`。
+## [codeblock]
+## draw {mode} {r|clr|sk|x1|x|rot} {g|y1|y} …
+## print {content}
+## print "{content}"
+## [/codeblock]
+static func parse_template(text: String) -> Array[ExportPart]:
+	var out: Array[ExportPart] = []
+	var buffer := ""
+	var i := 0
+	while i < text.length():
+		var ch := text[i]
+		if ch == "{":
+			if i + 1 < text.length() and text[i + 1] == "{":
+				buffer += "{"
+				i += 2
+				continue
+			if buffer != "":
+				out.append(_template_literal(buffer))
+				buffer = ""
+			var end := text.find("}", i)
+			if end < 0:
+				buffer += text.substr(i)
+				break
+			var ids: Array[StringName] = []
+			for piece in text.substr(i + 1, end - i - 1).split("|", false):
+				var trimmed := piece.strip_edges()
+				if trimmed != "":
+					ids.append(StringName(trimmed))
+			var part := make_first_visible(ids)
+			part.space_before = false
+			out.append(part)
+			i = end + 1
+		elif ch == "}" and i + 1 < text.length() and text[i + 1] == "}":
+			buffer += "}"
+			i += 2
+		else:
+			buffer += ch
+			i += 1
+	if buffer != "":
+		out.append(_template_literal(buffer))
+	return out
+
+
+static func _template_literal(text: String) -> ExportPart:
+	var part := make_literal(text)
+	part.space_before = false
+	return part
+
+
+## 段落 → 模板字符串（迁移用；按 [member space_before] 复原原样的空格）。
+static func to_template(parts: Array[ExportPart]) -> String:
+	var out := ""
+	for part in parts:
+		var text := ""
+		match part.kind:
+			Kind.LITERAL:
+				text = part.literal.replace("{", "{{").replace("}", "}}")
+			Kind.FIELD:
+				text = "{%s}" % String(part.field)
+			_:
+				var names := PackedStringArray()
+				for field_id in part.fields:
+					names.append(String(field_id))
+				text = "{" + "|".join(names) + "}"
+		if part.space_before and out != "":
+			out += " "
+		out += text
+	return out
 
 ## 解析器用它写入标签文本。
 func set_text(value: String) -> void:
