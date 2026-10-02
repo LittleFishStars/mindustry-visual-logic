@@ -11,8 +11,8 @@ extends RefCounted
 ## [codeblock]
 ## when="(mode=col || mode=clear) && !txt"      括号 / 或 / 与 / 非
 ## when="find=building && group=enemy"          多个字段共同决定
-## when="line|rect"                             裸取值列表（与块级 layout-field 比较，等价于或）
-## when="txt"                                   字段为真（Button 按下 / 值非空）
+## when="mode=line | mode=rect"                 或
+## when="txt=true"                              开关按下
 ## when="mode!=col"                             不等
 ## [/codeblock]
 

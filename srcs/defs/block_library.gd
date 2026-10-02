@@ -5,19 +5,18 @@ extends RefCounted
 ##
 ## 布局的存储形态：**显式的行 + 条件**。
 ## [codeblock]
-## <Block name="Draw" layout-field="mode">
+## <Block name="Draw">
 ##   <Row><Text>Draw</Text><Option id="mode">…</Option></Row>
-##   <Row when="clear|color">
+##   <Row when="mode=clear | mode=color">
 ##     <Text>R</Text><LineBox id="r" placeholder="255" />
 ##   </Row>
-##   <Text when="color">A</Text><LineBox id="a" when="color" placeholder="255" />
-##   <LineBox id="prot" when="poly|linePoly|image" placeholder="0" />
+##   <Text when="mode=color">A</Text><LineBox id="a" when="mode=color" placeholder="255" />
+##   <LineBox id="prot" when="mode=poly | mode=linePoly | mode=image" placeholder="0" />
 ## </Block>
 ## [/codeblock]
 ##
 ## - `Row` 显式分行（取代 `<Br/>`）；行与元素都可带 `when`，条件支持 `&` `|` `~` 与括号
 ## - `Group` 给一串连续元素共享一个条件（不换行），解析时并入元素条件
-## - `layout-field` 让裸取值（`when="clear|color"`）默认与它比较
 ## - `Export` 也可带 `when`；旧写法 `<Pressed>/<Released>` 一律翻译成条件
 ## - 旧写法（`<Item show>` / `<Br/>` / `<Pressed show>`）继续可解析，解析时就翻译成条件，
 ##   所以内部只有一种机制
@@ -262,7 +261,6 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	var block := BlockDef.new(StringName(attrs.get("name", "")), current_kind.id)
 	block.color = current_kind.color
 	block.order = order
-	block.layout_field = StringName(attrs.get("layout-field", ""))
 	block.export_parts = _legacy_export_parts(String(attrs.get("export", "")))
 	block.behavior_path = String(attrs.get("script", ""))
 	if block.id == &"":
@@ -299,7 +297,7 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	var text := String(attrs.get("when", "")).strip_edges()
 	if text == "":
 		return null
-	var result := ConditionParser.parse(text, block.layout_field, block)
+	var result := ConditionParser.parse(text, block)
 	for message in (result["errors"] as PackedStringArray):
 		warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
 	for message in (result["warnings"] as PackedStringArray):

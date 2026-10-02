@@ -45,8 +45,6 @@ var color: Color = Color.WHITE
 var elements: Array[ElementDef] = []
 ## 行的分组与行级条件 —— 布局用它。
 var rows: Array[RowDef] = []
-## 裸取值条件默认比较的字段（`<Block layout-field="mode">`，于是可以写 `when="col|clear"`）。
-var layout_field: StringName = &""
 
 var export_parts: Array[ExportPart] = []
 ## 条件化的导出模板：第一个条件成立的优先，都不成立时用 [member export_parts]。

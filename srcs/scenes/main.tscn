@@ -70,8 +70,8 @@ current_tab = 0
 tabs_position = 1
 drag_to_rearrange_enabled = true
 
-[node name="ProjectDialog" type="FileDialog" parent="."]
-title = "保存项目"
+[node name="ProjectDialog" type="FileDialog" parent="." unique_id=203232510]
+title = "Open a File or Directory"
 size = Vector2i(760, 520)
 ok_button_text = "确定"
 file_mode = 3

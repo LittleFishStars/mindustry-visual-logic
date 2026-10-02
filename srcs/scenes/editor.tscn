@@ -1,12 +1,12 @@
-[gd_scene load_steps=6 format=3 uid="uid://c5aww1ajt7842"]
+[gd_scene format=3 uid="uid://c5aww1ajt7842"]
 
 [ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/scripts/editor.gd" id="1_x6qec"]
-[ext_resource type="Script" path="res://srcs/view/editor_canvas.gd" id="2_canvas"]
-[ext_resource type="Script" path="res://srcs/view/editor_camera.gd" id="3_camera"]
-[ext_resource type="Script" path="res://srcs/view/drag_overlay.gd" id="4_overlay"]
-[ext_resource type="Script" path="res://srcs/view/drag_controller.gd" id="5_drag"]
+[ext_resource type="Script" uid="uid://ba61nhstol3lv" path="res://srcs/view/editor_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" uid="uid://b53fyu6tp4klc" path="res://srcs/view/editor_camera.gd" id="3_camera"]
+[ext_resource type="Script" uid="uid://drumj0uuckso4" path="res://srcs/view/drag_overlay.gd" id="4_overlay"]
+[ext_resource type="Script" uid="uid://bo00f80eayfyo" path="res://srcs/view/drag_controller.gd" id="5_drag"]
 
-[node name="Editor" type="Control"]
+[node name="Editor" type="Control" unique_id=614836996]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,7 +15,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_x6qec")
 
-[node name="Split" type="HSplitContainer" parent="."]
+[node name="Split" type="HSplitContainer" parent="." unique_id=834291643]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -25,37 +25,39 @@ grow_vertical = 2
 dragging_enabled = false
 dragger_visibility = 2
 
-[node name="BlockKindList" type="VBoxContainer" parent="Split"]
+[node name="BlockKindList" type="VBoxContainer" parent="Split" unique_id=621628208]
 layout_mode = 2
 
-[node name="EditorSplit" type="HSplitContainer" parent="Split"]
+[node name="EditorSplit" type="HSplitContainer" parent="Split" unique_id=1948171920]
 layout_mode = 2
 theme_override_constants/separation = 0
 theme_override_constants/minimum_grab_thickness = 12
 theme_override_constants/autohide = 0
+split_offsets = PackedInt32Array(260)
 dragger_visibility = 1
 split_offset = 260
 
-[node name="BlockArea" type="ScrollContainer" parent="Split/EditorSplit"]
+[node name="BlockArea" type="ScrollContainer" parent="Split/EditorSplit" unique_id=877662676]
 layout_mode = 2
 
-[node name="EditArea" type="SubViewportContainer" parent="Split/EditorSplit"]
+[node name="EditArea" type="SubViewportContainer" parent="Split/EditorSplit" unique_id=1581555908]
 layout_mode = 2
 stretch = true
 
-[node name="EditSpace" type="SubViewport" parent="Split/EditorSplit/EditArea"]
+[node name="EditSpace" type="SubViewport" parent="Split/EditorSplit/EditArea" unique_id=1231024695]
 handle_input_locally = false
+size = Vector2i(884, 648)
 render_target_update_mode = 4
 script = ExtResource("2_canvas")
 
-[node name="Blocks" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace"]
+[node name="Blocks" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1906459448]
 
-[node name="Overlay" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace"]
+[node name="Overlay" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1892833396]
 z_index = 100
 script = ExtResource("4_overlay")
 
-[node name="Camera" type="Camera2D" parent="Split/EditorSplit/EditArea/EditSpace"]
+[node name="Camera" type="Camera2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1714148892]
 script = ExtResource("3_camera")
 
-[node name="Drag" type="Node" parent="."]
+[node name="Drag" type="Node" parent="." unique_id=65624684]
 script = ExtResource("5_drag")

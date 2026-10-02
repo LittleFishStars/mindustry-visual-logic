@@ -4,8 +4,9 @@ extends RefCounted
 ## `when="…"` 的解析器：小布尔表达式 → [ConditionDef]。
 ##
 ## 只有三个逻辑运算符：`&`（与）、`|`（或）、`~`（非）；优先级 `~` > `&` > `|`。
-## 比较用 `=` / `!=`。`&&`、`||`、`!`、`and`、`or`、`not` 都会被明确拒绝并提示改法，
-## 免得同一件事有两种写法。
+## 比较一律显式写「字段=取值」/「字段!=取值」—— 没有"默认字段"这回事，
+## 于是不存在隐式约定，也不存在"裸字段还是裸取值"的歧义。
+## `&&`、`||`、`!`、`and`、`or`、`not` 会被明确拒绝并提示改法。
 ##
 ## [codeblock]
 ## expr       := or
@@ -13,31 +14,28 @@ extends RefCounted
 ## and        := unary { "&" unary }
 ## unary      := "~" unary | primary
 ## primary    := "(" expr ")" | comparison
-## comparison := FIELD ( ("=" | "!=") VALUE )?
-##             | VALUE                     # 仅当块里声明了 layout-field
+## comparison := FIELD ("=" | "!=") VALUE
 ## [/codeblock]
 ##
 ## 解析失败不抛异常：返回恒真条件，把原因写进 `errors`（编辑器可以就地提示），
 ## 而不是像旧的 `show` 白名单那样拼错就静默失效。
 
 ## 结果字典：{"condition": ConditionDef, "errors": PackedStringArray, "warnings": PackedStringArray}
-static func parse(text: String, layout_field: StringName = &"", def: BlockDef = null) -> Dictionary:
+static func parse(text: String, def: BlockDef = null) -> Dictionary:
 	var parser := ConditionParser.new()
-	return parser._run(text, layout_field, def)
+	return parser._run(text, def)
 
 
 var _tokens: Array[Dictionary] = []
 var _index: int = 0
 var _source: String = ""
-var _layout_field: StringName = &""
 var _def: BlockDef = null
 var _errors := PackedStringArray()
 var _warnings := PackedStringArray()
 
 
-func _run(text: String, layout_field: StringName, def: BlockDef) -> Dictionary:
+func _run(text: String, def: BlockDef) -> Dictionary:
 	_source = text
-	_layout_field = layout_field
 	_def = def
 	_index = 0
 	_errors = PackedStringArray()
@@ -165,24 +163,16 @@ func _parse_comparison() -> ConditionDef:
 		_index += 1
 		return ConditionDef.always()
 	var first := String(_advance()["text"])
-	if _peek_kind() == "=" or _peek_kind() == "!=":
-		var negated := _peek_kind() == "!="
-		_index += 1
-		var value_token := _peek()
-		if value_token.is_empty() or String(value_token.get("kind", "")) != "word":
-			_error("比较符后面缺少取值")
-			return ConditionDef.always()
-		return _validate_compare(first, String(_advance()["text"]), negated)
-	# 没有比较符：要么是"字段为真"，要么是 layout-field 的裸取值
-	if _layout_field != &"" and not _is_field(first):
-		return _validate_compare(String(_layout_field), first, false)
-	if _layout_field != &"" and _is_field(first) and _is_layout_value(first):
-		_warnings.append("`%s` 既是字段名也是 %s 的取值，这里按字段处理；需要比较取值请写 `%s=%s`"
-			% [first, String(_layout_field), String(_layout_field), first])
-	if _def != null and not _is_field(first):
-		_error("未知字段：%s" % first)
+	if _peek_kind() != "=" and _peek_kind() != "!=":
+		_error("条件要写成「字段=取值」（例如 mode=clear 或 txt=true），`%s` 后面缺比较符" % first)
 		return ConditionDef.always()
-	return ConditionDef.compare(StringName(first), [], false)
+	var negated := _peek_kind() == "!="
+	_index += 1
+	var value_token := _peek()
+	if value_token.is_empty() or String(value_token.get("kind", "")) != "word":
+		_error("比较符后面缺少取值")
+		return ConditionDef.always()
+	return _validate_compare(first, String(_advance()["text"]), negated)
 
 #endregion
 
@@ -214,18 +204,6 @@ func _is_field(name: String) -> bool:
 	if _def == null:
 		return true
 	return _def.element(StringName(name)) != null
-
-
-func _is_layout_value(name: String) -> bool:
-	if _def == null or _layout_field == &"":
-		return false
-	var element := _def.element(_layout_field)
-	if element == null:
-		return false
-	for item in element.items:
-		if item.value_or_text() == name:
-			return true
-	return false
 
 
 static func _join_ids(ids: Array[StringName]) -> String:
