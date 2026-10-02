@@ -50,6 +50,8 @@ var export_parts: Array[ExportPart] = []
 ## 条件化的导出模板：第一个条件成立的优先，都不成立时用 [member export_parts]。
 var export_variants: Array[ExportVariant] = []
 var actions: Array[ActionDef] = []
+## 解析期收集的条件（整块解析完再统一校验字段与取值）
+var pending_conditions: Array[Dictionary] = []
 ## 行为脚本路径（可选），用于旧实现里只能硬编码的自定义交互。
 var behavior_path: String = ""
 var behavior: Script = null

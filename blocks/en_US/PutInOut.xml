@@ -1,106 +1,134 @@
-<Kind name="PutInOut" color="#998E6E">
-	<Block name="Read" export="read %result %cell %idx">
-		<Text id="T1">Read</Text>
-		<LineBox id="result" placeholder="result" />
-		<Text id="T2">=</Text>
-		<LineBox id="cell" placeholder="cell1" />
-		<Text id="T3">at</Text>
-		<LineBox id="idx" placeholder="0" />
+<Kind name="PutInOut" color="#998e6e">
+	<Block name="Read">
+		<Literal>read</Literal>
+		<Field id="result" />
+		<Field id="cell" />
+		<Field id="idx" />
+		<Row>
+			<Text id="T1">Read</Text>
+			<LineBox id="result" placeholder="result" />
+			<Text id="T2">=</Text>
+			<LineBox id="cell" placeholder="cell1" />
+			<Text id="T3">at</Text>
+			<LineBox id="idx" placeholder="0" />
+		</Row>
 	</Block>
-	<Block name="Write" export="write %value %cell %idx">
-		<Text id="T1">Write</Text>
-		<LineBox id="value" placeholder="0" />
-		<Text id="T2">to</Text>
-		<LineBox id="cell" placeholder="cell1" />
-		<Text id="T3">at</Text>
-		<LineBox id="idx" placeholder="0" />
+	<Block name="Write">
+		<Literal>write</Literal>
+		<Field id="value" />
+		<Field id="cell" />
+		<Field id="idx" />
+		<Row>
+			<Text id="T1">Write</Text>
+			<LineBox id="value" placeholder="0" />
+			<Text id="T2">to</Text>
+			<LineBox id="cell" placeholder="cell1" />
+			<Text id="T3">at</Text>
+			<LineBox id="idx" placeholder="0" />
+		</Row>
 	</Block>
-	<Block name="Draw" export="draw %mode %r|clr|sk|x1|x|rot %g|y1|y %b|x2|rw|s|img %a|y2|h|rd|sz %prot|x3 %y3">
-		<Text id="T1">Draw</Text>
-		<Option id="mode" default="0">
-			<Item show="T1 mode Tr r Tg g Tb b">clear</Item>
-			<Item show="T1 mode Tr r Tg g Tb b Ta a">color</Item>
-			<Item show="T1 mode Tclr clr">col</Item>
-			<Item show="T1 mode Tsk sk">stroke</Item>
-			<Item show="T1 mode Tx1 x1 Ty1 y1 Tx2 x2 Ty2 y2">line</Item>
-			<Item show="T1 mode Tx x Ty y Trw rw Th h">rect</Item>
-			<Item show="T1 mode Tx x Ty y Trw rw Th h">lineRect</Item>
-			<Item show="T1 mode Tx x Ty y Ts s Trd rd Trot prot">poly</Item>
-			<Item show="T1 mode Tx x Ty y Ts s Trd rd Trot prot">linePoly</Item>
-			<Item show="T1 mode Tx1 x1 Ty1 y1 Tx2 x2 Ty2 y2 Tx3 x3 Ty3 y3">triangle</Item>
-			<Item show="T1 mode Tx x Ty y Timg img Tsz sz Trot prot">image</Item>
-			<Item show="T1 mode">print</Item>
-			<Item show="T1 mode Tx x Ty y">translate</Item>
-			<Item show="T1 mode Tx x Ty y">scale</Item>
-			<Item show="T1 mode Trot rot">rotate</Item>
-			<Item show="T1 mode">reset</Item>
+	<Block name="Draw">
+		<Literal>draw</Literal>
+		<Field id="mode" />
+		<FirstOf ids="r clr sk x1 x rot" />
+		<FirstOf ids="g y1 y" />
+		<FirstOf ids="b x2 rw s img" />
+		<FirstOf ids="a y2 h rd sz" />
+		<FirstOf ids="prot x3" />
+		<Field id="y3" />
+		<Row>
+			<Text id="T1">Draw</Text>
+			<Option id="mode">
+			<Item>clear</Item>
+			<Item>color</Item>
+			<Item>col</Item>
+			<Item>stroke</Item>
+			<Item>line</Item>
+			<Item>rect</Item>
+			<Item>lineRect</Item>
+			<Item>poly</Item>
+			<Item>linePoly</Item>
+			<Item>triangle</Item>
+			<Item>image</Item>
+			<Item>print</Item>
+			<Item>translate</Item>
+			<Item>scale</Item>
+			<Item>rotate</Item>
+			<Item>reset</Item>
 		</Option>
-		<Text id="Tr">r</Text>
-		<LineBox id="r" placeholder="255" />
-		<Text id="Tg">g</Text>
-		<LineBox id="g" placeholder="0" />
-		<Text id="Tb">b</Text>
-		<LineBox id="b" placeholder="255" />
-		<Text id="Ta">a</Text>
-		<LineBox id="a" placeholder="255" />
-		<Text id="Tclr">color</Text>
-		<LineBox id="clr" placeholder="0" />
-		<Text id="Tsk">stroke</Text>
-		<LineBox id="sk" placeholder="0" />
-		<Text id="Tx1">x1</Text>
-		<LineBox id="x1" placeholder="0" />
-		<Text id="Ty1">y1</Text>
-		<LineBox id="y1" placeholder="0" />
-		<Text id="Tx2">x2</Text>
-		<LineBox id="x2" placeholder="0" />
-		<Text id="Ty2">y2</Text>
-		<LineBox id="y2" placeholder="0" />
-		<Text id="Tx">x</Text>
-		<LineBox id="x" placeholder="0" />
-		<Text id="Ty">y</Text>
-		<LineBox id="y" placeholder="0" />
-		<Text id="Trw">width</Text>
-		<LineBox id="rw" placeholder="0" />
-		<Text id="Th">height</Text>
-		<LineBox id="h" placeholder="0" />
-		<Text id="Ts">sides</Text>
-		<LineBox id="s" placeholder="4" />
-		<Text id="Trd">radius</Text>
-		<LineBox id="rd" placeholder="0" />
-		<Text id="Tx3">x3</Text>
-		<LineBox id="x3" placeholder="0" />
-		<Text id="Ty3">y3</Text>
-		<LineBox id="y3" placeholder="0" />
-		<Text id="Timg">image</Text>
-		<LineBox id="img" placeholder="@copper" />
-		<Text id="Tsz">size</Text>
-		<LineBox id="sz" placeholder="32" />
-		<Text id="Trot">rotation</Text>
-		<LineBox id="rot" placeholder="0" />
-		<LineBox id="prot" placeholder="0" />
+			<Text id="Tr" when="mode=clear | mode=color">r</Text>
+			<LineBox id="r" placeholder="255" when="mode=clear | mode=color" />
+			<Text id="Tg" when="mode=clear | mode=color">g</Text>
+			<LineBox id="g" placeholder="0" when="mode=clear | mode=color" />
+			<Text id="Tb" when="mode=clear | mode=color">b</Text>
+			<LineBox id="b" placeholder="255" when="mode=clear | mode=color" />
+			<Text id="Ta" when="mode=color">a</Text>
+			<LineBox id="a" placeholder="255" when="mode=color" />
+			<Text id="Tclr" when="mode=col">color</Text>
+			<LineBox id="clr" placeholder="0" when="mode=col" />
+			<Text id="Tsk" when="mode=stroke">stroke</Text>
+			<LineBox id="sk" placeholder="0" when="mode=stroke" />
+			<Text id="Tx1" when="mode=line | mode=triangle">x1</Text>
+			<LineBox id="x1" placeholder="0" when="mode=line | mode=triangle" />
+			<Text id="Ty1" when="mode=line | mode=triangle">y1</Text>
+			<LineBox id="y1" placeholder="0" when="mode=line | mode=triangle" />
+			<Text id="Tx2" when="mode=line | mode=triangle">x2</Text>
+			<LineBox id="x2" placeholder="0" when="mode=line | mode=triangle" />
+			<Text id="Ty2" when="mode=line | mode=triangle">y2</Text>
+			<LineBox id="y2" placeholder="0" when="mode=line | mode=triangle" />
+			<Text id="Tx" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale">x</Text>
+			<LineBox id="x" placeholder="0" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale" />
+			<Text id="Ty" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale">y</Text>
+			<LineBox id="y" placeholder="0" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale" />
+			<Text id="Trw" when="mode=rect | mode=lineRect">width</Text>
+			<LineBox id="rw" placeholder="0" when="mode=rect | mode=lineRect" />
+			<Text id="Th" when="mode=rect | mode=lineRect">height</Text>
+			<LineBox id="h" placeholder="0" when="mode=rect | mode=lineRect" />
+			<Text id="Ts" when="mode=poly | mode=linePoly">sides</Text>
+			<LineBox id="s" placeholder="4" when="mode=poly | mode=linePoly" />
+			<Text id="Trd" when="mode=poly | mode=linePoly">radius</Text>
+			<LineBox id="rd" placeholder="0" when="mode=poly | mode=linePoly" />
+			<Text id="Tx3" when="mode=triangle">x3</Text>
+			<LineBox id="x3" placeholder="0" when="mode=triangle" />
+			<Text id="Ty3" when="mode=triangle">y3</Text>
+			<LineBox id="y3" placeholder="0" when="mode=triangle" />
+			<Text id="Timg" when="mode=image">image</Text>
+			<LineBox id="img" placeholder="@copper" when="mode=image" />
+			<Text id="Tsz" when="mode=image">size</Text>
+			<LineBox id="sz" placeholder="32" when="mode=image" />
+			<Text id="Trot" when="mode=poly | mode=linePoly | mode=image | mode=rotate">rotation</Text>
+			<LineBox id="rot" placeholder="0" when="mode=rotate" />
+			<LineBox id="prot" placeholder="0" when="mode=poly | mode=linePoly | mode=image" />
+		</Row>
 	</Block>
-	<Block name="Print" export="print %content">
-		<Text id="T1">Print</Text>
-		<Text id="T2">"</Text>
-		<LineBox id="content" placeholder="frog" />
-		<Text id="T3">"</Text>
-		<Button id="txt" text="TXT">
-			<Pressed show="T1 T2 content T3 txt">
-				<Export>
-					<Literal>print</Literal><Literal>"</Literal><Field id="content" glue="true" /><Literal glue="true">"</Literal>
-				</Export>
-			</Pressed>
-			<Released show="T1 content txt">
-				<Export>
-					<Literal>print</Literal><Field id="content" />
-				</Export>
-			</Released>
-		</Button>
+	<Block name="Print">
+		<Literal>print</Literal>
+		<Field id="content" />
+		<Export when="txt=true">
+			<Literal>print</Literal>
+			<Literal>"</Literal>
+			<Field id="content" glue="true" />
+			<Literal glue="true">"</Literal>
+		</Export>
+		<Export when="txt=false">
+			<Literal>print</Literal>
+			<Field id="content" />
+		</Export>
+		<Row>
+			<Text id="T1">Print</Text>
+			<Text id="T2" when="txt=true">"</Text>
+			<LineBox id="content" placeholder="frog" />
+			<Text id="T3" when="txt=true">"</Text>
+			<Button id="txt" text="TXT" />
+		</Row>
 	</Block>
-	<Block name="PrintChar" export="printchar %char">
-		<Text id="T1">PrintChar</Text>
-		<Option id="char" default="0">
-			<Item value="32"> </Item>
+	<Block name="PrintChar">
+		<Literal>printchar</Literal>
+		<Field id="char" />
+		<Row>
+			<Text id="T1">PrintChar</Text>
+			<Option id="char">
+			<Item value="32"></Item>
 			<Item value="33">!</Item>
 			<Item value="34">"</Item>
 			<Item value="35">#</Item>
@@ -195,24 +223,28 @@
 			<Item value="124">|</Item>
 			<Item value="125">}</Item>
 			<Item value="126">~</Item>
-        </Option>
-    </Block>
-	<Block name="Format" export="format %content">
-		<Text id="T1">Format</Text>
-		<Text id="T2">"</Text>
-		<LineBox id="content" placeholder="frog" />
-		<Text id="T3">"</Text>
-		<Button id="txt" text="TXT">
-			<Pressed show="T1 T2 content T3 txt">
-                <Export>
-					<Literal>format</Literal><Literal>"</Literal><Field id="content" glue="true" /><Literal glue="true">"</Literal>
-                </Export>
-            </Pressed>
-			<Released show="T1 content txt">
-                <Export>
-					<Literal>format</Literal><Field id="content" />
-                </Export>
-            </Released>
-        </Button>
-    </Block>
+		</Option>
+		</Row>
+	</Block>
+	<Block name="Format">
+		<Literal>format</Literal>
+		<Field id="content" />
+		<Export when="txt=true">
+			<Literal>format</Literal>
+			<Literal>"</Literal>
+			<Field id="content" glue="true" />
+			<Literal glue="true">"</Literal>
+		</Export>
+		<Export when="txt=false">
+			<Literal>format</Literal>
+			<Field id="content" />
+		</Export>
+		<Row>
+			<Text id="T1">Format</Text>
+			<Text id="T2" when="txt=true">"</Text>
+			<LineBox id="content" placeholder="frog" />
+			<Text id="T3" when="txt=true">"</Text>
+			<Button id="txt" text="TXT" />
+		</Row>
+	</Block>
 </Kind>

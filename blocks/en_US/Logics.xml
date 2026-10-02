@@ -1,30 +1,53 @@
-<Kind name="Logics" color="#4199A8">
-	<Block name="Wait" export="wait %time">
-		<Text id="T1">Wait</Text>
-		<LineBox id="time" placeholder="0.5" />
-		<Text id="T2">sec</Text>
+<Kind name="Logics" color="#4199a8">
+	<Block name="Wait">
+		<Literal>wait</Literal>
+		<Field id="time" />
+		<Row>
+			<Text id="T1">Wait</Text>
+			<LineBox id="time" placeholder="0.5" />
+			<Text id="T2">sec</Text>
+		</Row>
 	</Block>
-	<Block name="Stop" export="stop">
-		<Text id="T">Stop</Text>
+	<Block name="Stop">
+		<Literal>stop</Literal>
+		<Row>
+			<Text id="T">Stop</Text>
+		</Row>
 	</Block>
-	<Block name="End" export="end">
-		<Text id="T">End</Text>
+	<Block name="End">
+		<Literal>end</Literal>
+		<Row>
+			<Text id="T">End</Text>
+		</Row>
 	</Block>
 	<Block name="JumpLabel">
-		<Text id="T1">Label</Text>
-		<LineBox id="label" placeholder="label1" />
-		<Export><Field id="label" space_before="false" /><Literal glue="true">:</Literal></Export>
+		<Field id="label" glue="true" />
+		<Literal glue="true">:</Literal>
+		<Row>
+			<Text id="T1">Label</Text>
+			<LineBox id="label" placeholder="label1" />
+		</Row>
 	</Block>
-	<Block name="Expression" export="# %text">
-		<Text id="T1">Expression</Text>
-		<LineBox id="text" placeholder="" />
+	<Block name="Expression">
+		<Literal>#</Literal>
+		<Field id="text" />
+		<Row>
+			<Text id="T1">Expression</Text>
+			<LineBox id="text" />
+		</Row>
 	</Block>
-	<Block name="Jump" export="jump %target %cmp %value1 %value2">
-		<Text id="T1">Jump</Text>
-		<LineBox id="target" placeholder="0" />
-		<Text id="T2">if</Text>
-		<LineBox id="value1" placeholder="x" />
-		<Option id="cmp" default="0">
+	<Block name="Jump">
+		<Literal>jump</Literal>
+		<Field id="target" />
+		<Field id="cmp" />
+		<Field id="value1" />
+		<Field id="value2" />
+		<Row>
+			<Text id="T1">Jump</Text>
+			<LineBox id="target" placeholder="0" />
+			<Text id="T2">if</Text>
+			<LineBox id="value1" placeholder="x" />
+			<Option id="cmp">
 			<Item>equal</Item>
 			<Item>notEqual</Item>
 			<Item>lessThan</Item>
@@ -34,12 +57,14 @@
 			<Item>strictEqual</Item>
 			<Item>always</Item>
 		</Option>
-		<LineBox id="value2" placeholder="false" />
+			<LineBox id="value2" placeholder="false" />
+		</Row>
 	</Block>
-	<Block name="If" export="">
-		<Text id="T1">If</Text>
-		<LineBox id="a" placeholder="a" />
-		<Option id="cmp" default="0">
+	<Block name="If">
+		<Row>
+			<Text id="T1">If</Text>
+			<LineBox id="a" placeholder="a" />
+			<Option id="cmp">
 			<Item>equal</Item>
 			<Item>notEqual</Item>
 			<Item>lessThan</Item>
@@ -49,7 +74,8 @@
 			<Item>strictEqual</Item>
 			<Item>always</Item>
 		</Option>
-		<LineBox id="b" placeholder="b" />
-		<Nest id="nest" />
+			<LineBox id="b" placeholder="b" />
+			<Nest id="nest" />
+		</Row>
 	</Block>
 </Kind>

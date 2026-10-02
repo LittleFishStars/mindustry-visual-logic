@@ -240,6 +240,7 @@ func _parse_file(path: String) -> void:
 					"Block":
 						if block != null:
 							_translate_legacy_visibility(block)
+							_validate_conditions(block)
 							block.build_index()
 						block = null
 					"Kind":
@@ -248,6 +249,52 @@ func _parse_file(path: String) -> void:
 	if block != null:
 		_translate_legacy_visibility(block)
 		block.build_index()
+
+
+## 整块解析完后统一校验条件（字段是否存在、取值是否合法）。
+func _validate_conditions(block: BlockDef) -> void:
+	for entry in block.pending_conditions:
+		_validate_condition(block, String(entry["text"]), entry["condition"])
+	block.pending_conditions.clear()
+
+
+func _validate_condition(block: BlockDef, text: String, condition: ConditionDef) -> void:
+	if condition == null:
+		return
+	if condition.kind == ConditionDef.Kind.COMPARE:
+		if condition.field == &"":
+			return
+		var element := block.element(condition.field)
+		if element == null:
+			warnings.append("%s：when=\"%s\" —— 未知字段：%s（本块字段：%s）"
+				% [block.id, text, String(condition.field), _join_ids(block.field_ids())])
+			return
+		match element.type:
+			&"Option":
+				var legal := PackedStringArray()
+				for item in element.items:
+					legal.append(item.value_or_text())
+				for value in condition.values:
+					if not legal.has(value):
+						warnings.append("%s：when=\"%s\" —— 字段 %s 没有取值 `%s`（合法值：%s）"
+							% [block.id, text, String(condition.field), value, ", ".join(legal)])
+			&"Button":
+				for value in condition.values:
+					if value != "true" and value != "false":
+						warnings.append("%s：when=\"%s\" —— 开关 %s 只能与 true / false 比较（实际 `%s`）"
+							% [block.id, text, String(condition.field), value])
+		return
+	for child in condition.children:
+		_validate_condition(block, text, child)
+	if condition.child != null:
+		_validate_condition(block, text, condition.child)
+
+
+static func _join_ids(ids: Array[StringName]) -> String:
+	var parts := PackedStringArray()
+	for id in ids:
+		parts.append(String(id))
+	return ", ".join(parts)
 
 
 func _start_row(block: BlockDef, condition: ConditionDef) -> BlockDef.RowDef:
@@ -297,12 +344,12 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	var text := String(attrs.get("when", "")).strip_edges()
 	if text == "":
 		return null
-	var result := ConditionParser.parse(text, block)
-	for message in (result["errors"] as PackedStringArray):
-		warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
-	for message in (result["warnings"] as PackedStringArray):
-		warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
-	return result["condition"]
+	# 不在解析中途校验：条件可能引用本块后面才声明的字段（<Export when> 通常写在元素前），
+	# 那时校验会把合法条件误判成"未知字段"并丢弃 —— 校验推迟到整块解析完（_validate_conditions）
+	var result := ConditionParser.parse(text)
+	var condition: ConditionDef = result["condition"]
+	block.pending_conditions.append({"text": text, "condition": condition})
+	return condition
 
 
 func _start_variant(block: BlockDef, attrs: Dictionary, enclosing: BlockDef.ExportVariant) -> BlockDef.ExportVariant:
@@ -386,9 +433,15 @@ func _translate_legacy_visibility(block: BlockDef) -> void:
 		for element in block.elements:
 			var rules: Array[ConditionDef] = []
 			for option in options:
-				rules.append(_legacy_option_rule(option, element.id))
+				var option_rule := _legacy_option_rule(option, element.id)
+				if option_rule != null:
+					rules.append(option_rule)
 			for button in buttons:
-				rules.append(_legacy_button_rule(button, element.id))
+				var button_rule := _legacy_button_rule(button, element.id)
+				if button_rule != null:
+					rules.append(button_rule)
+			if rules.is_empty():
+				continue
 			var rule := ConditionDef.all_of(rules)
 			if element.condition == null:
 				element.condition = rule
@@ -401,18 +454,27 @@ func _translate_legacy_visibility(block: BlockDef) -> void:
 func _legacy_option_rule(option: ElementDef, element_id: StringName) -> ConditionDef:
 	var branches: Array[ConditionDef] = []
 	for item in option.items:
-		var selected := ConditionDef.compare(option.id, [item.value_or_text()])
 		if item.legacy_show.is_empty() or item.legacy_show.has(element_id):
-			branches.append(selected)
+			branches.append(ConditionDef.compare(option.id, [item.value_or_text()]))
+	# 每个取值都显示它 = 这条来源不构成限制（避免写出"16 项或"这种同义反复）
+	if branches.size() == option.items.size():
+		return null
 	return ConditionDef.any_of(branches)
 
 
 func _legacy_button_rule(button: ElementDef, element_id: StringName) -> ConditionDef:
 	var branches: Array[ConditionDef] = []
+	var total := 0
 	if button.legacy_released.is_empty() or button.legacy_released.has(element_id):
 		branches.append(ConditionDef.compare(button.id, ["false"]))
+	if button.legacy_released.is_empty() or button.legacy_released.has(element_id):
+		total += 1
 	if button.legacy_pressed.is_empty() or button.legacy_pressed.has(element_id):
 		branches.append(ConditionDef.compare(button.id, ["true"]))
+	if button.legacy_pressed.is_empty() or button.legacy_pressed.has(element_id):
+		total += 1
+	if total == 2:
+		return null
 	return ConditionDef.any_of(branches)
 
 #endregion

@@ -1,49 +1,80 @@
-<Kind name="Controls" color="#A15800">
-	<Block name="Drawflush" export="drawflush %display">
-		<Text id="T1">Drawflush</Text>
-		<Text id="T2">to</Text>
-		<LineBox id="display" placeholder="display1" />
+<Kind name="Controls" color="#a15800">
+	<Block name="Drawflush">
+		<Literal>drawflush</Literal>
+		<Field id="display" />
+		<Row>
+			<Text id="T1">Drawflush</Text>
+			<Text id="T2">to</Text>
+			<LineBox id="display" placeholder="display1" />
+		</Row>
 	</Block>
-	<Block name="Printflush" export="printflush %message">
-		<Text id="T1">Printflush</Text>
-		<Text id="T2">to</Text>
-		<LineBox id="message" placeholder="message1" />
+	<Block name="Printflush">
+		<Literal>printflush</Literal>
+		<Field id="message" />
+		<Row>
+			<Text id="T1">Printflush</Text>
+			<Text id="T2">to</Text>
+			<LineBox id="message" placeholder="message1" />
+		</Row>
 	</Block>
-	<Block name="GetLink" export="getlink %result %link">
-		<Text id="T1">GetLink</Text>
-		<LineBox id="result" placeholder="result" />
-		<Text id="T2">=</Text>
-		<Text id="T3">link#</Text>
-		<LineBox id="link" placeholder="0" />
+	<Block name="GetLink">
+		<Literal>getlink</Literal>
+		<Field id="result" />
+		<Field id="link" />
+		<Row>
+			<Text id="T1">GetLink</Text>
+			<LineBox id="result" placeholder="result" />
+			<Text id="T2">=</Text>
+			<Text id="T3">link#</Text>
+			<LineBox id="link" placeholder="0" />
+		</Row>
 	</Block>
-	<Block name="Control" export="control %mode %block %index|x|unit %y|shootp %shoot 0">
-		<Text id="T1">Control</Text>
-		<Option id="mode" default="0">
-			<Item show="T1 mode T2 block T3 index">enabled</Item>
-			<Item show="T1 mode T2 block T4 x T5 y T7 shoot">shoot</Item>
-			<Item show="T1 mode T2 block T6 unit T7 shootp">shootp</Item>
-			<Item show="T1 mode T2 block T3 index">config</Item>
-			<Item show="T1 mode T2 block T3 index">color</Item>
+	<Block name="Control">
+		<Literal>control</Literal>
+		<Field id="mode" />
+		<Field id="block" />
+		<FirstOf ids="index x unit" />
+		<FirstOf ids="y shootp" />
+		<Field id="shoot" />
+		<Literal>0</Literal>
+		<Row>
+			<Text id="T1">Control</Text>
+			<Option id="mode">
+			<Item>enabled</Item>
+			<Item>shoot</Item>
+			<Item>shootp</Item>
+			<Item>config</Item>
+			<Item>color</Item>
 		</Option>
-		<Text id="T2">of</Text>
-		<LineBox id="block" placeholder="block1" />
-		<Text id="T3">to</Text>
-		<LineBox id="index" placeholder="index1" />
-		<Text id="T4">x</Text>
-		<LineBox id="x" placeholder="x1" />
-		<Text id="T5">y</Text>
-		<LineBox id="y" placeholder="y1" />
-		<Text id="T6">unit</Text>
-		<LineBox id="unit" placeholder="unit1" />
-		<Text id="T7">shoot</Text>
-		<LineBox id="shootp" placeholder="shoot1" />
-		<LineBox id="shoot" placeholder="shoot1" />
+			<Text id="T2">of</Text>
+			<LineBox id="block" placeholder="block1" />
+			<Text id="T3" when="mode=enabled | mode=config | mode=color">to</Text>
+			<LineBox id="index" placeholder="index1" when="mode=enabled | mode=config | mode=color" />
+			<Text id="T4" when="mode=shoot">x</Text>
+			<LineBox id="x" placeholder="x1" when="mode=shoot" />
+			<Text id="T5" when="mode=shoot">y</Text>
+			<LineBox id="y" placeholder="y1" when="mode=shoot" />
+			<Text id="T6" when="mode=shootp">unit</Text>
+			<LineBox id="unit" placeholder="unit1" when="mode=shootp" />
+			<Text id="T7" when="mode=shoot | mode=shootp">shoot</Text>
+			<LineBox id="shootp" placeholder="shoot1" when="mode=shootp" />
+			<LineBox id="shoot" placeholder="shoot1" when="mode=shoot" />
+		</Row>
 	</Block>
-	<Block name="Radar" export="radar %s1 %s2 %s3 %radar %turret %num %result">
-		<Text id="T1">Radar</Text>
-		<Text id="T2">from</Text>
-		<LineBox id="turret" placeholder="turret1" />
-		<Option id="s1" default="0">
+	<Block name="Radar">
+		<Literal>radar</Literal>
+		<Field id="s1" />
+		<Field id="s2" />
+		<Field id="s3" />
+		<Field id="radar" />
+		<Field id="turret" />
+		<Field id="num" />
+		<Field id="result" />
+		<Row>
+			<Text id="T1">Radar</Text>
+			<Text id="T2">from</Text>
+			<LineBox id="turret" placeholder="turret1" />
+			<Option id="s1">
 			<Item>any</Item>
 			<Item>enemy</Item>
 			<Item>ally</Item>
@@ -53,7 +84,7 @@
 			<Item>boss</Item>
 			<Item>ground</Item>
 		</Option>
-		<Option id="s2" default="0">
+			<Option id="s2">
 			<Item>any</Item>
 			<Item>enemy</Item>
 			<Item>ally</Item>
@@ -63,7 +94,7 @@
 			<Item>boss</Item>
 			<Item>ground</Item>
 		</Option>
-		<Option id="s3" default="0">
+			<Option id="s3">
 			<Item>any</Item>
 			<Item>enemy</Item>
 			<Item>ally</Item>
@@ -73,26 +104,34 @@
 			<Item>boss</Item>
 			<Item>ground</Item>
 		</Option>
-		<Br />
-		<Text id="T3">order</Text>
-		<LineBox id="num" placeholder="1" />
-		<Text id="T4">sort</Text>
-		<Option id="radar" default="0">
+		</Row>
+		<Row>
+			<Text id="T3">order</Text>
+			<LineBox id="num" placeholder="1" />
+			<Text id="T4">sort</Text>
+			<Option id="radar">
 			<Item>distance</Item>
 			<Item>health</Item>
 			<Item>shield</Item>
 			<Item>armor</Item>
 			<Item>maxHealth</Item>
 		</Option>
-		<LineBox id="result" placeholder="result" />
+			<LineBox id="result" placeholder="result" />
+		</Row>
 	</Block>
-	<Block name="Sensor" export="sensor %result %block %prop">
-		<Text id="T1">Sensor</Text>
-		<LineBox id="result" placeholder="result" />
-		<Text id="T2">=</Text>
-		<Text id="T3">@</Text>
-		<LineBox id="prop" placeholder="@copper" />
-		<Text id="T4">in</Text>
-		<LineBox id="block" placeholder="block1" />
+	<Block name="Sensor">
+		<Literal>sensor</Literal>
+		<Field id="result" />
+		<Field id="block" />
+		<Field id="prop" />
+		<Row>
+			<Text id="T1">Sensor</Text>
+			<LineBox id="result" placeholder="result" />
+			<Text id="T2">=</Text>
+			<Text id="T3">@</Text>
+			<LineBox id="prop" placeholder="@copper" />
+			<Text id="T4">in</Text>
+			<LineBox id="block" placeholder="block1" />
+		</Row>
 	</Block>
 </Kind>
