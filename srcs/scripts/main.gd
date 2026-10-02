@@ -108,6 +108,10 @@ func _on_file_id_pressed(id: int) -> void:
 			self._redo()
 		7:
 			self.get_tree().quit()
+		8:
+			self._import_clipboard(false)
+		9:
+			self._import_clipboard(true)
 
 
 func _save_current(force_dialog: bool) -> void:
@@ -161,6 +165,18 @@ func _undo() -> void:
 	var editor := self._current_editor()
 	if editor != null:
 		editor.undo()
+
+
+## 从系统剪贴板读取 mlog 并导入。[param append] 为真时追加到当前项目。
+func _import_clipboard(append: bool) -> void:
+	var editor := self._current_editor()
+	if editor == null:
+		return
+	var text := DisplayServer.clipboard_get()
+	var count := editor.import_mlog(text, append)
+	if count == 0:
+		push_warning("剪贴板里没有可识别的 mlog")
+	return
 
 
 func _redo() -> void:

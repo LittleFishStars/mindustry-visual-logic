@@ -178,6 +178,27 @@ func redo() -> bool:
 	return nCanvas.redo()
 
 
+## 从 mlog 文本导入块。[param append] 为假时先清空当前项目。
+## 整个动作（清空 + 插入）算一条撤销记录 —— 快照式撤销让这件事不需要额外的逆操作。
+func import_mlog(text: String, append: bool = false) -> int:
+	var warnings: Array[String] = []
+	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings)
+	for message in warnings:
+		push_warning(message)
+	if nodes.is_empty():
+		return 0
+	nCanvas.history.record("导入 %d 个块" % nodes.size(), func() -> void:
+		var chain: StringName
+		if append:
+			chain = nCanvas.graph.primary_chain(Vector2(40, 40))
+		else:
+			nCanvas.graph.clear()
+			chain = nCanvas.graph.create_chain(Vector2(40, 40))
+		for node in nodes:
+			nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1))
+	return nodes.size()
+
+
 func can_undo() -> bool:
 	return nCanvas.history.can_undo()
 
