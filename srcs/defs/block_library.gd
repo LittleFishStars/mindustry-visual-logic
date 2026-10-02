@@ -3,31 +3,24 @@ extends RefCounted
 
 ## 块定义库：把 `blocks/{locale}/*.xml` 解析成 [BlockDef] 对象。
 ##
-## 这是旧 `BlockParse` 的替代品，但有两点不同：
-## [br]1. 解析结果有类型（[BlockDef] / [ElementDef] / [ExportPart] / [ActionDef]），
-##    视图与导出不必再按字符串键猜结构；
-## [br]2. 解析器[b]不认识具体元素种类[/b]：任何没有特殊语义的标签都会变成一个
-##    通用元素（属性原样收进 [member ElementDef.attrs]），所以新增元素类型不必改本文件。
-##
-## 兼容旧写法：`export="drawflush %display"` 仍然可用；新增的结构化写法：
+## 布局的存储形态：**显式的行 + 条件**。
 ## [codeblock]
-## <Block name="Print">
-##   <Text id="T1">Print</Text>
-##   <LineBox id="value" placeholder="text" />
-##   <Export>
-##     <Literal>print</Literal>          <!-- 字面量可以含空格 -->
-##     <Field id="value" />
-##   </Export>
-##   <Event on="field_changed" field="value">
-##     <SetField id="x" value="0" />
-##     <SetVisible ids="T1 !T2" />
-##   </Event>
-##   <!-- 自定义控件：候选取自 blocks/selectors/{kind}.json -->
-##   <Selector id="unit" kind="units" />
-##   <!-- 复杂交互：挂一个脚本，实现约定钩子即可 -->
-##   <Script path="res://srcs/defs/behaviors/unit_bind.gd" />
+## <Block name="Draw" layout-field="mode">
+##   <Row><Text>Draw</Text><Option id="mode">…</Option></Row>
+##   <Row when="clear|color">
+##     <Text>R</Text><LineBox id="r" placeholder="255" />
+##   </Row>
+##   <Text when="color">A</Text><LineBox id="a" when="color" placeholder="255" />
+##   <LineBox id="prot" when="poly|linePoly|image" placeholder="0" />
 ## </Block>
 ## [/codeblock]
+##
+## - `Row` 显式分行（取代 `<Br/>`）；行与元素都可带 `when`，条件支持 `&` `|` `~` 与括号
+## - `Group` 给一串连续元素共享一个条件（不换行），解析时并入元素条件
+## - `layout-field` 让裸取值（`when="clear|color"`）默认与它比较
+## - `Export` 也可带 `when`；旧写法 `<Pressed>/<Released>` 一律翻译成条件
+## - 旧写法（`<Item show>` / `<Br/>` / `<Pressed show>`）继续可解析，解析时就翻译成条件，
+##   所以内部只有一种机制
 
 class Kind extends RefCounted:
 	var id: StringName = &""
@@ -42,7 +35,7 @@ class Kind extends RefCounted:
 const DIR: String = "res://blocks"
 const FALLBACK_LANG: String = "en_US"
 
-## 解析过程中的问题（缺文件、重名等），供编辑器提示用。
+## 解析过程中的问题（缺文件、重名、条件写错等），供编辑器提示用。
 var warnings: PackedStringArray = []
 var kinds: Array[Kind] = []
 
@@ -113,8 +106,9 @@ func _parse_file(path: String) -> void:
 	var block: BlockDef = null
 	var option_element: ElementDef = null
 	var action: ActionDef = null
-	# 处于 <Pressed>/<Released> 内时的导出变体
-	var variant_target: BlockDef.ExportVariant = null
+	var row: BlockDef.RowDef = null
+	var group_condition: ConditionDef = null
+	var variant: BlockDef.ExportVariant = null
 	# 下一个文本节点该写给谁（Text / Item / Literal）
 	var text_target: Variant = null
 	var order := 0
@@ -140,34 +134,52 @@ func _parse_file(path: String) -> void:
 						else:
 							block = _make_block(attrs, current_kind, order)
 							order += 1
+							# 解析上下文按块重置：否则后续块会把单元格塞进上一个块的行里
+							row = null
+							group_condition = null
+							variant = null
+							option_element = null
+							action = null
+					"Row":
+						if block != null:
+							row = _start_row(block, _condition_of(block, attrs))
+					"Br":
+						row = null
+					"Group":
+						if block != null:
+							var condition := _condition_of(block, attrs)
+							group_condition = condition if group_condition == null \
+								else ConditionDef.all_of([group_condition, condition])
 					"Export":
-						pass
+						if block != null:
+							variant = _start_variant(block, attrs, variant)
 					"Literal":
 						if block != null:
 							var part := ExportPart.make_literal("")
 							part.space_before = _space_before(attrs)
-							_export_target(block, variant_target).append(part)
+							_export_target(block, variant).append(part)
 							text_target = part
 					"Field":
 						if block != null:
 							var field_part := ExportPart.make_field(StringName(attrs.get("id", "")))
 							field_part.space_before = _space_before(attrs)
-							_export_target(block, variant_target).append(field_part)
+							_export_target(block, variant).append(field_part)
 					"FirstOf":
 						if block != null:
-							_export_target(block, variant_target).append(
+							_export_target(block, variant).append(
 								ExportPart.make_first_visible(_ids(String(attrs.get("ids", ""))))
 							)
 					"Item":
 						if option_element != null:
-							var item := ElementDef.OptionItem.new("", _visibility(attrs.get("show", "")))
+							var item := ElementDef.OptionItem.new("")
 							item.value = String(attrs.get("value", ""))
+							item.legacy_show = _ids(String(attrs.get("show", "")))
 							option_element.items.append(item)
 							text_target = item
 					"Pressed":
-						variant_target = _begin_button_state(block, attrs, true)
+						variant = _apply_button_state(block, attrs, true)
 					"Released":
-						variant_target = _begin_button_state(block, attrs, false)
+						variant = _apply_button_state(block, attrs, false)
 					"Event":
 						if block != null:
 							action = ActionDef.new()
@@ -192,8 +204,11 @@ func _parse_file(path: String) -> void:
 							block.behavior_path = String(attrs.get("path", ""))
 					_:
 						if block != null:
-							var element := _make_element(tag, attrs)
+							var element := _make_element(tag, attrs, block, group_condition)
 							block.elements.append(element)
+							if row == null:
+								row = _start_row(block, null)
+							row.cells.append(element)
 							if tag == "Option":
 								option_element = element
 							if tag == "Text":
@@ -213,26 +228,41 @@ func _parse_file(path: String) -> void:
 						text_target = null
 					"Option":
 						option_element = null
+					"Row":
+						row = null
+					"Group":
+						group_condition = null
+					"Export":
+						variant = null
 					"Event":
 						action = null
 					"Pressed", "Released":
-						_end_button_state(block, variant_target)
-						variant_target = null
+						variant = null
 					"Block":
 						if block != null:
+							_translate_legacy_visibility(block)
 							block.build_index()
 						block = null
 					"Kind":
 						current_kind = null
 
 	if block != null:
+		_translate_legacy_visibility(block)
 		block.build_index()
+
+
+func _start_row(block: BlockDef, condition: ConditionDef) -> BlockDef.RowDef:
+	var row := BlockDef.RowDef.new()
+	row.condition = condition
+	block.rows.append(row)
+	return row
 
 
 func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	var block := BlockDef.new(StringName(attrs.get("name", "")), current_kind.id)
 	block.color = current_kind.color
 	block.order = order
+	block.layout_field = StringName(attrs.get("layout-field", ""))
 	block.export_parts = _legacy_export_parts(String(attrs.get("export", "")))
 	block.behavior_path = String(attrs.get("script", ""))
 	if block.id == &"":
@@ -242,18 +272,21 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	else:
 		_by_id[block.id] = block
 		_kind_of[block.id] = current_kind.id
-	# 索引等元素全部解析完后再建（见 NODE_ELEMENT_END 的 Block 分支）
 	current_kind.blocks.append(block)
 	return block
 
 
-func _make_element(tag: String, attrs: Dictionary) -> ElementDef:
+func _make_element(tag: String, attrs: Dictionary, block: BlockDef, group: ConditionDef) -> ElementDef:
 	var element := ElementDef.new(StringName(tag), StringName(attrs.get("id", "")))
 	element.attrs = attrs.duplicate()
 	element.text = String(attrs.get("text", ""))
 	element.placeholder = String(attrs.get("placeholder", ""))
 	element.selector_kind = StringName(attrs.get("kind", ""))
-	element.visible = _visibility(attrs.get("show", ""))
+	element.condition = _condition_of(block, attrs)
+	if element.condition == null:
+		element.condition = group
+	elif group != null:
+		element.condition = ConditionDef.all_of([group, element.condition])
 	if tag == "Option":
 		element.default_index = int(attrs.get("default", 0))
 	else:
@@ -261,36 +294,133 @@ func _make_element(tag: String, attrs: Dictionary) -> ElementDef:
 	return element
 
 
-## 进入 <Pressed>/<Released>：记下可见性，并准备一个导出变体（只有真写了模板才会入表）。
-func _begin_button_state(block: BlockDef, attrs: Dictionary, pressed: bool) -> BlockDef.ExportVariant:
-	if block == null:
+## 解析 `when="…"`；没有就返回 null（无法解析时也返回 null，并记进 warnings）。
+func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
+	var text := String(attrs.get("when", "")).strip_edges()
+	if text == "":
 		return null
-	if not block.elements.is_empty():
-		var last: ElementDef = block.elements[-1]
-		if last.type == &"Button":
-			var visibility := _visibility(attrs.get("show", ""))
-			if pressed:
-				last.pressed_visible = visibility
-			else:
-				last.visible = visibility
-			var variant := BlockDef.ExportVariant.new()
-			variant.button = last.id
-			variant.pressed = pressed
-			return variant
+	var result := ConditionParser.parse(text, block.layout_field, block)
+	for message in (result["errors"] as PackedStringArray):
+		warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
+	for message in (result["warnings"] as PackedStringArray):
+		warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
+	return result["condition"]
+
+
+func _start_variant(block: BlockDef, attrs: Dictionary, enclosing: BlockDef.ExportVariant) -> BlockDef.ExportVariant:
+	# <Pressed>/<Released> 里嵌套的 <Export>：沿用外层变体
+	if enclosing != null:
+		return enclosing
+	var text := String(attrs.get("when", "")).strip_edges()
+	var variant := BlockDef.ExportVariant.new()
+	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
+	if text != "":
+		var condition := _condition_of(block, attrs)
+		variant.condition = condition
+		variant.derive_button_from_condition()
+		block.export_variants.append(variant)
+		return variant
+	# 没有 when 的块级 <Export>：就是默认模板（替换掉属性写法）
+	if block.export_parts.is_empty():
+		block.export_parts = variant.parts
+	else:
+		warnings.append("%s：同时写了 export 属性与 <Export> 子标签，以子标签为准" % block.id)
+		block.export_parts = variant.parts
 	return null
 
 
-func _end_button_state(block: BlockDef, variant: BlockDef.ExportVariant) -> void:
-	if block != null and variant != null and not variant.parts.is_empty():
-		block.export_variants.append(variant)
-
-
-## 当前该把导出段写进哪里：处于 <Pressed>/<Released> 内时写进变体，否则写进默认模板。
 func _export_target(block: BlockDef, variant: BlockDef.ExportVariant) -> Array[ExportPart]:
 	if variant != null:
 		return variant.parts
 	return block.export_parts
 
+
+func _apply_button_state(block: BlockDef, attrs: Dictionary, pressed: bool) -> BlockDef.ExportVariant:
+	if block == null or block.elements.is_empty():
+		return null
+	var last: ElementDef = block.elements[-1]
+	if last.type != &"Button":
+		return null
+	var shown := _ids(String(attrs.get("show", "")))
+	if pressed:
+		last.legacy_pressed = shown
+	else:
+		last.legacy_released = shown
+	# 统一成 when：<Pressed>/<Released> 就是 `开关=true/false` 的导出模板
+	if shown.is_empty() and String(attrs.get("export", "")).strip_edges() == "":
+		return null
+	var variant := BlockDef.ExportVariant.new()
+	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
+	variant.condition = ConditionDef.compare(last.id, ["true" if pressed else "false"])
+	variant.button = last.id
+	variant.pressed = pressed
+	block.export_variants.append(variant)
+	return variant
+
+
+#endregion
+
+
+#region 旧写法 → 条件
+
+## 把 `<Item show="…">` / `<Pressed show>` / `<Released show>` 翻译成元素条件。
+##
+## 旧语义是「选中项的白名单 ∩ 开关状态的白名单，没被列出的元素一律隐藏」；
+## 这里对每个元素、每个"限制来源"各算一份规则再取与：
+## [codeblock]
+## 某个 Option 对元素 x 的规则 = 或( 选中该项 且 (该项清单为空 或 x 在清单里) )
+## 某个 Button 对元素 x 的规则 = 或( 处于该状态 且 (该状态清单为空 或 x 在清单里) )
+## [/codeblock]
+## 没被任何清单提到的元素，其规则恒假 —— 与旧行为一致（隐藏）。
+func _translate_legacy_visibility(block: BlockDef) -> void:
+	var options: Array[ElementDef] = []
+	var buttons: Array[ElementDef] = []
+	for element in block.elements:
+		if element.type == &"Option" and not element.items.is_empty():
+			for item in element.items:
+				if not item.legacy_show.is_empty():
+					options.append(element)
+					break
+		elif element.type == &"Button":
+			if not element.legacy_pressed.is_empty() or not element.legacy_released.is_empty():
+				buttons.append(element)
+	if not options.is_empty() or not buttons.is_empty():
+		for element in block.elements:
+			var rules: Array[ConditionDef] = []
+			for option in options:
+				rules.append(_legacy_option_rule(option, element.id))
+			for button in buttons:
+				rules.append(_legacy_button_rule(button, element.id))
+			var rule := ConditionDef.all_of(rules)
+			if element.condition == null:
+				element.condition = rule
+			else:
+				element.condition = ConditionDef.all_of([element.condition, rule])
+	for element in block.elements:
+		element.clear_legacy()
+
+
+func _legacy_option_rule(option: ElementDef, element_id: StringName) -> ConditionDef:
+	var branches: Array[ConditionDef] = []
+	for item in option.items:
+		var selected := ConditionDef.compare(option.id, [item.value_or_text()])
+		if item.legacy_show.is_empty() or item.legacy_show.has(element_id):
+			branches.append(selected)
+	return ConditionDef.any_of(branches)
+
+
+func _legacy_button_rule(button: ElementDef, element_id: StringName) -> ConditionDef:
+	var branches: Array[ConditionDef] = []
+	if button.legacy_released.is_empty() or button.legacy_released.has(element_id):
+		branches.append(ConditionDef.compare(button.id, ["false"]))
+	if button.legacy_pressed.is_empty() or button.legacy_pressed.has(element_id):
+		branches.append(ConditionDef.compare(button.id, ["true"]))
+	return ConditionDef.any_of(branches)
+
+#endregion
+
+
+#region 杂项
 
 ## 旧写法：空格分隔的导出串（字面量不能含空格）。新写法请用 <Export> 子标签。
 func _legacy_export_parts(raw: String) -> Array[ExportPart]:
@@ -300,26 +430,6 @@ func _legacy_export_parts(raw: String) -> Array[ExportPart]:
 		return out
 	for token in trimmed.split(" ", false):
 		out.append(ExportPart.from_legacy_token(token))
-	return out
-
-
-## 解析可见性字符串：`T1 T2 !T3`。
-func _visibility(raw: Variant) -> ElementDef.Visibility:
-	var visibility := ElementDef.Visibility.new()
-	for piece in _ids(String(raw)):
-		# `!id` 表示黑名单
-		if String(piece).begins_with("!"):
-			visibility.hidden_ids.append(StringName(String(piece).substr(1)))
-		else:
-			visibility.visible_ids.append(piece)
-	return visibility
-
-
-func _ids(raw: String) -> Array[StringName]:
-	var out: Array[StringName] = []
-	for piece in raw.strip_edges().split(" ", false):
-		if piece != "":
-			out.append(StringName(piece))
 	return out
 
 
@@ -333,6 +443,14 @@ func _space_before(attrs: Dictionary) -> bool:
 func _as_bool(raw: Variant) -> bool:
 	var text := String(raw).strip_edges().to_lower()
 	return not (text == "false" or text == "0" or text == "no")
+
+
+func _ids(raw: String) -> Array[StringName]:
+	var out: Array[StringName] = []
+	for piece in raw.strip_edges().split(" ", false):
+		if piece != "":
+			out.append(StringName(piece))
+	return out
 
 
 func _attrs(xml: XMLParser) -> Dictionary:

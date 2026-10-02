@@ -91,6 +91,9 @@ static func negate(inner: ConditionDef) -> ConditionDef:
 func matches(value_of: Callable) -> bool:
 	match kind:
 		Kind.COMPARE:
+			# field 为空 = 恒假（any_of([]) 用它当哨兵）
+			if field == &"":
+				return false
 			var raw := String(value_of.call(field))
 			var hit := false
 			if values.is_empty():

@@ -32,14 +32,13 @@ static func export_node(graph: LogicGraph, library: BlockLibrary, id: int, warni
 
 ## 渲染单行 mlog（不含换行）。模板为空（如 If 这类纯容器）时返回空串。
 static func render_node(def: BlockDef, node: LogicNode) -> String:
-	var parts := def.export_parts_for(_button_states(def, node))
+	var value_of := _reader_of(node)
+	var parts := def.export_parts_for(value_of)
 	if parts.is_empty():
 		return ""
-	var rule := def.visibility_from(func(element_id: StringName) -> String:
-		return String(node.get_field(element_id, "")))
 	var out := ""
 	for part in parts:
-		var text := _render_part(def, node, part, rule)
+		var text := _render_part(def, node, part, value_of)
 		if text == "":
 			continue
 		if part.space_before and out != "":
@@ -84,7 +83,7 @@ static func _render_part(
 	def: BlockDef,
 	node: LogicNode,
 	part: ExportPart,
-	rule: ElementDef.Visibility
+	value_of: Callable
 ) -> String:
 	match part.kind:
 		ExportPart.Kind.LITERAL:
@@ -92,9 +91,9 @@ static func _render_part(
 		ExportPart.Kind.FIELD:
 			return _value_of(node, part.field)
 		_:
-			# 旧语法 %a|b：取第一个"可见"的候选；都不可见时输出 0
+			# 旧语法 %a|b：取第一个此刻生效的候选；都不生效时输出 0
 			for field_id in part.fields:
-				if rule == null or rule.allows(field_id):
+				if def.is_field_active(field_id, value_of):
 					return _value_of(node, field_id)
 			return "0"
 
@@ -104,9 +103,7 @@ static func _value_of(node: LogicNode, field_id: StringName) -> String:
 	return value if value != "" else "0"
 
 
-static func _button_states(def: BlockDef, node: LogicNode) -> Dictionary:
-	var out: Dictionary = {}
-	for element in def.elements:
-		if element.type == &"Button":
-			out[element.id] = String(node.get_field(element.id, "false")) == "true"
-	return out
+## 从数据层取值的小闭包（条件求值用）。
+static func _reader_of(node: LogicNode) -> Callable:
+	return func(field_id: StringName) -> String:
+		return String(node.get_field(field_id, ""))

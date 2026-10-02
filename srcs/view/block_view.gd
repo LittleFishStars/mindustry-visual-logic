@@ -48,6 +48,10 @@ var _row_slot: Array[StringName] = []
 var _row_size: Array[Vector2] = []
 var _row_widths: Array[float] = []
 var _row_heights: Array[float] = []
+## 每个可视行对应的定义行（nest / tail 行为 null）
+var _row_def: Array[BlockDef.RowDef] = []
+## 该行本轮是否整行不参与布局（条件不成立）
+var _row_skip: Array[bool] = []
 var _nest_controls: Dictionary[StringName, Control] = {}
 var _elements: Dictionary[StringName, Control] = {}
 var _element_defs: Dictionary[StringName, ElementDef] = {}
@@ -204,30 +208,31 @@ func _build() -> void:
 	_button_state.clear()
 	_bg_rects.clear()
 	_styles.clear()
+	_row_def.clear()
+	_row_skip.clear()
 	if def == null:
 		return
-	var row: HBoxContainer = null
-	for element in def.elements:
-		match element.type:
-			&"Br":
+	# 控件一次性建齐并常驻，切换条件只改可见性 —— 不会重建、也不会打断正在输入的控件
+	for row_def in def.rows:
+		var row: HBoxContainer = null
+		for cell in row_def.cells:
+			if cell.type == &"Nest":
+				# Nest 独占一行（槽里的块是画布的直接子级，这里只作占位）
 				row = null
-			&"Nest":
-				# Nest 永远独占一行，且不参与可见性（否则槽内容与行高会对不上）
-				row = null
-				_make_nest_row(element)
-			_:
-				if row == null:
-					row = _make_row(ROW_NORMAL, &"")
-				var control := _build_element(element)
-				if control != null:
-					row.add_child(control)
-					_elements[element.id] = control
-					_element_defs[element.id] = element
+				_make_nest_row(cell, row_def)
+				continue
+			if row == null:
+				row = _make_row(ROW_NORMAL, &"", row_def)
+			var control := _build_element(cell)
+			if control != null:
+				row.add_child(control)
+				_elements[cell.id] = control
+				_element_defs[cell.id] = cell
 	# 没有任何元素的块（如 None）也要有一行，否则它在画布上是不可见也不可点的
 	if _rows.is_empty():
-		_make_row(ROW_NORMAL, &"")
+		_make_row(ROW_NORMAL, &"", null)
 	if not def.elements.is_empty() and def.elements[-1].type == &"Nest":
-		_make_row(ROW_TAIL, &"")
+		_make_row(ROW_TAIL, &"", null)
 
 
 func _build_element(element: ElementDef) -> Control:
@@ -249,7 +254,7 @@ func button_setup(button: Button, element: ElementDef) -> void:
 	button.set_pressed_no_signal(pressed)
 
 
-func _make_row(kind: StringName, slot: StringName) -> HBoxContainer:
+func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", separation)
 	# 行本身不吃鼠标，点空白处应当落到块上以开始拖动
@@ -259,11 +264,12 @@ func _make_row(kind: StringName, slot: StringName) -> HBoxContainer:
 	_row_kind.append(kind)
 	_row_slot.append(slot)
 	_row_size.append(Vector2.ZERO)
+	_row_def.append(row_def)
 	return row
 
 
-func _make_nest_row(element: ElementDef) -> void:
-	var row := _make_row(ROW_NEST, element.id)
+func _make_nest_row(element: ElementDef, row_def: BlockDef.RowDef) -> void:
+	var row := _make_row(ROW_NEST, element.id, row_def)
 	var placeholder := Control.new()
 	placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	placeholder.custom_minimum_size = Vector2(separation * 4, row_height / 2.0)
@@ -285,13 +291,22 @@ func measure(slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 			placeholder.custom_minimum_size = Vector2(separation * 4, row_height / 2.0)
 		else:
 			placeholder.custom_minimum_size = extent
+	var value_of := _value_reader()
 	var block_width := 0.0
 	var total_height := 0.0
 	var widths: Array[float] = []
 	var heights: Array[float] = []
+	_row_skip.clear()
 	for i in _rows.size():
 		var kind := _row_kind[i]
 		var row: Control = _rows[i]
+		# 条件不成立的行整行不参与布局（不是"藏起来"，而是不存在）
+		var skip := kind == ROW_NORMAL and _row_def[i] != null and not _row_def[i].is_active(value_of)
+		_row_skip.append(skip)
+		if skip:
+			widths.append(0.0)
+			heights.append(0.0)
+			continue
 		var row_w := row.get_combined_minimum_size().x
 		var row_h := float(row_height)
 		match kind:
@@ -312,6 +327,8 @@ func measure(slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 	result.tail_width = block_width
 	var y := 0.0
 	for i in _rows.size():
+		if _row_skip[i]:
+			continue
 		if _row_kind[i] == ROW_NEST:
 			var slot: StringName = _row_slot[i]
 			result.slot_offsets[slot] = Vector2(margin * 4, y)
@@ -331,6 +348,11 @@ func _layout_rows(widths: Array[float], heights: Array[float], block_width: floa
 		var row: Control = _rows[i]
 		var row_w := widths[i]
 		var row_h := heights[i]
+		if i < _row_skip.size() and _row_skip[i]:
+			row.visible = false
+			_row_size[i] = Vector2.ZERO
+			continue
+		row.visible = true
 		if kind == ROW_TAIL:
 			row.position = Vector2(margin * 2, y)
 			row.size = Vector2(row_w, row_h)
@@ -403,10 +425,15 @@ func refresh_visibility() -> void:
 func _apply_visibility() -> void:
 	if def == null:
 		return
-	var rule := def.visibility_from(func(element_id: StringName) -> String:
-		return String(field_value(element_id, &"")))
+	var value_of := _value_reader()
 	for id in _elements:
-		_elements[id].visible = rule == null or rule.allows(id)
+		_elements[id].visible = def.is_element_active(def.element(id), value_of)
+
+
+## 条件求值用的小闭包：取值一律以数据层为准。
+func _value_reader() -> Callable:
+	return func(field_id: StringName) -> String:
+		return String(field_value(field_id, &""))
 
 
 ## 同步单个字段对应的控件显示（数据为准）。正在输入的 LineEdit 不动，避免光标跳位。
