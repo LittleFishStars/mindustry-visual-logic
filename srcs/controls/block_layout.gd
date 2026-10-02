@@ -51,7 +51,7 @@ func _get_row_size(row: Control) -> Vector2:
 	if row.has_meta("tail"):
 		return Vector2(self.separation * 8, self.height / 4.0)
 	if row.has_meta("nest_id"):
-		var nest_id = row.get_meta("nest_id")
+		var nest_id: String = row.get_meta("nest_id")
 		var box_min := _nest_blocks[nest_id].get_all_rect().size if _nest_blocks.has(nest_id) else Vector2.ZERO
 		return Vector2(box_min.x, box_min.y if _nest_blocks.has(nest_id) else self.height / 2.0)
 	var row_min := row.get_minimum_size()
@@ -143,8 +143,12 @@ func _draw() -> void:
 
 
 func get_end_position() -> Vector2:
+	if _bg_rects.is_empty():
+		return self.position
 	return self.position + _bg_rects.back().position + Vector2(0, _bg_rects.back().size.y)
 func get_end_width() -> float:
+	if _bg_rects.is_empty():
+		return 0
 	return _bg_rects.back().size.x
 
 func get_nest_position(nest_id: String) -> Vector2:
@@ -189,7 +193,7 @@ func capture_block(block: Block, id: String = ""):
 			block._nest_blocks[id] = self
 			change_position(block.get_nest_position(id))
 			add_block(old)
-	update()
+	propagate_update()
 
 func add_block(block: Block):
 	if self._next_block == null:
@@ -197,12 +201,12 @@ func add_block(block: Block):
 	else:
 		self._next_block.add_block(block)
 
-func update(up_down: bool = true):
+func propagate_update(up_down: bool = true):
 	queue_sort()
 	if (self._last_block != null) and up_down:
-		self._last_block.update(up_down)
+		self._last_block.propagate_update(up_down)
 	if (self._next_block != null) and not up_down:
-		self._next_block.update(up_down)
+		self._next_block.propagate_update(up_down)
 	if (not self._nest_blocks.is_empty()) and not up_down:
 		for nest in self._nest_blocks:
-			self._nest_blocks[nest].update(up_down)
+			self._nest_blocks[nest].propagate_update(up_down)

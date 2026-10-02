@@ -113,12 +113,13 @@ func _process(_delta: float) -> void:
 	
 	# 吸附检测
 	if _drag_block != null:
+		var world_position = _screen_to_world(self.global_position)
 		var _is_capture = false
 		for child in nSpace.get_children():
 			if child is Block:
 				# 尾部吸附
 				if _is_near_line(
-					_screen_to_world(self.global_position), 
+					world_position, 
 					child.get_end_position(), 
 					child.get_end_width()
 				):
@@ -128,7 +129,7 @@ func _process(_delta: float) -> void:
 				# 子块吸附
 				for id in child.nests:
 					if _is_near_line(
-						_screen_to_world(self.global_position), 
+						world_position, 
 						child.get_nest_position(id), 
 						child.get_nest_width(id)
 					):
@@ -136,6 +137,8 @@ func _process(_delta: float) -> void:
 						_capture_nest_id = id
 						_is_capture = true
 						break
+				if _is_capture:
+					break
 		if not _is_capture:
 			_capture_block = null
 			_capture_nest_id = \"\"
