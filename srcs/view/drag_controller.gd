@@ -141,7 +141,6 @@ func _update() -> void:
 		canvas.clear_overlay()
 		return
 	_target = canvas.find_anchor(world, capture_radius, _exclude)
-	canvas.set_overlay(true, _target)
 
 
 func _finish() -> void:
