@@ -16,6 +16,10 @@ signal picker_requested(element: ElementDef, control: Control)
 
 @onready var nBlocks: Node2D = $Blocks
 @onready var nOverlay: DragOverlay = $Overlay
+## 落点占位块（幽灵视图）及其原始位置
+var _preview_views: Array[BlockView] = []
+var _preview_origins: Array[Vector2] = []
+var _preview_ids: Array[int] = []
 @onready var nCamera: EditorCamera = $Camera
 
 var library: BlockLibrary
@@ -293,13 +297,39 @@ func make_ghost(type_id: StringName) -> BlockView:
 	return ghost
 
 
-## 拖动时在落点画一份"黑色副本"（[param rects] 是画布坐标下那几个块的矩形）。
-func set_preview(rects: Array[Rect2]) -> void:
-	nOverlay.set_preview(rects)
+## 落点占位块：把"如果现在放下会落下哪几个块"摆成一组幽灵视图。
+##
+## 复用 [method make_ghost]（半透明、不吃鼠标），但改成显示[b]真实字段值[/b]，
+## 这样看到的就是"现在放下的样子"。视图只在目标集合变化时重建，之后每帧只更新位置。
+func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
+	if ids != _preview_ids:
+		clear_placement_preview()
+		_preview_ids = ids.duplicate()
+		_preview_origins.clear()
+		for id in ids:
+			var node := graph.get_node_by_id(id)
+			if node == null:
+				continue
+			var def := library.by_id(node.type_id)
+			var ghost := make_ghost(node.type_id)
+			if ghost == null or def == null:
+				continue
+			ghost.setup(def, node, false)
+			ghost.modulate = Color(1, 1, 1, 0.5)
+			_preview_views.append(ghost)
+			_preview_origins.append(layout.rect_of(id).position if layout != null else Vector2.ZERO)
+	for i in _preview_views.size():
+		if i < _preview_origins.size():
+			_preview_views[i].position = _preview_origins[i] + offset
 
 
-func clear_preview() -> void:
-	nOverlay.clear()
+func clear_placement_preview() -> void:
+	for view in _preview_views:
+		if is_instance_valid(view):
+			view.queue_free()
+	_preview_views.clear()
+	_preview_origins.clear()
+	_preview_ids.clear()
 
 #endregion
 
