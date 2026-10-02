@@ -52,13 +52,9 @@ var export_variants: Array[ExportVariant] = []
 var actions: Array[ActionDef] = []
 ## 解析期收集的条件（整块解析完再统一校验字段与取值）
 var pending_conditions: Array[Dictionary] = []
-## 行为脚本路径（可选）：自定义控件交互、以及模板表达不了的导出处理。
+## 行为脚本路径（可选），用于旧实现里只能硬编码的自定义交互。
 var behavior_path: String = ""
-## 行为脚本的实例（[BlockLibrary] 解析时 [code]new()[/code] 出来）。可选实现的钩子：
-## [br]- [code]export_line(node, def, render, context) -> Variant[/code]：返回字符串就接管这一行；
-##   [param render] 是可调用的模板渲染器，于是也能只对模板结果做后处理
-## [br]- [code]pre_export(node, context) -> void[/code]：导出前的整图准备（例如给 If 分配跳转标签）
-var behavior: Object = null
+var behavior: Script = null
 ## 在所属类别里的顺序（保持 XML 中的书写顺序）。
 var order: int = 0
 

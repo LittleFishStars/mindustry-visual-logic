@@ -280,13 +280,16 @@ func _parse_file(path: String) -> void:
 						variant = null
 					"Block":
 						if block != null:
-							_finish_block(block)
+							_translate_legacy_visibility(block)
+							_validate_conditions(block)
+							block.build_index()
 						block = null
 					"Kind":
 						current_kind = null
 
 	if block != null:
-		_finish_block(block)
+		_translate_legacy_visibility(block)
+		block.build_index()
 
 
 ## 整块解析完后统一校验条件（字段是否存在、取值是否合法）。
@@ -333,19 +336,6 @@ static func _join_ids(ids: Array[StringName]) -> String:
 	for id in ids:
 		parts.append(String(id))
 	return ", ".join(parts)
-
-
-## 一个块解析完后的收尾：翻译旧写法 → 校验条件 → 加载行为脚本 → 建索引。
-func _finish_block(block: BlockDef) -> void:
-	_translate_legacy_visibility(block)
-	_validate_conditions(block)
-	if block.behavior_path != "":
-		var script := load(block.behavior_path)
-		if script is Script:
-			block.behavior = (script as Script).new()
-		else:
-			warnings.append("%s：行为脚本加载失败：%s" % [block.id, block.behavior_path])
-	block.build_index()
 
 
 func _start_row(block: BlockDef, condition: ConditionDef) -> BlockDef.RowDef:
