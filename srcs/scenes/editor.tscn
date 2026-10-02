@@ -1,197 +1,61 @@
-[gd_scene format=3 uid="uid://c5aww1ajt7842"]
+[gd_scene load_steps=6 format=3 uid="uid://c5aww1ajt7842"]
 
 [ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/scripts/editor.gd" id="1_x6qec"]
+[ext_resource type="Script" path="res://srcs/view/editor_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" path="res://srcs/view/editor_camera.gd" id="3_camera"]
+[ext_resource type="Script" path="res://srcs/view/drag_overlay.gd" id="4_overlay"]
+[ext_resource type="Script" path="res://srcs/view/drag_controller.gd" id="5_drag"]
 
-[sub_resource type="GDScript" id="GDScript_a7iym"]
-resource_name = "camera"
-script/source = "extends Camera2D
-
-
-@export var zoom_speed: float = 1.1
-
-var moving := false
-var last_pos := Vector2.ZERO
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		match event.button_index:
-			MOUSE_BUTTON_LEFT:
-				self.moving = event.pressed
-				self.last_pos = event.position
-			MOUSE_BUTTON_WHEEL_UP:
-				self.zoom *= zoom_speed
-			MOUSE_BUTTON_WHEEL_DOWN:
-				self.zoom /= zoom_speed
-	elif event is InputEventMouseMotion:
-		if self.moving:
-			self.position += (self.last_pos - event.position) / self.zoom
-			self.last_pos = event.position
-"
-
-[sub_resource type="GDScript" id="GDScript_dragger"]
-resource_name = "dragger"
-script/source = "extends Node2D
-
-
-@export var capture_radius: float = 20
-
-var _drag_block: Block = null
-var _drag_offset: Vector2 = Vector2.ZERO
-var _capture_block: Block = null
-var _capture_nest_id: String = \"\"
-
-@onready var nArea: SubViewportContainer = $\"../Editor/EditorSplit/EditArea\"
-@onready var nSpace: SubViewport = $\"../Editor/EditorSplit/EditArea/EditSpace\"
-
-
-## 将 [param block] 及其 _next_block 转移至 [param to] 下
-func _trans_block(block: Block, to: Node):
-	block.reparent(to)
-	if block._next_block != null:
-		_trans_block(block._next_block, to)
-	if not block._nest_blocks.is_empty():
-		for nest in block._nest_blocks:
-			_trans_block(block._nest_blocks[nest], to)
-
-func start_drag(offset: Vector2, node: Block, copy: bool = false):
-	_drag_offset = -offset
-	if copy:
-		_drag_block = Block.new(node._block_data, node.bg_color)
-		_drag_block.drag_started.connect(start_drag.bind(_drag_block))
-		add_child(_drag_block)
-		_drag_block.position = _drag_offset
-	else:
-		_drag_block = node
-		
-		if _drag_block._last_block != null:
-			if _drag_block._last_block._next_block == _drag_block:
-				_drag_block._last_block._next_block = null
-				_drag_block._last_block = null
-			else:
-				for nest in _drag_block._last_block._nest_blocks:
-					if _drag_block._last_block._nest_blocks[nest] == _drag_block:
-						_drag_block._last_block._nest_blocks[nest] = null
-						_drag_block._last_block = null
-		
-		_trans_block(_drag_block, self)
-		_drag_block.change_position(_drag_offset)
-
-
-func _input(event: InputEvent):
-	if (
-		_drag_block != null and
-		event is InputEventMouseButton and 
-		event.button_index == MOUSE_BUTTON_LEFT and 
-		event.is_released()
-	):
-		_on_drag_ended(event.global_position)
-
-
-func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	var rel = screen_pos - nArea.global_position  # 获取相对 nArea 的坐标
-	return nSpace.get_canvas_transform().affine_inverse() * rel  # 变换为 nSpace 坐标系
-
-func _on_drag_ended(pos: Vector2):
-	if nArea.get_global_rect().has_point(pos):
-		_trans_block(_drag_block, nSpace)
-		_drag_block.change_position(_screen_to_world(pos + _drag_offset))
-		if _capture_block != null:
-			_drag_block.capture_block(_capture_block, _capture_nest_id)
-	else:
-		_drag_block.queue_free()
-	_drag_block = null
-
-
-func _is_near_line(pos: Vector2, start: Vector2, width: float) -> bool:
-	var l := pos.x - start.x
-	var d := pos.y - start.y
-	return (l > 0 and l < width) and (abs(d) < self.capture_radius)
-
-func _process(_delta: float) -> void:
-	self.global_position = get_viewport().get_mouse_position()
-	
-	# 吸附检测
-	if _drag_block != null:
-		var world_position = _screen_to_world(self.global_position)
-		var _is_capture = false
-		for child in nSpace.get_children():
-			if child is Block:
-				# 尾部吸附
-				if _is_near_line(
-					world_position, 
-					child.get_end_position(), 
-					child.get_end_width()
-				):
-					_capture_block = child
-					_is_capture = true
-					break
-				# 子块吸附
-				for id in child.nests:
-					if _is_near_line(
-						world_position, 
-						child.get_nest_position(id), 
-						child.get_nest_width(id)
-					):
-						_capture_block = child
-						_capture_nest_id = id
-						_is_capture = true
-						break
-				if _is_capture:
-					break
-		if not _is_capture:
-			_capture_block = null
-			_capture_nest_id = \"\"
-"
-
-[node name="Editor" type="Control" unique_id=1394798813]
+[node name="Editor" type="Control"]
 layout_mode = 3
-anchors_preset = 0
-offset_left = 1160.0
-offset_right = 1160.0
-offset_bottom = 648.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_x6qec")
 
-[node name="Editor" type="HSplitContainer" parent="." unique_id=1636190308]
+[node name="Split" type="HSplitContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 8.0
 grow_horizontal = 2
 grow_vertical = 2
 dragging_enabled = false
 dragger_visibility = 2
 
-[node name="BlockKindList" type="VBoxContainer" parent="Editor" unique_id=257232201]
+[node name="BlockKindList" type="VBoxContainer" parent="Split"]
 layout_mode = 2
 
-[node name="EditorSplit" type="HSplitContainer" parent="Editor" unique_id=780963395]
+[node name="EditorSplit" type="HSplitContainer" parent="Split"]
 layout_mode = 2
 theme_override_constants/separation = 0
 theme_override_constants/minimum_grab_thickness = 12
 theme_override_constants/autohide = 0
-split_offsets = PackedInt32Array(400)
 dragger_visibility = 1
-split_offset = 400
+split_offset = 260
 
-[node name="BlockArea" type="ScrollContainer" parent="Editor/EditorSplit" unique_id=1696841059]
+[node name="BlockArea" type="ScrollContainer" parent="Split/EditorSplit"]
 layout_mode = 2
 
-[node name="EditArea" type="SubViewportContainer" parent="Editor/EditorSplit" unique_id=74387859]
+[node name="EditArea" type="SubViewportContainer" parent="Split/EditorSplit"]
 layout_mode = 2
 stretch = true
 
-[node name="EditSpace" type="SubViewport" parent="Editor/EditorSplit/EditArea" unique_id=428449786]
+[node name="EditSpace" type="SubViewport" parent="Split/EditorSplit/EditArea"]
 handle_input_locally = false
-size = Vector2i(2, 648)
 render_target_update_mode = 4
+script = ExtResource("2_canvas")
 
-[node name="Camera" type="Camera2D" parent="Editor/EditorSplit/EditArea/EditSpace" unique_id=1870116405]
-limit_smoothed = true
-position_smoothing_enabled = true
-position_smoothing_speed = 4.0
-script = SubResource("GDScript_a7iym")
+[node name="Blocks" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace"]
 
-[node name="Dragger" type="Node2D" parent="." unique_id=223596747]
-script = SubResource("GDScript_dragger")
+[node name="Overlay" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace"]
+z_index = 100
+script = ExtResource("4_overlay")
+
+[node name="Camera" type="Camera2D" parent="Split/EditorSplit/EditArea/EditSpace"]
+script = ExtResource("3_camera")
+
+[node name="Drag" type="Node" parent="."]
+script = ExtResource("5_drag")

@@ -112,6 +112,13 @@ func all_ids() -> Array[int]:
 	return out
 
 
+## 节点及其全部子孙（搬移、高亮、导出都要用）。
+func subtree_ids(id: int) -> Array[int]:
+	var out: Array[int] = []
+	_collect_subtree(id, out)
+	return out
+
+
 ## 取某个容器的成员 id（副本）。
 ## [param owner_id] 为 [constant ROOT] 时 [param slot_id] 必须是链 id。
 func slot_items(owner_id: int, slot_id: StringName = &"") -> Array[int]:
@@ -314,7 +321,10 @@ func clear() -> void:
 
 func to_dict() -> Dictionary:
 	var nodes_out: Array = []
-	for id in _nodes:
+	var ids: Array[int] = []
+	ids.assign(_nodes.keys())
+	ids.sort()
+	for id in ids:
 		nodes_out.append((_nodes[id] as LogicNode).to_dict())
 	var chains_out: Dictionary = {}
 	for chain_id in _chains:
@@ -342,12 +352,26 @@ static func from_dict(data: Dictionary) -> LogicGraph:
 
 ## 就地载入（保留对象引用，便于视图层继续持有同一张图）。载入后发出 [signal reset]。
 func load_dict(data: Dictionary) -> void:
-	_nodes.clear()
 	_chains.clear()
 	_chain_positions.clear()
+	# 同 id 的节点对象要复用：撤销/读档后，视图、拖拽状态里持有的引用
+	# 仍然指着「图上的那一个」，不会变成读不到变化的陈旧对象
+	var incoming: Dictionary[int, LogicNode] = {}
 	for raw in data.get("nodes", []):
-		var node := LogicNode.from_dict(raw)
-		_nodes[node.id] = node
+		var parsed := LogicNode.from_dict(raw)
+		incoming[parsed.id] = parsed
+	for id in _nodes.keys():
+		if not incoming.has(id):
+			_nodes.erase(id)
+	for id in incoming:
+		var fresh: LogicNode = incoming[id]
+		var existing: LogicNode = _nodes.get(id)
+		if existing == null:
+			_nodes[id] = fresh
+		else:
+			existing.type_id = fresh.type_id
+			existing.fields = fresh.fields
+			existing.slots = fresh.slots
 	var chains_raw: Dictionary = data.get("chains", {})
 	for key in chains_raw:
 		var ids: Array[int] = []
