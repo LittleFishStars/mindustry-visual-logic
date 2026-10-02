@@ -108,6 +108,8 @@ func commit_field(field_id: StringName, value: Variant, grouped: bool = false) -
 	if grouped:
 		merge_key = StringName("field:%d:%s" % [node.id, String(field_id)])
 	field_committed.emit(node, field_id, value, merge_key)
+	# 用户点选时控件本来就对；程序化写入（行为脚本、批量修改）时把它拉回来
+	_sync_control(field_id)
 
 
 ## 按钮当前是否按下（供可见性判定）。
@@ -129,6 +131,12 @@ func option_value(element: ElementDef) -> String:
 		var index := clampi((control as OptionButton).selected, 0, element.items.size() - 1)
 		return element.items[index].value_or_text()
 	return ""
+
+
+## 元素当前是否可见（自检/调试用）。
+func is_element_visible(element_id: StringName) -> bool:
+	var control: Control = _elements.get(element_id)
+	return control != null and control.visible
 
 
 ## 元素当前的值字符串（供控件显示与自检使用）。
@@ -390,30 +398,53 @@ func refresh_visibility() -> void:
 	layout_dirty.emit()
 
 
+## 把 [BlockDef.visibility_from] 算出的规则应用到控件上。
+## 值以数据层为准（控件只是显示），这样导出与视图对可见性的判断必然一致。
 func _apply_visibility() -> void:
 	if def == null:
 		return
-	var rule: ElementDef.Visibility = null
-	for element in def.elements:
-		if not _elements.has(element.id):
-			continue
-		var element_rule: ElementDef.Visibility = null
-		match element.type:
-			&"Option":
-				var control: Control = _elements[element.id]
-				if control is OptionButton and not element.items.is_empty():
-					var index := clampi((control as OptionButton).selected, 0, element.items.size() - 1)
-					element_rule = element.items[index].visible
-			&"Button":
-				var state := &"pressed" if _button_state.get(element.id, false) else &"released"
-				element_rule = element.visibility_for(state)
-			_:
-				element_rule = element.visible
-		if element_rule == null or element_rule.is_unrestricted():
-			continue
-		rule = element_rule if rule == null else rule.intersect(element_rule)
+	var rule := def.visibility_from(func(element_id: StringName) -> String:
+		return String(field_value(element_id, &"")))
 	for id in _elements:
 		_elements[id].visible = rule == null or rule.allows(id)
+
+
+## 同步单个字段对应的控件显示（数据为准）。正在输入的 LineEdit 不动，避免光标跳位。
+func _sync_control(field_id: StringName) -> void:
+	if def == null or node == null:
+		return
+	var element := def.element(field_id)
+	if element == null:
+		return
+	var control: Control = _elements.get(field_id)
+	if control == null:
+		return
+	match element.type:
+		&"LineBox":
+			if control is LineEdit and not (control as LineEdit).has_focus():
+				(control as LineEdit).text = String(field_value(field_id, element.default_value))
+		&"Option":
+			if control is OptionButton and not element.items.is_empty():
+				var current := String(field_value(field_id, ""))
+				var index := clampi(element.default_index, 0, element.items.size() - 1)
+				if current != "":
+					for i in element.items.size():
+						if element.items[i].value_or_text() == current:
+							index = i
+							break
+				(control as OptionButton).select(index)
+		&"Button":
+			set_toggle_state(field_id, String(field_value(field_id, "false")) == "true")
+		&"Selector":
+			var edit: LineEdit = null
+			if control is LineEdit:
+				edit = control
+			elif control.has_meta(&"value_control"):
+				var inner: Variant = control.get_meta(&"value_control")
+				if inner is LineEdit:
+					edit = inner
+			if edit != null and not edit.has_focus():
+				edit.text = String(field_value(field_id, element.default_value))
 
 
 ## 由画布把控件状态同步回数据层（撤销/重做后会整体重建，一般不需要）。
@@ -421,35 +452,7 @@ func sync_from_data() -> void:
 	if def == null or node == null:
 		return
 	for element in def.elements:
-		var control: Control = _elements.get(element.id)
-		if control == null:
-			continue
-		match element.type:
-			&"LineBox":
-				if control is LineEdit:
-					(control as LineEdit).text = String(field_value(element.id, element.default_value))
-			&"Option":
-				if control is OptionButton and not element.items.is_empty():
-					var current := String(field_value(element.id, element.items[element.default_index].value_or_text()))
-					var index := 0
-					for i in element.items.size():
-						if element.items[i].value_or_text() == current:
-							index = i
-							break
-					(control as OptionButton).select(index)
-			&"Button":
-				var pressed := String(field_value(element.id, "false")) == "true"
-				_button_state[element.id] = pressed
-				if control is BaseButton:
-					(control as BaseButton).set_pressed_no_signal(pressed)
-			&"Selector":
-				var edit: LineEdit = null
-				if control is LineEdit:
-					edit = control
-				elif control.has_meta(&"value_control"):
-					edit = control.get_meta(&"value_control")
-				if edit != null:
-					edit.text = String(field_value(element.id, element.default_value))
+		_sync_control(element.id)
 	_apply_visibility()
 
 

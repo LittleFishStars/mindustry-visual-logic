@@ -38,6 +38,23 @@ func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	rebuild()
 
 
+## 换成另一张图（打开项目用）：断开旧信号、接上新图并重建视图与撤销栈。
+func adopt_graph(p_graph: LogicGraph) -> void:
+	if graph == p_graph:
+		return
+	if graph != null:
+		graph.structure_changed.disconnect(_on_structure_changed)
+		graph.reset.disconnect(_on_graph_reset)
+		graph.field_changed.disconnect(_on_field_changed)
+	graph = p_graph if p_graph != null else LogicGraph.new()
+	graph.structure_changed.connect(_on_structure_changed)
+	graph.reset.connect(_on_graph_reset)
+	graph.field_changed.connect(_on_field_changed)
+	history = GraphHistory.new(graph)
+	history.changed.connect(func() -> void: history_changed.emit())
+	rebuild()
+
+
 #region 视图与布局
 
 ## 按当前图整体重建块视图（撤销/读档/首次打开走这里）。
@@ -199,6 +216,17 @@ func _make_node(type_id: StringName) -> LogicNode:
 func world_from_screen(area_rect: Rect2, screen_pos: Vector2) -> Vector2:
 	var local := screen_pos - area_rect.position
 	return get_canvas_transform().affine_inverse() * local
+
+
+## 只渲染某个块自己那一行（不含子树），供预览/自检使用。
+func export_line(id: int) -> String:
+	var node := graph.get_node_by_id(id)
+	if node == null or library == null:
+		return ""
+	var def := library.by_id(node.type_id)
+	if def == null:
+		return ""
+	return MlogExporter.render_node(def, node)
 
 
 func anchors() -> Array[Dictionary]:

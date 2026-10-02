@@ -97,6 +97,35 @@ func export_parts_for(button_states: Dictionary) -> Array[ExportPart]:
 	return export_parts
 
 
+## 按字段值算出可见性规则：各 Option 项的规则与各 Button 各态的规则全部取交集。
+## 视图与导出共用这一份实现（旧实现只在视图里算，而且只维护一个 _current_show）。
+## [param value_of] 接收元素 id、返回其值字符串。
+func visibility_from(value_of: Callable) -> ElementDef.Visibility:
+	var rule: ElementDef.Visibility = null
+	for element in elements:
+		var element_rule: ElementDef.Visibility = null
+		match element.type:
+			&"Option":
+				if not element.items.is_empty():
+					var current := String(value_of.call(element.id))
+					var index := clampi(element.default_index, 0, element.items.size() - 1)
+					if current != "":
+						for i in element.items.size():
+							if element.items[i].value_or_text() == current:
+								index = i
+								break
+					element_rule = element.items[index].visible
+			&"Button":
+				var pressed := String(value_of.call(element.id)) == "true"
+				element_rule = element.visibility_for(&"pressed" if pressed else &"released")
+			_:
+				element_rule = element.visible
+		if element_rule == null or element_rule.is_unrestricted():
+			continue
+		rule = element_rule if rule == null else rule.intersect(element_rule)
+	return rule
+
+
 ## 触发源为 [param changed_field] 的声明式动作。
 func actions_for(changed_field: StringName) -> Array[ActionDef]:
 	var out: Array[ActionDef] = []

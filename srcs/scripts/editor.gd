@@ -1,3 +1,4 @@
+class_name LogicEditorTab
 extends Control
 
 ## 编辑器标签页：左侧块调色板 + 右侧自由画布。
@@ -115,5 +116,73 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if not _picker.get_global_rect().has_point(event.global_position):
 			_close_picker()
+
+#endregion
+
+
+#region 项目操作（保存 / 打开 / 导出；菜单都走这些方法）
+
+## 当前文件的绝对路径（空 = 尚未保存过）。
+var file_path: String = ""
+
+## 标签页标题跟着文件名变。
+signal name_changed(display: String)
+
+
+func display_name() -> String:
+	return file_path.get_file().get_basename() if file_path != "" else "未命名"
+
+
+func new_project() -> void:
+	nCanvas.history.clear()
+	nCanvas.graph.clear()
+	file_path = ""
+	name_changed.emit(display_name())
+
+
+func save_to(path: String) -> Error:
+	var error := GraphSerializer.save_to_file(nCanvas.graph, path, display_name())
+	if error == OK:
+		file_path = path
+		name_changed.emit(display_name())
+	return error
+
+
+func load_from(path: String) -> bool:
+	var loaded := GraphSerializer.load_from_file(path)
+	if loaded == null:
+		return false
+	nCanvas.adopt_graph(loaded)
+	file_path = path
+	name_changed.emit(display_name())
+	return true
+
+
+## 导出为 mlog 文本（纯函数，不改动任何数据）。
+func export_mlog() -> String:
+	return MlogExporter.export(nCanvas.graph, library)
+
+
+## 导出到系统剪贴板，返回写进去的文本。
+func copy_mlog_to_clipboard() -> String:
+	var text := export_mlog()
+	DisplayServer.clipboard_set(text)
+	return text
+
+
+func undo() -> bool:
+	return nCanvas.undo()
+
+
+func redo() -> bool:
+	return nCanvas.redo()
+
+
+func can_undo() -> bool:
+	return nCanvas.history.can_undo()
+
+
+func can_redo() -> bool:
+	return nCanvas.history.can_redo()
 
 #endregion

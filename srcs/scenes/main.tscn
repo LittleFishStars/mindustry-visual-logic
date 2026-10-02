@@ -30,11 +30,23 @@ layout_mode = 2
 [node name="File" type="PopupMenu" parent="MenuBar" unique_id=1509104562]
 oversampling_override = 1.0
 title = "File"
-item_count = 2
+item_count = 8
 item_0/text = "New"
 item_0/id = 0
 item_1/text = "Save"
 item_1/id = 1
+item_2/text = "Save As…"
+item_2/id = 2
+item_3/text = "Open…"
+item_3/id = 3
+item_4/text = "Export to clipboard"
+item_4/id = 4
+item_5/text = "Undo"
+item_5/id = 5
+item_6/text = "Redo"
+item_6/id = 6
+item_7/text = "Quit"
+item_7/id = 7
 
 [node name="Help" type="PopupMenu" parent="MenuBar" unique_id=1442885816]
 title = "Help"
@@ -54,9 +66,19 @@ current_tab = 0
 tabs_position = 1
 drag_to_rearrange_enabled = true
 
+[node name="ProjectDialog" type="FileDialog" parent="."]
+title = "保存项目"
+size = Vector2i(760, 520)
+ok_button_text = "确定"
+file_mode = 3
+access = 2
+filters = PackedStringArray("*.json ; MVL 逻辑图")
+use_native_dialog = true
+
 [node name="NoticeWindow" parent="." unique_id=1993725999 instance=ExtResource("4_2lg1k")]
 visible = false
 
 [connection signal="sort_children" from="." to="." method="_on_sort_children"]
 [connection signal="id_pressed" from="MenuBar/File" to="." method="_on_file_id_pressed"]
 [connection signal="id_pressed" from="MenuBar/Help" to="." method="_on_help_id_pressed"]
+[connection signal="file_selected" from="ProjectDialog" to="." method="_on_project_dialog_file_selected"]
