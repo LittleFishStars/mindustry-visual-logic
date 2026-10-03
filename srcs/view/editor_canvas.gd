@@ -261,16 +261,21 @@ func find_anchor(world_pos: Vector2, radius: float, exclude: Dictionary = {}) ->
 
 
 ## 造一个拖拽幽灵/调色板样品：绑定临时节点，不写历史。
-func make_ghost(type_id: StringName) -> BlockView:
+## 造一个"幽灵"块视图（半透明、不吃鼠标）。
+##
+## [param parent] 指定父节点 —— 需要画在整个界面之上时传顶层覆盖层（画布是 SubViewport，
+## 里面的块永远盖不过兄弟控件）；[param source] 传入真实节点，则显示它的字段值而不是默认值。
+func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = null) -> BlockView:
 	var def := library.by_id(type_id) if library != null else null
 	if def == null:
 		return null
-	var temp := LogicNode.new(0, type_id)
-	for field_id in def.default_field_values():
-		temp.fields[field_id] = def.default_field_values()[field_id]
+	var temp := source if source != null else LogicNode.new(0, type_id)
+	if source == null:
+		for field_id in def.default_field_values():
+			temp.fields[field_id] = def.default_field_values()[field_id]
 	var ghost := BlockView.new()
 	ghost.interactive = false
-	nBlocks.add_child(ghost)
+	(parent if parent != null else nBlocks).add_child(ghost)
 	ghost.setup(def, temp, true)
 	ghost.z_index = 50
 	return ghost

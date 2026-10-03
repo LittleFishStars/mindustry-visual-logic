@@ -34,9 +34,13 @@ var _target: Dictionary = {}
 var _carried: Array[int] = []
 ## 为落点占位块让位而被临时下移的块（松手/换目标时按布局结果还原）
 var _pushed: Array[int] = []
-## 拖动中临时提到最上层的块，以及它们原来的层级（松手/取消时还原）
-var _prev_z: Dictionary[int, int] = {}
-const DRAG_Z: int = 100
+## 拖动中的块改用顶层覆盖层（SubViewport 之外）的副本显示 —— 画布里的块永远盖不过
+## 兄弟控件（比如左侧的块列表），所以副本必须挂在这一层
+var _overlay: Control = null
+var _floats: Array[BlockView] = []
+var _float_offsets: Array[Vector2] = []
+## 被副本顶替而临时隐藏的原块（松手时还原可见性）
+var _hidden: Dictionary[int, bool] = {}
 
 
 ## 按下时的鼠标位置：用来判断"原地松手"（没有真正搬动）
@@ -44,6 +48,8 @@ var _start_mouse: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
+	# 顶层覆盖层：画布是 SubViewport，拖动的块要画在整个界面之上才不会被块列表挡住
+	_overlay = get_parent().get_node_or_null(^"DragLayer") as Control
 	set_process(false)
 
 
@@ -68,12 +74,24 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 		for id in canvas.graph.subtree_ids(carried_id):
 			_exclude[id] = true
 			_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
-	# 拖动中的块（含后段与各自子树）画到最上层，免得被后建的链盖住
-	for id in _subtree_positions:
-		var carried_view := canvas.view_of(id)
-		if carried_view != null and is_instance_valid(carried_view):
-			_prev_z[id] = carried_view.z_index
-			carried_view.z_index = DRAG_Z
+	# 原块先隐藏，改用覆盖层里的副本跟手 —— 否则拖到左侧块列表上方时会被裁掉
+	_floats.clear()
+	_float_offsets.clear()
+	_hidden.clear()
+	if _overlay != null:
+		var head: Vector2 = _subtree_positions.get(_source_node.id, Vector2.ZERO)
+		for id in _subtree_positions:
+			var carried_node := canvas.graph.get_node_by_id(id)
+			if carried_node == null:
+				continue
+			var carried_view := canvas.view_of(id)
+			if carried_view != null and is_instance_valid(carried_view):
+				_hidden[id] = carried_view.visible
+				carried_view.visible = false
+			var float_view := canvas.make_ghost(carried_node.type_id, _overlay, carried_node)
+			if float_view != null:
+				_floats.append(float_view)
+				_float_offsets.append((_subtree_positions[id] as Vector2) - head)
 	_begin()
 
 
@@ -91,9 +109,9 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	# 新建块没有"要一起搬的块"，这里必须清掉上一次拖拽留下的 _carried，
 	# 否则落点会摆出上一次那几个块的占位视图
 	_carried.clear()
-	_ghost = canvas.make_ghost(_type_id)
+	_ghost = canvas.make_ghost(_type_id, _overlay)
 	if _ghost != null:
-		_ghost.position = _world_mouse() - _offset
+		_ghost.position = _layer_mouse() - _offset * _zoom()
 	_begin()
 
 
@@ -140,12 +158,23 @@ func _update() -> void:
 	if not _active:
 		return
 	var world := _world_mouse()
-	var origin := world - _offset
+	var layer := _layer_mouse()
+	var zoom := _zoom()
 	if _ghost != null and is_instance_valid(_ghost):
-		_ghost.position = origin
+		_ghost.position = layer - _offset * zoom
+		_ghost.scale = Vector2(zoom, zoom)
+	elif not _floats.is_empty():
+		# 覆盖层是屏幕空间：位置按鼠标 + 各块相对"头块"的布局偏移 × 缩放
+		var origin := layer - _offset * zoom
+		for i in _floats.size():
+			var float_view := _floats[i]
+			if is_instance_valid(float_view):
+				float_view.position = origin + _float_offsets[i] * zoom
+				float_view.scale = Vector2(zoom, zoom)
 	elif _source_node != null and not _subtree_positions.is_empty():
-		var base: Vector2 = _subtree_positions.get(_source_node.id, origin)
-		var delta := origin - base
+		# 没有覆盖层时的兜底：仍在画布坐标系里直接移动原块
+		var base: Vector2 = _subtree_positions.get(_source_node.id, world - _offset)
+		var delta := world - _offset - base
 		for id in _subtree_positions:
 			var view: BlockView = canvas.view_of(id)
 			if view != null and is_instance_valid(view):
@@ -192,15 +221,6 @@ func _apply_insert_shift(_at: Vector2) -> void:
 			if view != null and is_instance_valid(view):
 				view.position += Vector2(0, height)
 				_pushed.append(id)
-
-
-## 还原拖动时临时提高的层级。
-func _restore_z() -> void:
-	for id in _prev_z:
-		var carried_view := canvas.view_of(id)
-		if carried_view != null and is_instance_valid(carried_view):
-			carried_view.z_index = _prev_z[id]
-	_prev_z.clear()
 
 
 ## 把让位造成的临时偏移还原（布局结果才是真相）。
@@ -255,7 +275,16 @@ func is_active() -> bool:
 
 
 func _cleanup() -> void:
-	_restore_z()
+	for float_view in _floats:
+		if is_instance_valid(float_view):
+			float_view.queue_free()
+	_floats.clear()
+	_float_offsets.clear()
+	for id in _hidden:
+		var hidden_view := canvas.view_of(id)
+		if hidden_view != null and is_instance_valid(hidden_view):
+			hidden_view.visible = _hidden[id]
+	_hidden.clear()
 	_release_shift()
 	if _ghost != null and is_instance_valid(_ghost):
 		_ghost.queue_free()
@@ -271,6 +300,20 @@ func _cleanup() -> void:
 	if canvas != null:
 		canvas.clear_placement_preview()
 	drag_finished.emit()
+
+
+## 覆盖层坐标下的鼠标位置；没有覆盖层时退回画布世界坐标（保持旧行为）。
+func _layer_mouse() -> Vector2:
+	if _overlay != null:
+		return _overlay.get_global_mouse_position()
+	return _world_mouse()
+
+
+## 相机缩放：覆盖层是屏幕空间，副本的位置与大小都要按它换算。
+func _zoom() -> float:
+	if _overlay != null and canvas != null and canvas.nCamera != null:
+		return canvas.nCamera.zoom.x
+	return 1.0
 
 
 func _inside_canvas() -> bool:
