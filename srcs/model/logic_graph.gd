@@ -55,28 +55,12 @@ func chain_ids() -> Array[StringName]:
 	return out
 
 
-func has_chain(chain_id: StringName) -> bool:
-	return _chains.has(chain_id)
-
-
-## 一条链的头节点 id；空链或不存在返回 [constant ROOT]。
 func chain_head(chain_id: StringName) -> int:
 	var ids: Array[int] = []
 	ids.assign(_chains.get(chain_id, []))
 	return ids[0] if not ids.is_empty() else ROOT
 
 
-## 各条链的头节点 id。
-func head_ids() -> Array[int]:
-	var out: Array[int] = []
-	for chain_id in _chains:
-		var head := chain_head(chain_id)
-		if head != ROOT:
-			out.append(head)
-	return out
-
-
-## 链的画布落点。
 func chain_position(chain_id: StringName) -> Vector2:
 	return _chain_positions.get(chain_id, Vector2.ZERO)
 
@@ -149,12 +133,6 @@ func locate(id: int) -> Dictionary:
 			if index >= 0:
 				return {"owner_id": owner_id, "slot": slot_id, "index": index}
 	return {}
-
-
-## 节点所属链的头节点 id；不在图上返回 [constant ROOT]。
-func find_head_of(id: int) -> int:
-	var chain_id := find_chain_of(id)
-	return chain_head(chain_id)
 
 
 #endregion

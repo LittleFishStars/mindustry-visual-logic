@@ -176,17 +176,6 @@ func move_node(id: int, owner_id: int, slot_id: StringName, index: int) -> bool:
 	return true
 
 
-## 把块（连同其子树）移到画布上的一条新链。
-func move_node_to_new_chain(id: int, world_pos: Vector2) -> bool:
-	if not graph.has(id):
-		return false
-	history.record("移动块", func() -> void:
-		var chain := graph.create_chain(world_pos)
-		graph.move_node(id, LogicGraph.ROOT, chain, -1))
-	return true
-
-
-## 把一串块（拖动时"拿起的那块 + 它后面的所有块"）整体搬到目标容器。
 func move_tail(ids: Array[int], owner_id: int, slot_id: StringName, index: int) -> bool:
 	if ids.is_empty() or not graph.has(ids[0]):
 		return false
@@ -240,17 +229,6 @@ func _make_node(type_id: StringName) -> LogicNode:
 func world_from_screen(area_rect: Rect2, screen_pos: Vector2) -> Vector2:
 	var local := screen_pos - area_rect.position
 	return get_canvas_transform().affine_inverse() * local
-
-
-## 只渲染某个块自己那一行（不含子树），供预览/自检使用。
-func export_line(id: int) -> String:
-	var node := graph.get_node_by_id(id)
-	if node == null or library == null:
-		return ""
-	var def := library.by_id(node.type_id)
-	if def == null:
-		return ""
-	return MlogExporter.render_node(def, node)
 
 
 func anchors() -> Array[Dictionary]:

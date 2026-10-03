@@ -103,13 +103,3 @@ static func load_from_file(path: String) -> LogicGraph:
 	return from_json(text)
 
 
-## 读取文件里记录的编辑器名。
-static func load_name_from_file(path: String) -> String:
-	if not FileAccess.file_exists(path):
-		return ""
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return ""
-	var text := file.get_as_text()
-	file.close()
-	return peek_name(text)

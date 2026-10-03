@@ -58,16 +58,6 @@ static func trigger_from(token: String) -> Trigger:
 			return Trigger.FIELD_CHANGED
 
 
-static func action_from(token: String) -> Do:
-	match token:
-		"set_visible":
-			return Do.SET_VISIBLE
-		"call":
-			return Do.CALL_BEHAVIOR
-		_:
-			return Do.SET_FIELD
-
-
 const TRIGGER_NAMES: Array[String] = ["field_changed", "option_selected", "toggled", "ready"]
 const DO_NAMES: Array[String] = ["set_field", "set_visible", "call_behavior"]
 

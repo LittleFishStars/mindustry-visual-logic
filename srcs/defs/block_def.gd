@@ -138,21 +138,6 @@ func is_field_active(field_id: StringName, value_of: Callable) -> bool:
 	return is_element_active(element(field_id), value_of)
 
 
-## 当前生效的行（布局按它来量，不生效的行整行不占位置）。
-func active_rows(value_of: Callable) -> Array[RowDef]:
-	var out: Array[RowDef] = []
-	for row in rows:
-		if row.is_active(value_of):
-			out.append(row)
-	return out
-
-
-## 该块会不会产生 mlog 输出（If 这类纯容器不会）。
-func produces_output() -> bool:
-	return not export_parts.is_empty() or not export_variants.is_empty()
-
-
-## 选导出模板：第一个条件成立的变体优先，否则用默认模板。
 func export_parts_for(value_of: Callable) -> Array[ExportPart]:
 	for variant in export_variants:
 		if variant.condition == null or variant.condition.matches(value_of):

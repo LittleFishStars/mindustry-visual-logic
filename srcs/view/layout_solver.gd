@@ -31,18 +31,6 @@ static func solve(graph: LogicGraph, measure: Callable) -> LayoutResult:
 	return result
 
 
-## 只量尺寸、不摆位置：定义层做"这个块有多高"的即时预览时可用。
-static func measure_only(graph: LogicGraph, measure: Callable) -> Dictionary[int, BlockMetrics]:
-	var result := LayoutResult.new()
-	if graph == null or not measure.is_valid():
-		return result.metrics
-	var measured: Dictionary[int, bool] = {}
-	for chain_id in graph.chain_ids():
-		for head_id in graph.slot_items(LogicGraph.ROOT, chain_id):
-			_measure_node(graph, measure, head_id, result, measured)
-	return result.metrics
-
-
 static func _measure_node(
 	graph: LogicGraph,
 	measure: Callable,

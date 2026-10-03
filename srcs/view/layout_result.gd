@@ -24,36 +24,3 @@ func rect_of(id: int) -> Rect2:
 	return rects.get(id, Rect2())
 
 
-func position_of(id: int) -> Vector2:
-	var rect: Rect2 = rects.get(id, Rect2())
-	return rect.position
-
-
-func metrics_of(id: int) -> BlockMetrics:
-	return metrics.get(id)
-
-
-## 所有块的并集矩形（画布滚动、居中、导出图片都靠它）。
-func bounds() -> Rect2:
-	var first := true
-	var out := Rect2()
-	for id in rects:
-		if first:
-			out = rects[id]
-			first = false
-		else:
-			out = out.merge(rects[id])
-	return out
-
-
-## 命中测试：返回覆盖 [param point] 的最上层节点 id，没有则返回 0。
-## 后加入的块绘制在上层，所以从后往前查。
-func node_at(point: Vector2, graph: LogicGraph) -> int:
-	var ids := graph.all_ids()
-	for i in range(ids.size() - 1, -1, -1):
-		var id: int = ids[i]
-		var rect: Rect2 = rects.get(id, Rect2())
-		# 块之间是竖向相接的，这里把命中区域稍微收窄，避免抢相邻块的点击
-		if rect.has_point(point):
-			return id
-	return 0

@@ -32,11 +32,6 @@ static func groups(kind: StringName) -> Dictionary:
 	return data.get("groups", {})
 
 
-static func has_groups(kind: StringName) -> bool:
-	return not groups(kind).is_empty()
-
-
-## 该候选集是否可用（数据文件存在）。
 static func exists(kind: StringName) -> bool:
 	return not _load(kind).is_empty()
 

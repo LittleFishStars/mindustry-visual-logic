@@ -81,10 +81,6 @@ func block_ids() -> Array[StringName]:
 	return out
 
 
-func kind_of(block_id: StringName) -> StringName:
-	return _kind_of.get(block_id, &"")
-
-
 func kind(kind_id: StringName) -> Kind:
 	for item in kinds:
 		if item.id == kind_id:
