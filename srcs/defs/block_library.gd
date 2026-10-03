@@ -17,9 +17,7 @@ extends RefCounted
 ##
 ## - `Row` 显式分行（取代 `<Br/>`）；行与元素都可带 `when`，条件支持 `&` `|` `~` 与括号
 ## - `Group` 给一串连续元素共享一个条件（不换行），解析时并入元素条件
-## - `Export` 也可带 `when`；旧写法 `<Pressed>/<Released>` 一律翻译成条件
-## - 旧写法（`<Item show>` / `<Br/>` / `<Pressed show>`）继续可解析，解析时就翻译成条件，
-##   所以内部只有一种机制
+## - `Export` 也可带 `when`；`<Br/>` / `<Pressed>` / `<Item show>` 等旧写法已不再支持（会给出解析警告）
 
 class Kind extends RefCounted:
 	var id: StringName = &""
@@ -142,8 +140,9 @@ func _parse_file(path: String) -> void:
 					"Row":
 						if block != null:
 							row = _start_row(block, _condition_of(block, attrs))
-					"Br":
-						row = null
+					"Br", "Pressed", "Released":
+						warnings.append("%s：<%s> 是旧写法，已不再支持（分行用 <Row [when]>，开关状态用 when 条件）"
+							% [block.id if block != null else "?", tag])
 					"Group":
 						if block != null:
 							var condition := _condition_of(block, attrs)
@@ -151,7 +150,7 @@ func _parse_file(path: String) -> void:
 								else ConditionDef.all_of([group_condition, condition])
 					"Export":
 						if block != null:
-							variant = _start_variant(block, attrs, variant)
+							variant = _start_variant(block, attrs)
 					"Literal":
 						if block != null:
 							var part := ExportPart.make_literal("")
@@ -172,13 +171,8 @@ func _parse_file(path: String) -> void:
 						if option_element != null:
 							var item := ElementDef.OptionItem.new("")
 							item.value = String(attrs.get("value", ""))
-							item.legacy_show = _ids(String(attrs.get("show", "")))
 							option_element.items.append(item)
 							text_target = item
-					"Pressed":
-						variant = _apply_button_state(block, attrs, true)
-					"Released":
-						variant = _apply_button_state(block, attrs, false)
 					"Event":
 						if block != null:
 							action = ActionDef.new()
@@ -235,11 +229,8 @@ func _parse_file(path: String) -> void:
 						variant = null
 					"Event":
 						action = null
-					"Pressed", "Released":
-						variant = null
 					"Block":
 						if block != null:
-							_translate_legacy_visibility(block)
 							_validate_conditions(block)
 							block.build_index()
 						block = null
@@ -247,7 +238,6 @@ func _parse_file(path: String) -> void:
 						current_kind = null
 
 	if block != null:
-		_translate_legacy_visibility(block)
 		block.build_index()
 
 
@@ -352,10 +342,7 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	return condition
 
 
-func _start_variant(block: BlockDef, attrs: Dictionary, enclosing: BlockDef.ExportVariant) -> BlockDef.ExportVariant:
-	# <Pressed>/<Released> 里嵌套的 <Export>：沿用外层变体
-	if enclosing != null:
-		return enclosing
+func _start_variant(block: BlockDef, attrs: Dictionary) -> BlockDef.ExportVariant:
 	var text := String(attrs.get("when", "")).strip_edges()
 	var variant := BlockDef.ExportVariant.new()
 	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
@@ -379,103 +366,6 @@ func _export_target(block: BlockDef, variant: BlockDef.ExportVariant) -> Array[E
 		return variant.parts
 	return block.export_parts
 
-
-func _apply_button_state(block: BlockDef, attrs: Dictionary, pressed: bool) -> BlockDef.ExportVariant:
-	if block == null or block.elements.is_empty():
-		return null
-	var last: ElementDef = block.elements[-1]
-	if last.type != &"Button":
-		return null
-	var shown := _ids(String(attrs.get("show", "")))
-	if pressed:
-		last.legacy_pressed = shown
-	else:
-		last.legacy_released = shown
-	# 统一成 when：<Pressed>/<Released> 就是 `开关=true/false` 的导出模板
-	if shown.is_empty() and String(attrs.get("export", "")).strip_edges() == "":
-		return null
-	var variant := BlockDef.ExportVariant.new()
-	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
-	variant.condition = ConditionDef.compare(last.id, ["true" if pressed else "false"])
-	variant.button = last.id
-	variant.pressed = pressed
-	block.export_variants.append(variant)
-	return variant
-
-
-#endregion
-
-
-#region 旧写法 → 条件
-
-## 把 `<Item show="…">` / `<Pressed show>` / `<Released show>` 翻译成元素条件。
-##
-## 旧语义是「选中项的白名单 ∩ 开关状态的白名单，没被列出的元素一律隐藏」；
-## 这里对每个元素、每个"限制来源"各算一份规则再取与：
-## [codeblock]
-## 某个 Option 对元素 x 的规则 = 或( 选中该项 且 (该项清单为空 或 x 在清单里) )
-## 某个 Button 对元素 x 的规则 = 或( 处于该状态 且 (该状态清单为空 或 x 在清单里) )
-## [/codeblock]
-## 没被任何清单提到的元素，其规则恒假 —— 与旧行为一致（隐藏）。
-func _translate_legacy_visibility(block: BlockDef) -> void:
-	var options: Array[ElementDef] = []
-	var buttons: Array[ElementDef] = []
-	for element in block.elements:
-		if element.type == &"Option" and not element.items.is_empty():
-			for item in element.items:
-				if not item.legacy_show.is_empty():
-					options.append(element)
-					break
-		elif element.type == &"Button":
-			if not element.legacy_pressed.is_empty() or not element.legacy_released.is_empty():
-				buttons.append(element)
-	if not options.is_empty() or not buttons.is_empty():
-		for element in block.elements:
-			var rules: Array[ConditionDef] = []
-			for option in options:
-				var option_rule := _legacy_option_rule(option, element.id)
-				if option_rule != null:
-					rules.append(option_rule)
-			for button in buttons:
-				var button_rule := _legacy_button_rule(button, element.id)
-				if button_rule != null:
-					rules.append(button_rule)
-			if rules.is_empty():
-				continue
-			var rule := ConditionDef.all_of(rules)
-			if element.condition == null:
-				element.condition = rule
-			else:
-				element.condition = ConditionDef.all_of([element.condition, rule])
-	for element in block.elements:
-		element.clear_legacy()
-
-
-func _legacy_option_rule(option: ElementDef, element_id: StringName) -> ConditionDef:
-	var branches: Array[ConditionDef] = []
-	for item in option.items:
-		if item.legacy_show.is_empty() or item.legacy_show.has(element_id):
-			branches.append(ConditionDef.compare(option.id, [item.value_or_text()]))
-	# 每个取值都显示它 = 这条来源不构成限制（避免写出"16 项或"这种同义反复）
-	if branches.size() == option.items.size():
-		return null
-	return ConditionDef.any_of(branches)
-
-
-func _legacy_button_rule(button: ElementDef, element_id: StringName) -> ConditionDef:
-	var branches: Array[ConditionDef] = []
-	var total := 0
-	if button.legacy_released.is_empty() or button.legacy_released.has(element_id):
-		branches.append(ConditionDef.compare(button.id, ["false"]))
-	if button.legacy_released.is_empty() or button.legacy_released.has(element_id):
-		total += 1
-	if button.legacy_pressed.is_empty() or button.legacy_pressed.has(element_id):
-		branches.append(ConditionDef.compare(button.id, ["true"]))
-	if button.legacy_pressed.is_empty() or button.legacy_pressed.has(element_id):
-		total += 1
-	if total == 2:
-		return null
-	return ConditionDef.any_of(branches)
 
 #endregion
 

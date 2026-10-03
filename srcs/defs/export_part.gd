@@ -36,13 +36,6 @@ static func make_literal(text: String) -> ExportPart:
 	return part
 
 
-## 字面量，且紧贴上一段（不插空格）。
-static func make_suffix(text: String) -> ExportPart:
-	var part := make_literal(text)
-	part.space_before = false
-	return part
-
-
 static func make_field(field_id: StringName) -> ExportPart:
 	var part := ExportPart.new()
 	part.kind = Kind.FIELD

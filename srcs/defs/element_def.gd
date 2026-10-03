@@ -15,10 +15,6 @@ class OptionItem extends RefCounted:
 	var text: String = ""
 	## 导出进 mlog 的值。为空时等于 [member text]。
 	var value: String = ""
-	## 解析期：旧格式 `<Item show="…">` 列出的元素 id。
-	## 解析结束后会被翻译成那些元素的条件，然后清空。
-	var legacy_show: Array[StringName] = []
-
 	func _init(p_text: String = "") -> void:
 		text = p_text
 
@@ -62,10 +58,6 @@ var attrs: Dictionary = {}
 
 var actions: Array[ActionDef] = []
 
-## 解析期：旧格式 `<Pressed show="…">` / `<Released show="…">`（仅 Button 有意义）。
-var legacy_pressed: Array[StringName] = []
-var legacy_released: Array[StringName] = []
-
 
 func _init(p_type: StringName = &"", p_id: StringName = &"") -> void:
 	type = p_type
@@ -89,11 +81,3 @@ func set_text(value: String) -> void:
 ## 单看元素自身的条件是否成立（不含所在行的条件）。
 func is_active_here(value_of: Callable) -> bool:
 	return condition == null or condition.matches(value_of)
-
-
-## 清掉解析期的旧格式残留（翻译完成后调用）。
-func clear_legacy() -> void:
-	legacy_pressed = []
-	legacy_released = []
-	for item in items:
-		item.legacy_show = []
