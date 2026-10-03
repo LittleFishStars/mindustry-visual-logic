@@ -23,7 +23,7 @@ srcs/
 │   └── graph_serializer.gd     ← JSON 存盘/读盘
 ├── defs/                       ← 定义层（块定义的类型化对象）
 │   ├── block_def.gd            ← BlockDef：元素、导出模板、事件、行为脚本
-│   ├── element_def.gd          ← ElementDef / Visibility / OptionItem
+│   ├── element_def.gd          ← ElementDef / OptionItem（各自带生效条件 when）
 │   ├── export_part.gd          ← ExportPart：字面量 / 取字段 / 首个可见
 │   ├── action_def.gd           ← ActionDef：声明式事件（<Event>）
 │   ├── block_library.gd        ← XML → BlockDef（不认识具体元素种类）
@@ -37,7 +37,6 @@ srcs/
 │   ├── layout_result.gd        ← 求解结果（矩形表 + 锚点表）
 │   ├── editor_camera.gd        ← 相机：滚轮缩放 + 空白处左键平移
 │   ├── drag_controller.gd      ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
-│   ├── drag_overlay.gd         ← 吸附提示线与高亮
 │   ├── selector_panel.gd       ← 单位/传感器选择器浮层
 │   └── elements/
 │       └── element_builders.gd ← 内置元素构建器 + 注册
@@ -77,9 +76,11 @@ assets/
 
 1. 用户改控件 → `BlockView.commit_field()` → `EditorCanvas` 用 `GraphHistory.record()` 包住 `LogicGraph.set_field()`；
 2. 图发出 `structure_changed` / `field_changed` / `reset` → 画布同步视图集合并重新求解布局；
-3. 拖拽：`BlockView.drag_requested` → `DragController` 建幽灵（或移动被拖块及其子树）→
-   每帧向画布要 `find_anchor()` 并在 `DragOverlay` 上高亮 → 松手才产生一条撤销记录。
-   拖到画布外松手 = 取消，**不会删除任何数据**。
+3. 拖拽：`BlockView.drag_requested` → `DragController` 拿起"这个块 + 它后面的所有块"（各自子树跟着），
+   每帧向画布要 `find_anchor()` 找落点，并在落点摆出一组**占位块**（半透明、显示真实字段值）指示
+   "现在放下会怎么样"；插入到链中间时，插入点之后的块会被临时下移给占位块腾位置。
+   左键**松开**才落地（一次撤销记录），画布外松手/右键/Esc = 取消，原地松手视为没搬动；
+   任何情况下都**不会删除数据**。
 
 ### 块定义格式（`blocks/{locale}/*.xml`）
 
