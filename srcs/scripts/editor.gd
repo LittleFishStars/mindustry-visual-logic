@@ -63,6 +63,10 @@ func _make_sample(block: BlockDef) -> BlockView:
 	var view := BlockView.new()
 	view.name = "Sample_%s" % block.id
 	view.setup(block, temp, true)
+	# 列表里保持块自己的宽度：不参与容器的横向拉伸（否则会被拉满整列），
+	# 并先量一次，让它的最小宽度来自块本身的布局而不是兜底值
+	view.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	view.measure({})
 	view.drag_requested.connect(func(_view: BlockView, offset: Vector2) -> void:
 		nDrag.start_from_palette(block, offset))
 	return view
