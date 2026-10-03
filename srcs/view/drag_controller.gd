@@ -34,6 +34,9 @@ var _target: Dictionary = {}
 var _carried: Array[int] = []
 ## 为落点占位块让位而被临时下移的块（松手/换目标时按布局结果还原）
 var _pushed: Array[int] = []
+## 拖动中临时提到最上层的块，以及它们原来的层级（松手/取消时还原）
+var _prev_z: Dictionary[int, int] = {}
+const DRAG_Z: int = 100
 
 
 ## 按下时的鼠标位置：用来判断"原地松手"（没有真正搬动）
@@ -65,6 +68,12 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 		for id in canvas.graph.subtree_ids(carried_id):
 			_exclude[id] = true
 			_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
+	# 拖动中的块（含后段与各自子树）画到最上层，免得被后建的链盖住
+	for id in _subtree_positions:
+		var carried_view := canvas.view_of(id)
+		if carried_view != null and is_instance_valid(carried_view):
+			_prev_z[id] = carried_view.z_index
+			carried_view.z_index = DRAG_Z
 	_begin()
 
 
@@ -185,6 +194,15 @@ func _apply_insert_shift(_at: Vector2) -> void:
 				_pushed.append(id)
 
 
+## 还原拖动时临时提高的层级。
+func _restore_z() -> void:
+	for id in _prev_z:
+		var carried_view := canvas.view_of(id)
+		if carried_view != null and is_instance_valid(carried_view):
+			carried_view.z_index = _prev_z[id]
+	_prev_z.clear()
+
+
 ## 把让位造成的临时偏移还原（布局结果才是真相）。
 func _release_shift() -> void:
 	for id in _pushed:
@@ -237,6 +255,7 @@ func is_active() -> bool:
 
 
 func _cleanup() -> void:
+	_restore_z()
 	_release_shift()
 	if _ghost != null and is_instance_valid(_ghost):
 		_ghost.queue_free()
