@@ -218,12 +218,6 @@ func _validate_compare(field: String, values: Array[String], negated: bool) -> C
 	return ConditionDef.compare(StringName(field), values, negated)
 
 
-func _is_field(name: String) -> bool:
-	if _def == null:
-		return true
-	return _def.element(StringName(name)) != null
-
-
 static func _join_ids(ids: Array[StringName]) -> String:
 	var parts := PackedStringArray()
 	for id in ids:

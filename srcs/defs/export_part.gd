@@ -54,17 +54,6 @@ static func make_first_visible(field_ids: Array[StringName]) -> ExportPart:
 	return part
 
 
-## 解析旧语法的单个空格片段：`%a` / `%a|b` / 字面量。
-static func from_legacy_token(token: String) -> ExportPart:
-	if token.begins_with("%"):
-		var ids: Array[StringName] = []
-		for piece in token.substr(1).split("|"):
-			if piece != "":
-				ids.append(StringName(piece))
-		return make_first_visible(ids)
-	return make_literal(token)
-
-## 解析器用它写入标签文本。
 func set_text(value: String) -> void:
 	literal = value
 

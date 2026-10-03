@@ -89,11 +89,6 @@ func is_preview() -> bool:
 	return preview
 
 
-func node_id() -> int:
-	return node.id if node != null else 0
-
-
-## 取字段当前值（以数据层为准，控件只是显示）。
 func field_value(field_id: StringName, fallback: Variant = "") -> Variant:
 	if node == null:
 		return fallback
@@ -135,33 +130,6 @@ func option_value(element: ElementDef) -> String:
 		var index := clampi((control as OptionButton).selected, 0, element.items.size() - 1)
 		return element.items[index].value_or_text()
 	return ""
-
-
-## 元素当前是否可见（自检/调试用）。
-func is_element_visible(element_id: StringName) -> bool:
-	var control: Control = _elements.get(element_id)
-	return control != null and control.visible
-
-
-## 元素当前的值字符串（供控件显示与自检使用）。
-func element_value(element_id: StringName) -> String:
-	var element := def.element(element_id) if def != null else null
-	if element == null:
-		return ""
-	match element.type:
-		&"Option":
-			return option_value(element)
-		&"Button":
-			return "true" if toggle_state(element.id) else "false"
-		_:
-			var control: Control = _elements.get(element_id)
-			if control is LineEdit:
-				return (control as LineEdit).text
-			if control != null and control.has_meta(&"value_control"):
-				var inner: Variant = control.get_meta(&"value_control")
-				if inner is LineEdit:
-					return (inner as LineEdit).text
-			return String(field_value(element_id, element.default_value))
 
 
 func request_picker(element: ElementDef, control: Control) -> void:

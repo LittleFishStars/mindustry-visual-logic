@@ -114,8 +114,7 @@ assets/
 ```
 
 - **导出段**：`<Literal>`（可以含空格）、`<Field id>`、`<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）；
-  `glue="true"` / `space_before="false"` 表示本段紧贴上一段。也可以写成 `<Block export="draw %mode %a|b">` 属性
-  （`%字段` / `%a|b` 占位符，按空格切分，字面量不能含空格）。
+  `glue="true"` / `space_before="false"` 表示本段紧贴上一段。
 - **行**：`<Row [when]>` 显式分行；条件不成立的行**整行不参与布局**（不占位置、不绘制）。
   `<Group when="…">` 给一串连续元素共享条件（不换行，解析时并入元素条件）。
 - **元素**：`<Text>` / `<LineBox placeholder>` / `<Option>`+`<Item [value]>` / `<Button text>` / `<Selector kind>` / `<Nest>`；

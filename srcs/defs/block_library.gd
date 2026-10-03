@@ -298,7 +298,6 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	var block := BlockDef.new(StringName(attrs.get("name", "")), current_kind.id)
 	block.color = current_kind.color
 	block.order = order
-	block.export_parts = _legacy_export_parts(String(attrs.get("export", "")))
 	block.behavior_path = String(attrs.get("script", ""))
 	if block.id == &"":
 		warnings.append("存在没有 name 的 <Block>（%s）" % current_kind.id)
@@ -345,19 +344,14 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 func _start_variant(block: BlockDef, attrs: Dictionary) -> BlockDef.ExportVariant:
 	var text := String(attrs.get("when", "")).strip_edges()
 	var variant := BlockDef.ExportVariant.new()
-	variant.parts = _legacy_export_parts(String(attrs.get("export", "")))
 	if text != "":
 		var condition := _condition_of(block, attrs)
 		variant.condition = condition
 		variant.derive_button_from_condition()
 		block.export_variants.append(variant)
 		return variant
-	# 没有 when 的块级 <Export>：就是默认模板（替换掉属性写法）
-	if block.export_parts.is_empty():
-		block.export_parts = variant.parts
-	else:
-		warnings.append("%s：同时写了 export 属性与 <Export> 子标签，以子标签为准" % block.id)
-		block.export_parts = variant.parts
+	# 没有 when 的块级 <Export>：就是默认模板
+	block.export_parts = variant.parts
 	return null
 
 
@@ -372,18 +366,6 @@ func _export_target(block: BlockDef, variant: BlockDef.ExportVariant) -> Array[E
 
 #region 杂项
 
-## 旧写法：空格分隔的导出串（字面量不能含空格）。新写法请用 <Export> 子标签。
-func _legacy_export_parts(raw: String) -> Array[ExportPart]:
-	var out: Array[ExportPart] = []
-	var trimmed := raw.strip_edges()
-	if trimmed == "":
-		return out
-	for token in trimmed.split(" ", false):
-		out.append(ExportPart.from_legacy_token(token))
-	return out
-
-
-## `space_before="false"` 或 `glue="true"` 表示本段紧贴上一段（不插空格）。
 func _space_before(attrs: Dictionary) -> bool:
 	if attrs.has("glue"):
 		return not _as_bool(attrs.get("glue", "true"))

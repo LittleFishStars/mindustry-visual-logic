@@ -69,11 +69,6 @@ func is_field() -> bool:
 	return type in [&"LineBox", &"Option", &"Button", &"Selector"]
 
 
-func attr(key: String, fallback: Variant = "") -> Variant:
-	return attrs.get(key, fallback)
-
-
-## 解析器用它写入标签文本（ElementDef / OptionItem / ExportPart 约定同名方法）。
 func set_text(value: String) -> void:
 	text = value
 
