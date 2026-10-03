@@ -110,10 +110,6 @@
 			<Field id="content" glue="true" />
 			<Literal glue="true">"</Literal>
 		</Export>
-		<Export when="txt=false">
-			<Literal>print</Literal>
-			<Field id="content" />
-		</Export>
 		<Row>
 			<Text id="T1">Print</Text>
 			<Text id="T2" when="txt=true">"</Text>

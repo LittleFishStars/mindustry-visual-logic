@@ -15,7 +15,6 @@ signal content_changed()
 signal picker_requested(element: ElementDef, control: Control)
 
 @onready var nBlocks: Node2D = $Blocks
-@onready var nOverlay: DragOverlay = $Overlay
 ## 落点占位块（幽灵视图）及其原始位置
 var _preview_views: Array[BlockView] = []
 var _preview_origins: Array[Vector2] = []

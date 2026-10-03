@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/scripts/editor.gd" id="1_x6qec"]
 [ext_resource type="Script" uid="uid://ba61nhstol3lv" path="res://srcs/view/editor_canvas.gd" id="2_canvas"]
 [ext_resource type="Script" uid="uid://b53fyu6tp4klc" path="res://srcs/view/editor_camera.gd" id="3_camera"]
-[ext_resource type="Script" uid="uid://drumj0uuckso4" path="res://srcs/view/drag_overlay.gd" id="4_overlay"]
 [ext_resource type="Script" uid="uid://bo00f80eayfyo" path="res://srcs/view/drag_controller.gd" id="5_drag"]
 
 [node name="Editor" type="Control" unique_id=614836996]
@@ -51,10 +50,6 @@ render_target_update_mode = 4
 script = ExtResource("2_canvas")
 
 [node name="Blocks" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1906459448]
-
-[node name="Overlay" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1892833396]
-z_index = 100
-script = ExtResource("4_overlay")
 
 [node name="Camera" type="Camera2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1714148892]
 script = ExtResource("3_camera")
