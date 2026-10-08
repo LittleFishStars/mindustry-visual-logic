@@ -7,7 +7,7 @@ Godot 4.x application (GL Compatibility renderer, not Vulkan). Visual block-base
 ## Key commands
 
 - **LSP**: `godot --headless --editor --lsp-server` (configured in `opencode.json`)
-- **Run**: `godot --path /home/ylxc/Projects/Godot/mindustry-visual-logic`, or F5 in the editor
+- **Run**: `godot --path /home/ylxc/Projects/app/mindustry-visual-logic`, or F5 in the editor
 - **Export**: via editor UI only — `export_presets.cfg` is gitignored
 - **Headless 冒烟**: `godot --headless --path . --quit-after 60` —— 加载主场景跑若干帧，能捕到脚本解析/运行期错误
 - **No tests, no CI, no linter** — do not attempt to run any
