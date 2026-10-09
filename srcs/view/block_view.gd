@@ -41,6 +41,10 @@ var preview: bool = false
 var interactive: bool = true
 
 var metrics: BlockMetrics = null
+## 上一次度量传入的槽位尺寸：主题/字体到位后要原样再量一次，不能把 nest 占位的尺寸丢掉。
+var _last_slot_extents: Dictionary[StringName, Vector2] = {}
+## 本帧是否已经排过一次「主题到位后的补量」。
+var _theme_remeasure_queued: bool = false
 
 var _rows: Array[HBoxContainer] = []
 var _row_kind: Array[StringName] = []
@@ -252,6 +256,7 @@ func _make_nest_row(element: ElementDef, row_def: BlockDef.RowDef) -> void:
 ## 算出本块的几何。[param slot_extents] 是各槽位内子链的总尺寸（自底向上求解传入）。
 func measure(slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 	_apply_visibility()
+	_last_slot_extents = slot_extents.duplicate()
 	for slot_id in _nest_controls:
 		var placeholder: Control = _nest_controls[slot_id]
 		var extent: Vector2 = slot_extents.get(slot_id, Vector2.ZERO)
@@ -344,11 +349,33 @@ func _get_minimum_size() -> Vector2:
 	return metrics.size if metrics != null else Vector2(120, row_height)
 
 
-## 被容器拉伸后重新排一次行，避免背景比控件窄。
+## 被容器拉伸后重新排一次行，避免背景比控件窄；主题到位后补量一次（见下）。
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED and not _row_widths.is_empty():
-		var width := maxf(size.x, metrics.size.x if metrics != null else size.x)
-		_layout_rows(_row_widths, _row_heights, width)
+	match what:
+		NOTIFICATION_RESIZED:
+			if not _row_widths.is_empty():
+				var width := maxf(size.x, metrics.size.x if metrics != null else size.x)
+				_layout_rows(_row_widths, _row_heights, width)
+		NOTIFICATION_THEME_CHANGED:
+			# 行内控件的最小尺寸要先拿到主题字体才对，而入树与主题传播都发生在 setup 之后：
+			# 不补量这一次，背景会停在按兜底字体算出的宽度上，而行内容已经变宽、溢出块外。
+			if def != null and not _theme_remeasure_queued:
+				_theme_remeasure_queued = true
+				_remeasure_after_theme.call_deferred()
+
+
+## 推迟到本帧主题传播走完之后再量：此刻子控件的最小尺寸可能还是旧字体的。
+func _remeasure_after_theme() -> void:
+	_theme_remeasure_queued = false
+	if def == null or not is_inside_tree():
+		return
+	var before := metrics.size if metrics != null else Vector2.ZERO
+	measure(_last_slot_extents)
+	update_minimum_size()
+	if metrics.size != before:
+		layout_dirty.emit()
+
+
 ## 行背景：nest 行不画（旧实现同样是透明，让子块自己显形），首尾行保留圆角。
 func _row_style(index: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
