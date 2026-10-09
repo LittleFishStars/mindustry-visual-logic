@@ -32,6 +32,8 @@ const ROW_TAIL: StringName = &"tail"
 @export var separation: int = 10
 @export var row_height: int = 40
 @export var corner_radius: int = 10
+## 体（nest 行）左侧那条竖条的宽度：子块就挂在这条竖条右边（从 margin * 4 处开始摆）。
+@export var body_bar_width: int = 20
 
 var def: BlockDef
 var node: LogicNode
@@ -333,7 +335,9 @@ func _layout_rows(widths: Array[float], heights: Array[float], block_width: floa
 			row.position = Vector2(margin * 2, y + margin / 2.0)
 			row.size = Vector2(block_width - margin * 4, maxf(row_h - margin, 1.0))
 		_row_size[i] = Vector2(row_w, row_h)
-		_bg_rects.append(Rect2(0, y, block_width, row_h + 1.0))
+		# 体（nest）行只在最左边画一条竖条 —— 子块挂在它右边，其余地方保持透明
+		var bg_width := float(body_bar_width) if kind == ROW_NEST else block_width
+		_bg_rects.append(Rect2(0, y, bg_width, row_h + 1.0))
 		_styles.append(_row_style(i))
 		y += row_h
 	_row_widths = widths.duplicate()
@@ -376,12 +380,11 @@ func _remeasure_after_theme() -> void:
 		layout_dirty.emit()
 
 
-## 行背景：nest 行不画（旧实现同样是透明，让子块自己显形），首尾行保留圆角。
+## 行背景：体（nest）行的矩形就是左侧那条竖条（见 [method _layout_rows]），首尾行保留圆角。
 func _row_style(index: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color()
 	if _row_kind[index] == ROW_NEST:
-		style.bg_color = Color(0, 0, 0, 0)
 		return style
 	style.corner_radius_top_right = corner_radius
 	style.corner_radius_bottom_right = corner_radius
@@ -392,11 +395,10 @@ func _row_style(index: int) -> StyleBoxFlat:
 	return style
 
 
-## 命中判定：只认真正画出来的行，nest 留白不算（否则点空白也会拖动整块）。
+## 命中判定：只认真正画出来的行。体（nest）行的矩形就是左侧那条竖条，
+## 所以点竖条能拖动整块，点体里的留白不会。
 func _has_point(point: Vector2) -> bool:
 	for i in _bg_rects.size():
-		if _row_kind[i] == ROW_NEST:
-			continue
 		if _bg_rects[i].has_point(point):
 			return true
 	return false
