@@ -15,6 +15,8 @@ extends Container
 @onready var nQuitButton: Button = $Quit
 ## 编辑菜单（撤销 / 重做 / 清空）：弹出前按当前标签页的状态置灰。
 @onready var nEditMenu: PopupMenu = $MenuBar/Edit
+## 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）。
+@onready var wSettings: SettingsWindow = $SettingsWindow
 
 var Editor = preload("res://srcs/scenes/editor.tscn")
 
@@ -44,6 +46,8 @@ const RENAME_DELAY_MS: int = 400
 ## 按下后鼠标挪动超过这么多像素，就当“在拖动重排标签”，不再弹重命名框。
 const DRAG_CANCEL_PX: float = 4.0
 
+## 应用设置（[AppSettings]）：打开时读盘、改完即时应用、关窗时写盘。
+var _settings: AppSettings = null
 func _ready() -> void:
 	# 设置鼠标指针
 	Input.set_custom_mouse_cursor(custom_cursor, Input.CURSOR_ARROW, Vector2(32, 32))
@@ -53,6 +57,12 @@ func _ready() -> void:
 	Input.set_custom_mouse_cursor(hsize_cursor, Input.CURSOR_HSIZE, Vector2(32, 32))
 	Input.set_custom_mouse_cursor(bdiagsize_cursor, Input.CURSOR_BDIAGSIZE, Vector2(32, 32))
 	Input.set_custom_mouse_cursor(fdiagsize_cursor, Input.CURSOR_FDIAGSIZE, Vector2(32, 32))
+	# 读设置并应用（帧率 / UI 缩放）；设置窗口只负责改数据，应用在这里
+	self._settings = AppSettings.load_from_disk()
+	self._apply_settings()
+	self.wSettings.setup(self._settings)
+	self.wSettings.changed.connect(_on_settings_changed)
+	self.wSettings.closed.connect(_on_settings_closed)
 
 	# 创建初始编辑器
 	self.new_editor()
@@ -266,7 +276,7 @@ func _editor_at(index: int) -> LogicEditorTab:
 
 #region 编辑菜单
 
-## 编辑菜单：0 撤销 / 1 重做 / 2 清空
+## 编辑菜单：0 撤销 / 1 重做 / 2 清空 / 3 设置
 func _on_edit_id_pressed(id: int) -> void:
 	match id:
 		0:
@@ -275,6 +285,8 @@ func _on_edit_id_pressed(id: int) -> void:
 			self._redo()
 		2:
 			self._clear_current()
+		3:
+			self.wSettings.open()
 
 
 ## 菜单弹出来之前刷一下可用性：没得撤销/重做、画布本来就空，就置灰。
@@ -294,6 +306,44 @@ func _clear_current() -> void:
 
 #endregion
 
+
+#region 设置
+## 把设置搬到引擎上：帧率上限与整个 UI 的缩放。
+## 编辑器里（@tool）跳过 —— 否则会顺手改掉 Godot 编辑器自己的帧率和界面缩放。
+func _apply_settings() -> void:
+	if _settings == null or Engine.is_editor_hint():
+		return
+	Engine.max_fps = _settings.max_fps
+	get_tree().root.content_scale_factor = _settings.ui_scale
+
+
+## 设置窗口里改了值：立刻生效（还没写盘）。
+func _on_settings_changed() -> void:
+	self._apply_settings()
+
+
+## 设置窗口关了：写盘。
+func _on_settings_closed() -> void:
+	self._apply_settings()
+	var error := _settings.save_to_disk()
+	if error != OK:
+		push_warning("设置没能写进 %s（错误码 %d）" % [AppSettings.path, error])
+
+
+## 窗口失焦：按设置把当前标签页的 mlog 丢进剪贴板（旧实现叫 compile_when_close）。
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_APPLICATION_FOCUS_OUT or _settings == null:
+		return
+	if not _settings.export_on_focus_lost:
+		return
+	var editor := self._current_editor()
+	if editor == null:
+		return
+	var text := editor.copy_mlog_to_clipboard()
+	print("[MVL] 失焦自动导出 %d 行 mlog 到剪贴板" % text.count("\n"))
+
+
+#endregion
 
 #region 文件菜单
 

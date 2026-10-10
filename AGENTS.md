@@ -20,7 +20,8 @@ srcs/
 │   ├── logic_node.gd           ← LogicNode：类型 + 字段值 + 各槽位的有序子节点 id
 │   ├── logic_graph.gd          ← LogicGraph：画布上的若干条链；容器 = (owner_id, slot_id)
 │   ├── graph_history.gd        ← 快照式撤销/重做
-│   └── graph_serializer.gd     ← JSON 存盘/读盘
+│   ├── graph_serializer.gd     ← JSON 存盘/读盘
+│   └── app_settings.gd         ← 应用设置（帧率/UI 缩放/失焦导出）+ user://settings.json
 ├── defs/                       ← 定义层（块定义的类型化对象）
 │   ├── block_def.gd            ← BlockDef：行/元素、导出模板、默认值、字段与槽位索引
 │   ├── element_def.gd          ← ElementDef / OptionItem（各自带生效条件 when）
@@ -49,7 +50,9 @@ srcs/
 │   └── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型）
 ├── controls/
 │   ├── notice_window.tscn      ← 公告弹窗（textdb.online）
-│   └── notice_item.tscn
+│   ├── notice_item.tscn
+│   ├── settings_window.tscn    ← 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）
+│   └── settings_window.gd
 ├── scenes/
 │   ├── editor.tscn             ← 编辑器标签页（脚本已外置，不再内嵌 GDScript）
 │   └── main.tscn               ← 应用入口
@@ -177,11 +180,16 @@ assets/
 - **公告窗**：`notice_window.tscn` 通过 HTTPRequest 拉 `https://textdb.online/MindVisualLogic`。
 - **自定义光标**：`main.gd._ready()` 从 `assets/sprites/cursors/` 装载。
 - **顶部工具栏**：左边是 `File`（新建页 / 存 / 开 / 导出到剪贴板 / 剪贴板导入）、
-  `Edit`（撤销 / 重做 / 清空，弹出前按当前页状态置灰）、`Help`（文档 / 公告 / 关于）；
+  `Edit`（撤销 / 重做 / 清空 / 设置…，弹出前按当前页状态置灰）、`Help`（文档 / 公告 / 关于）；
   右边是独立的 `Quit` 按钮（`UI._on_sort_children` 里右对齐：先量行高，再按它的宽度把菜单栏缩回去）。
   「清空」走 `LogicEditorTab.clear_graph()`，算一条可撤销记录；`new_project()` 则是
   「换成另一个文档」，会连撤销栈一起清掉 —— 两者不要混用。
   菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。
+- **应用设置**：`AppSettings`（`model/app_settings.gd`）是纯数据 + `user://settings.json`（容错读、超范围钳制）；
+  `SettingsWindow` 只管「值 ↔ 控件」，[b]应用[/b]（`Engine.max_fps` / `root.content_scale_factor`）在 `main.gd`。
+  改动即时生效、关闭窗口时才写盘；`@tool` 下 `_apply_settings()` 直接 return，
+  免得在编辑器里顺手改掉 Godot 编辑器自己的帧率与界面缩放。
+  「失焦自动导出」走 `main.gd._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)`（旧实现叫 compile_when_close）。
 - **标签页标题**：`LogicEditorTab.display_name()` 先看手动命名（`custom_name`），再跟随文件名。
   重命名是就地编辑：标签条上浮一个 `LineEdit`（TabBar 的子节点，不会变成新页面），
   单击[b]已选中[/b]的标签（延迟一个双击间隔才开，免得双击时闪一下）或[b]右键[/b]任意标签打开；

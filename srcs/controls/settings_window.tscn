@@ -1,0 +1,121 @@
+[gd_scene format=3]
+
+[ext_resource type="Theme" uid="uid://11wvq82locvq" path="res://assets/styles/main_theme.tres" id="1_theme"]
+[ext_resource type="Script" path="res://srcs/controls/settings_window.gd" id="2_script"]
+
+[node name="SettingsWindow" type="Window"]
+title = "Settings"
+size = Vector2i(460, 300)
+visible = false
+transient = true
+unresizable = true
+theme = ExtResource("1_theme")
+script = ExtResource("2_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Body" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="MaxFpsRow" type="HBoxContainer" parent="Margin/Body"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Margin/Body/MaxFpsRow"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+text = "Max FPS"
+
+[node name="MaxFpsSlider" type="HSlider" parent="Margin/Body/MaxFpsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 10.0
+max_value = 400.0
+step = 1.0
+value = 60.0
+
+[node name="MaxFpsSpin" type="SpinBox" parent="Margin/Body/MaxFpsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+min_value = 10.0
+max_value = 400.0
+step = 1.0
+value = 60.0
+
+[node name="UiScaleRow" type="HBoxContainer" parent="Margin/Body"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Margin/Body/UiScaleRow"]
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+text = "UI scale"
+
+[node name="UiScaleSlider" type="HSlider" parent="Margin/Body/UiScaleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.5
+max_value = 2.0
+step = 0.05
+value = 1.0
+
+[node name="UiScaleSpin" type="SpinBox" parent="Margin/Body/UiScaleRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+min_value = 0.5
+max_value = 2.0
+step = 0.05
+value = 1.0
+
+[node name="ExportOnFocusLost" type="CheckButton" parent="Margin/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Export mlog to clipboard when the window loses focus"
+
+[node name="Hint" type="Label" parent="Margin/Body"]
+layout_mode = 2
+modulate = Color(1, 1, 1, 0.6)
+text = "Changes take effect immediately and are written to user://settings.json when this window closes."
+autowrap_mode = 3
+
+[node name="Spacer" type="Control" parent="Margin/Body"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Margin/Body"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="Defaults" type="Button" parent="Margin/Body/Buttons"]
+layout_mode = 2
+text = "Restore defaults"
+
+[node name="Close" type="Button" parent="Margin/Body/Buttons"]
+layout_mode = 2
+text = "Close"
+
+[connection signal="close_requested" from="." to="." method="_on_close_pressed"]
+[connection signal="value_changed" from="Margin/Body/MaxFpsRow/MaxFpsSlider" to="." method="_on_max_fps_changed"]
+[connection signal="value_changed" from="Margin/Body/MaxFpsRow/MaxFpsSpin" to="." method="_on_max_fps_changed"]
+[connection signal="value_changed" from="Margin/Body/UiScaleRow/UiScaleSlider" to="." method="_on_ui_scale_changed"]
+[connection signal="value_changed" from="Margin/Body/UiScaleRow/UiScaleSpin" to="." method="_on_ui_scale_changed"]
+[connection signal="toggled" from="Margin/Body/ExportOnFocusLost" to="." method="_on_export_toggled"]
+[connection signal="pressed" from="Margin/Body/Buttons/Defaults" to="." method="_on_defaults_pressed"]
+[connection signal="pressed" from="Margin/Body/Buttons/Close" to="." method="_on_close_pressed"]
