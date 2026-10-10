@@ -19,6 +19,9 @@ signal field_committed(node: LogicNode, field_id: StringName, value: Variant, me
 signal layout_dirty()
 ## 请求打开选择器（由编辑器标签页提供浮层，避免依赖 Window/Popup）。
 signal picker_requested(element: ElementDef, control: Control)
+## 请求把某个块引用字段（Jump 的跳转目标）锁定到画布上的某一块 ——
+## 块视图看不到图，锁定会话由编辑器标签页里的 [LinkController] 接管。
+signal link_requested(view: BlockView, element: ElementDef, control: Control)
 ## 输入框失焦等场合：结束当前撤销合并段。
 signal history_group_closed()
 
@@ -41,6 +44,10 @@ var node: LogicNode
 var preview: bool = false
 ## 是否接受鼠标（幽灵不接）。
 var interactive: bool = true
+## 引用字段的显示文本由画布注入（只有它知道图）：`(节点 id, 字段 id) -> 文本`。
+var link_labeler: Callable = Callable()
+## 是否正被「锁定跳转目标」的高亮描边圈住。
+var _link_highlight: bool = false
 
 var metrics: BlockMetrics = null
 ## 上一次度量传入的槽位尺寸：主题/字体到位后要原样再量一次，不能把 nest 占位的尺寸丢掉。
@@ -98,6 +105,10 @@ func style_button(button: Button) -> void:
 	button.add_theme_stylebox_override("pressed", control_style(base, false, true))
 
 
+## 锁定拖拽悬停时的描边色。
+const LINK_HIGHLIGHT: Color = Color(1.0, 0.92, 0.45, 0.95)
+
+
 func block_color() -> Color:
 	return color()
 
@@ -130,6 +141,35 @@ func commit_field(field_id: StringName, value: Variant, grouped: bool = false) -
 
 func request_picker(element: ElementDef, control: Control) -> void:
 	picker_requested.emit(element, control)
+
+
+## 引用字段现在指着哪一块（元素构建器用它显示按钮文字）。
+func reference_label(field_id: StringName) -> String:
+	if node == null:
+		return "未锁定"
+	if link_labeler.is_valid():
+		return String(link_labeler.call(node.id, field_id))
+	return "未锁定"
+
+
+## 引用字段的按钮被按下：请求开始一次「拖拽锁定」。
+func request_link(element: ElementDef, control: Control) -> void:
+	if preview or not interactive:
+		return
+	link_requested.emit(self, element, control)
+
+
+## 世界坐标是否落在这块上（只认真正画出来的行，与点击判定同源）。
+func contains_world_point(point: Vector2) -> bool:
+	return visible and _has_point(point - position)
+
+
+## 锁定拖拽悬停时给整块描一圈边（不改配色、也不动 modulate）。
+func set_link_highlight(on: bool) -> void:
+	if _link_highlight == on:
+		return
+	_link_highlight = on
+	queue_redraw()
 
 
 func flush_history_group() -> void:
@@ -455,6 +495,9 @@ func set_elements_enabled(enabled: bool) -> void:
 func _draw() -> void:
 	for i in _bg_rects.size():
 		draw_style_box(_styles[i], _bg_rects[i])
+	if _link_highlight:
+		for rect in _bg_rects:
+			draw_rect(rect.grow(1.0), LINK_HIGHLIGHT, false, 2.0)
 
 
 func _gui_input(event: InputEvent) -> void:

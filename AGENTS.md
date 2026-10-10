@@ -39,6 +39,8 @@ srcs/
 │   ├── layout_result.gd        ← 求解结果（矩形表 + 锚点表）
 │   ├── editor_camera.gd        ← 相机：滚轮缩放 + 空白处左键平移
 │   ├── drag_controller.gd      ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
+│   ├── link_controller.gd      ← 锁定会话（Jump 的目标按钮：拖到某块上松手 = 锁定）
+│   ├── link_layer.gd           ← 跳线层（Jump → 目标块的彩色折线 + 箭头）
 │   ├── selector_panel.gd       ← 单位/传感器选择器浮层
 │   └── elements/
 │       └── element_builders.gd ← 内置元素构建器（ElementBuilder 子类 + 注册）
@@ -53,7 +55,7 @@ srcs/
 │   └── main.tscn               ← 应用入口
 └── scripts/
     ├── main.gd                 ← @tool，顶层 UI + 菜单 + 光标
-    └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 选择器
+    └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 锁定 + 选择器
 
 blocks/{locale}/*.xml           ← 块定义
 blocks/selectors/*.json         ← 选择器候选（units / sensors）
@@ -93,6 +95,13 @@ assets/
    拖拽期间块里的可交互控件会被统一禁用（`EditorCanvas.set_elements_enabled` →
    `BlockView.set_elements_enabled` → 构建器的 `set_enabled`）：输入框变只读并交出焦点，
    下拉 / 开关 / 选择器按钮置为 `disabled`，松手/取消后恢复。
+4. 锁定跳转目标：Jump 块的目标是一个 `<JumpTarget>` 按钮（不再是手填行号的输入框）。
+   在它上面按下 → `BlockView.link_requested` → `LinkController` 接管：拖到某一块上松手 = 锁定到那块，
+   拖到自己/左侧块列表 = 解除，空白处松手、右键、Esc = 取消（原样不动；原地松手只算点了一下）。
+   落地只写一条撤销记录（`EditorCanvas.set_link`），图发出 `field_changed` 后重算布局并重绘跳线。
+   跳线由 `LinkLayer` 画：从源块左侧出发、按“竖直区间是否相交”贪心分层错开、颜色由目标块派生；
+   悬停中的候选块由 `BlockView.set_link_highlight` 描边。目标块被删时，指向它的引用会在删除的
+   同一条撤销记录里被清掉（`EditorCanvas._clear_links_to`）。
 
 ### 块定义格式（`blocks/{locale}/*.xml`）
 
@@ -126,13 +135,18 @@ assets/
 </Block>
 ```
 
-- **导出段**：`<Literal>`（可以含空格）、`<Field id>`、`<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）；
+- **导出段**：`<Literal>`（可以含空格）、`<Field id>`、`<Field id link="true">`（块引用，见下）、
+  `<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）；
   `glue="true"` / `space_before="false"` 表示本段紧贴上一段。
 - **行**：`<Row [when]>` 显式分行；条件不成立的行**整行不参与布局**（不占位置、不绘制）。
   `<Group when="…">` 给一串连续元素共享条件（不换行，解析时并入元素条件）。
-- **元素**：`<Text>` / `<LineBox placeholder>` / `<Option>`+`<Item [value]>` / `<Button text>` / `<Selector kind>` / `<Nest>`；
-  条件不成立的元素既不占位置也不显示，但控件不重建（输入焦点不会被打断）。
+- **元素**：`<Text>` / `<LineBox placeholder>` / `<Option>`+`<Item [value]>` / `<Button text>` / `<Selector kind>` /
+  `<JumpTarget>` / `<Nest>`；条件不成立的元素既不占位置也不显示，但控件不重建（输入焦点不会被打断）。
 - **选择器**：`<Selector id="unit" kind="units" />`，候选取自 `blocks/selectors/{kind}.json`。
+- **块引用**：`<Field id="target" link="true"/>` 声明该字段存的是**另一块的引用**（`#<节点 id>`），
+  而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
+  （注释行 `#…` 与标签行 `label:` 不占行号），导入时 `MlogImporter.bind_links` 再把行号绑回块。
+  「哪些字段是引用」的唯一真相在导出模板上（`BlockDef.reference_fields()`），元素种类只管怎么编辑它。
 - **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 是显示字符、导出字符码）。
 - **报错要出声**：`condition_parser.gd` 只做语法解析；「字段是否存在、取值是否合法」由 `BlockLibrary`
   在整块解析完后统一校验。语法错、未知字段、非法取值、未注册的元素标签与 `<Br>`/`<Pressed>` 旧写法

@@ -22,6 +22,12 @@ var literal: String = ""
 var field: StringName = &""
 ## kind == FIRST_VISIBLE 时的候选字段（按序取第一个可见且有值的）。
 var fields: Array[StringName] = []
+## kind == FIELD 时：该字段是[b]块引用[/b]（值形如 `#<节点 id>`，见 [method LogicGraph.make_link_ref]）。
+##
+## 引用不直接进 mlog：导出时由 [MlogExporter] 解析成目标块所在的行号，
+## 导入时再由 [MlogImporter] 把行号绑回块引用 —— 两端问的是同一个标记。
+## 在 XML 里写成 `<Field id="target" link="true"/>`。
+var link: bool = false
 
 ## 输出时是否在本段之前插一个空格。
 ##

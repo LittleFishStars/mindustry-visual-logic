@@ -27,6 +27,7 @@ static func install() -> void:
 	ElementRegistry.register(&"Button", ToggleBuilder.new())
 	ElementRegistry.register(&"Selector", SelectorBuilder.new())
 	ElementRegistry.register(&"Nest", NestBuilder.new())
+	ElementRegistry.register(&"JumpTarget", JumpTargetBuilder.new())
 
 
 ## 输入框（含 Selector 里那个文本框）的建造与回填：两个构建器共用这一份。
@@ -241,3 +242,42 @@ class NestBuilder extends ElementBuilder:
 
 	func is_slot() -> bool:
 		return true
+
+
+## 块引用（Jump 的跳转目标）：不是文本框，而是一个「锁定到了哪一块」的按钮。
+##
+## 在按钮上按下并拖到画布上的某一块松手 = 把跳转锁定到那块（见 [LinkController]）；
+## 拖到自己或左侧块列表 = 解除锁定。字段里存的是块引用（`#<节点 id>`），
+## 具体是谁由画布告诉它（[method BlockView.reference_label]）—— 元素自己看不到图。
+class JumpTargetBuilder extends ElementBuilder:
+	const MIN_WIDTH: float = 84.0
+
+	func build(element: ElementDef, host: Object) -> Control:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(MIN_WIDTH, 0)
+		host.style_button(button)
+		# apply_value 拿不到宿主，把宿主挂在控件上（与 Selector 的 value_control 同一手法）
+		button.set_meta(&"link_host", host)
+		apply_value(element, button, String(host.field_value(element.id, "")))
+		if host.is_preview():
+			button.disabled = true
+			button.focus_mode = Control.FOCUS_NONE
+		else:
+			button.button_down.connect(func() -> void:
+				host.request_link(element, button))
+		return button
+
+	func is_field() -> bool:
+		return true
+
+	func apply_value(element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
+		if not (control is Button):
+			return
+		var host: Object = control.get_meta(&"link_host", null)
+		var label := "未锁定"
+		if host != null:
+			label = String(host.reference_label(element.id))
+		(control as Button).text = label
+
+	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
+		ElementBuilders.set_control_enabled(control, enabled)

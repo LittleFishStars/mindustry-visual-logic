@@ -153,6 +153,7 @@ func _parse_file(path: String) -> void:
 						if block != null:
 							var field_part := ExportPart.make_field(StringName(attrs.get("id", "")))
 							field_part.space_before = _space_before(attrs)
+							field_part.link = _as_bool(attrs.get("link", "false"))
 							_export_target(block, variant).append(field_part)
 					"FirstOf":
 						if block != null:

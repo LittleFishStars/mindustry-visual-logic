@@ -13,6 +13,8 @@ extends Control
 @onready var nEditArea: SubViewportContainer = $Split/EditorSplit/EditArea
 @onready var nCanvas: EditorCanvas = $Split/EditorSplit/EditArea/EditSpace
 @onready var nDrag: DragController = $Drag
+## 拖拽锁定跳转目标的会话（与 DragController 并列、互不干扰）。
+@onready var nLink: LinkController = $Link
 
 var library: BlockLibrary
 
@@ -27,10 +29,15 @@ func _ready() -> void:
 	nCanvas.setup(library)
 	nCanvas.drag_requested.connect(_on_canvas_drag_requested)
 	nCanvas.picker_requested.connect(_on_picker_requested)
+	nCanvas.link_requested.connect(_on_canvas_link_requested)
 	nDrag.canvas = nCanvas
 	nDrag.area = nEditArea
 	# 拖到左侧块列表（分类按钮列 + 块列表）松手 = 删掉搬的块
 	nDrag.delete_zones.assign([nBlockKindList, nBlockArea])
+	nLink.canvas = nCanvas
+	nLink.area = nEditArea
+	# 拖到那里松手 = 解除跳转目标的锁定（与「拖到那里 = 删除」同一套心智）
+	nLink.delete_zones.assign([nBlockKindList, nBlockArea])
 	_picker = SelectorPanel.new()
 	_picker.picked.connect(_on_picker_picked)
 	add_child(_picker)
@@ -92,6 +99,12 @@ func _show_kind(kind: StringName) -> void:
 func _on_canvas_drag_requested(view: BlockView, offset: Vector2) -> void:
 	_close_picker()
 	nDrag.start_from_view(view, offset)
+
+
+## 块上的「跳转目标」按钮被按下：交给锁定控制器接管拖拽。
+func _on_canvas_link_requested(view: BlockView, element: ElementDef, control: Control) -> void:
+	_close_picker()
+	nLink.start(view, element, control)
 
 
 func _on_picker_requested(element: ElementDef, control: Control) -> void:
@@ -169,13 +182,17 @@ func load_from(path: String) -> bool:
 
 
 ## 导出为 mlog 文本（纯函数，不改动任何数据）。
-func export_mlog() -> String:
-	return MlogExporter.export(nCanvas.graph, library)
+## [param warnings] 收集导出期的问题（未锁定的跳转目标等），由调用方负责提示。
+func export_mlog(warnings: Array[String] = []) -> String:
+	return MlogExporter.export(nCanvas.graph, library, warnings)
 
 
 ## 导出到系统剪贴板，返回写进去的文本。
 func copy_mlog_to_clipboard() -> String:
-	var text := export_mlog()
+	var warnings: Array[String] = []
+	var text := export_mlog(warnings)
+	for message in warnings:
+		push_warning(message)
 	DisplayServer.clipboard_set(text)
 	return text
 
@@ -192,11 +209,14 @@ func redo() -> bool:
 ## 整个动作（清空 + 插入）算一条撤销记录 —— 快照式撤销让这件事不需要额外的逆操作。
 func import_mlog(text: String, append: bool = false) -> int:
 	var warnings: Array[String] = []
-	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings)
-	for message in warnings:
-		push_warning(message)
+	var src_lines: Array[int] = []
+	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings, src_lines)
 	if nodes.is_empty():
+		for message in warnings:
+			push_warning(message)
 		return 0
+	# 追加时，导入块的整体行号要加上「已有程序占掉的行数」：mlog 的 jump 用的是绝对行号
+	var line_offset := MlogExporter.line_count(nCanvas.graph, library) if append else 0
 	nCanvas.history.record("导入 %d 个块" % nodes.size(), func() -> void:
 		var chain: StringName
 		if append:
@@ -205,7 +225,11 @@ func import_mlog(text: String, append: bool = false) -> int:
 			nCanvas.graph.clear()
 			chain = nCanvas.graph.create_chain(Vector2(40, 40))
 		for node in nodes:
-			nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1))
+			nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1)
+		# 块都入图了，现在才谈得上「第 N 行是哪一块」
+		MlogImporter.bind_links(nodes, src_lines, line_offset, nCanvas.graph, library, warnings))
+	for message in warnings:
+		push_warning(message)
 	return nodes.size()
 
 

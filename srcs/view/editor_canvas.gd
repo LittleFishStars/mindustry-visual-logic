@@ -9,8 +9,12 @@ extends SubViewport
 
 ## 需要编辑器标签页打开选择器浮层。
 signal picker_requested(element: ElementDef, control: Control)
+## 需要编辑器标签页接管「拖拽锁定跳转目标」（见 [LinkController]）。
+signal link_requested(view: BlockView, element: ElementDef, control: Control)
 
 @onready var nBlocks: Node2D = $Blocks
+## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
+@onready var nLinks: LinkLayer = $Links
 ## 落点占位块（幽灵视图）及其原始位置
 var _preview_views: Array[BlockView] = []
 var _preview_origins: Array[Vector2] = []
@@ -26,10 +30,22 @@ var layout: LayoutResult = null
 
 var _views: Dictionary[int, BlockView] = {}
 var _applying_field: bool = false
+## 跳线数据（线段 + 颜色），由 [method _refresh_links] 在每次布局后重算。
+var _segments: Array[Dictionary] = []
+## 锁定拖拽的预览线：{from, to, valid}；空字典 = 没在拖。
+var _preview: Dictionary = {}
+## 当前被高亮描边圈住的块（0 = 没有）。
+var _highlight_id: int = 0
+
+## 多条跳线共用一条母线时，每条往外错开的距离。
+const LANE_GAP: float = 14.0
+const LANE_STEP: float = 10.0
 
 
 func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	library = p_library
+	# 跳线层要拿图与布局才画得出线（它在 scene 里是 Blocks 的第一个子节点）
+	nLinks.canvas = self
 	_attach_graph(p_graph)
 
 
@@ -79,6 +95,7 @@ func relayout() -> void:
 		var rect := layout.rect_of(id)
 		view.position = rect.position
 		view.size = rect.size
+	_refresh_links()
 
 
 ## 拖拽期间统一开关所有块视图里的可交互控件（拖拽只搬位置，不该顺手改数据）。
@@ -127,6 +144,9 @@ func _create_view(id: int) -> BlockView:
 	var view := BlockView.new()
 	view.name = "Block%d" % id
 	view.drag_requested.connect(_on_view_drag_requested)
+	view.link_labeler = _link_label
+	view.link_requested.connect(func(v: BlockView, element: ElementDef, control: Control) -> void:
+		link_requested.emit(v, element, control))
 	view.field_committed.connect(_on_view_field_committed)
 	view.layout_dirty.connect(_on_view_layout_dirty)
 	view.picker_requested.connect(func(element: ElementDef, control: Control) -> void:
@@ -211,8 +231,13 @@ func move_tail_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
 func remove_node(id: int) -> bool:
 	if not graph.has(id):
 		return false
+	# 被删的块可能是别的 Jump 的目标：指向它们的引用要一并清掉（同一撤销记录）
+	var doomed: Dictionary = {}
+	for victim in graph.subtree_ids(id):
+		doomed[victim] = true
 	history.record("删除块", func() -> void:
-		graph.remove_node(id))
+		graph.remove_node(id)
+		_clear_links_to(doomed))
 	return true
 
 
@@ -223,9 +248,14 @@ func remove_tail(ids: Array[int]) -> bool:
 		return false
 	# lambda 按值捕获，不能在闭包里给外部变量赋值，所以先把要删的名单复制出来
 	var doomed := ids.duplicate()
+	var links: Dictionary = {}
+	for id in doomed:
+		for victim in graph.subtree_ids(id):
+			links[victim] = true
 	history.record("删除块", func() -> void:
 		for id in doomed:
-			graph.remove_node(id))
+			graph.remove_node(id)
+		_clear_links_to(links))
 	return true
 
 ## 撤销/重做：history 内部会 load_dict，图发出 reset 信号后画布自行重建。
@@ -298,6 +328,8 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 		def.apply_defaults(temp)
 	var ghost := BlockView.new()
 	ghost.interactive = false
+	# 幽灵也要显示「锁到了哪一块」：不注入这个标签器，跳转目标会一律显示未锁定
+	ghost.link_labeler = _link_label
 	(parent if parent != null else nBlocks).add_child(ghost)
 	ghost.setup(def, temp, true)
 	if source != null:
@@ -365,6 +397,202 @@ func clear_placement_preview() -> void:
 	_preview_origins.clear()
 	_preview_ids.clear()
 	_preview_def_id = &""
+
+#endregion
+
+
+#region 跳线（Jump 的跳转目标）
+
+## 跳线数据（跳线层只负责画它）。
+func link_segments() -> Array[Dictionary]:
+	return _segments
+
+
+## 锁定拖拽的预览线；空字典表示当前没在拖。
+func link_preview() -> Dictionary:
+	return _preview
+
+
+## 某块在跳线里的出发/到达锚点：块左侧中点（世界坐标）。
+func link_anchor(id: int) -> Vector2:
+	if layout == null:
+		return Vector2.ZERO
+	var rect := layout.rect_of(id)
+	return Vector2(rect.position.x, rect.position.y + rect.size.y * 0.5)
+
+
+## 世界坐标下命中哪一块（判定与「点块开始拖动」同源，返回 0 表示空白）。
+## 嵌套时取面积最小的那个，于是点巢里的块不会选到外面的宿主。
+func node_at_world(point: Vector2, exclude: Dictionary = {}) -> int:
+	var best := 0
+	var best_area := INF
+	for id in _views:
+		if exclude.has(id):
+			continue
+		var view: BlockView = _views[id]
+		if view == null or not is_instance_valid(view) or not view.contains_world_point(point):
+			continue
+		var area := view.size.x * view.size.y
+		if area < best_area:
+			best_area = area
+			best = id
+	return best
+
+
+## 锁定 / 解除某个引用字段（落地时调用，一次一条撤销记录）。
+## [param target_id] 为 0 表示解除锁定。
+func set_link(source_id: int, field_id: StringName, target_id: int) -> bool:
+	var node := graph.get_node_by_id(source_id)
+	if node == null:
+		return false
+	var value := LogicGraph.make_link_ref(target_id)
+	if String(node.get_field(field_id, "")) == value:
+		return true
+	_applying_field = true
+	history.record("锁定跳转目标" if target_id > 0 else "解除跳转目标", func() -> void:
+		graph.set_field(source_id, field_id, value))
+	_applying_field = false
+	var view: BlockView = _views.get(source_id)
+	if view != null and is_instance_valid(view):
+		view.sync_from_data()
+	relayout()
+	return true
+
+
+## 锁定拖拽中：更新预览线与悬停高亮（每帧由 [LinkController] 调）。
+func set_link_preview(from: Vector2, to: Vector2, hover_id: int) -> void:
+	_preview = {"from": from, "to": to, "valid": hover_id > 0}
+	set_link_highlight(hover_id)
+	_redraw_links()
+
+
+func clear_link_preview() -> void:
+	_preview = {}
+	set_link_highlight(0)
+	_redraw_links()
+
+
+func set_link_highlight(id: int) -> void:
+	if _highlight_id == id:
+		return
+	var previous: BlockView = _views.get(_highlight_id)
+	if previous != null and is_instance_valid(previous):
+		previous.set_link_highlight(false)
+	_highlight_id = id
+	var current: BlockView = _views.get(id)
+	if current != null and is_instance_valid(current):
+		current.set_link_highlight(true)
+
+
+## 引用字段现在指着哪一块（块视图把它显示在按钮上）。
+func _link_label(node_id: int, field_id: StringName) -> String:
+	var node := graph.get_node_by_id(node_id)
+	if node == null:
+		return "未锁定"
+	var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
+	if target <= 0:
+		return "未锁定"
+	var target_node := graph.get_node_by_id(target)
+	return String(target_node.type_id) if target_node != null else "已失效"
+
+
+## 重算全部跳线。布局一变（块移动、增删、字段改动）就跑一次。
+func _refresh_links() -> void:
+	if library == null or graph == null:
+		_segments.clear()
+	else:
+		_segments = _build_segments()
+	_redraw_links()
+
+
+func _redraw_links() -> void:
+	if nLinks != null and is_instance_valid(nLinks):
+		nLinks.queue_redraw()
+
+
+## 每条跳线：起止都在块的左侧中点，向左绕到自己的那条母线上。
+## 母线层号按「竖直区间是否重叠」贪心分配 —— 重叠的错开，不重叠的复用同一条。
+func _build_segments() -> Array[Dictionary]:
+	var raw: Array[Dictionary] = []
+	for id in graph.all_ids():
+		var node := graph.get_node_by_id(id)
+		if node == null:
+			continue
+		var def := library.by_id(node.type_id)
+		if def == null:
+			continue
+		for field_id in def.reference_fields():
+			var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
+			if target <= 0 or not graph.has(target):
+				continue
+			var start := link_anchor(id)
+			var end := link_anchor(target)
+			raw.append({"start": start, "end": end, "target": target, "span": absf(end.y - start.y)})
+	# 短线占内侧道、长线往外让：与旧实现「按距离从短到长排序」同一个意图
+	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["span"]) < float(b["span"]))
+	var placed: Array[Dictionary] = []
+	for segment in raw:
+		var lane := 0
+		while _lane_taken(placed, segment, lane):
+			lane += 1
+		segment["lane"] = lane
+		placed.append(segment)
+	var out: Array[Dictionary] = []
+	for segment in placed:
+		var start: Vector2 = segment["start"]
+		var end: Vector2 = segment["end"]
+		var lane_x := minf(start.x, end.x) - LANE_GAP - float(segment["lane"]) * LANE_STEP
+		out.append({
+			"points": PackedVector2Array([
+				start,
+				Vector2(lane_x, start.y),
+				Vector2(lane_x, end.y),
+				end,
+			]),
+			"color": _link_color(int(segment["target"])),
+		})
+	return out
+
+
+## 该层号上是否已经有「竖直区间与它相交」的线（相交就得换一条道）。
+func _lane_taken(placed: Array[Dictionary], segment: Dictionary, lane: int) -> bool:
+	var start: Vector2 = segment["start"]
+	var end: Vector2 = segment["end"]
+	for other in placed:
+		if int(other["lane"]) != lane:
+			continue
+		var other_start: Vector2 = other["start"]
+		var other_end: Vector2 = other["end"]
+		if minf(start.y, end.y) < maxf(other_start.y, other_end.y) \
+				and maxf(start.y, end.y) > minf(other_start.y, other_end.y):
+			return true
+	return false
+
+
+## 同一个目标块永远同色（颜色由节点 id 派生），用户靠颜色 + 走向区分多条线。
+static func _link_color(target_id: int) -> Color:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(target_id)
+	return Color.from_hsv(rng.randf(), 0.65, 0.95)
+
+
+## 目标块被删掉后，指向它的引用一并清掉 —— 否则会留下指向不存在节点的死引用。
+## 与删除同处一条撤销记录（快照式撤销，不需要额外的逆操作）。
+func _clear_links_to(doomed: Dictionary) -> void:
+	if library == null:
+		return
+	for id in graph.all_ids():
+		var node := graph.get_node_by_id(id)
+		if node == null:
+			continue
+		var def := library.by_id(node.type_id)
+		if def == null:
+			continue
+		for field_id in def.reference_fields():
+			var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
+			if target > 0 and doomed.has(target):
+				graph.set_field(id, field_id, "")
+
 
 #endregion
 

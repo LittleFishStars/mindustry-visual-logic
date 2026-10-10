@@ -58,6 +58,8 @@ var _by_id: Dictionary[StringName, ElementDef] = {}
 var _row_of: Dictionary[StringName, RowDef] = {}
 var _slots: Array[StringName] = []
 var _fields: Array[StringName] = []
+## 被声明为块引用的字段（`<Field id="…" link="true"/>`），见 [method reference_fields]。
+var _references: Array[StringName] = []
 var _indexed: bool = false
 
 
@@ -72,6 +74,7 @@ func build_index() -> void:
 	_row_of.clear()
 	_slots.clear()
 	_fields.clear()
+	_references.clear()
 	for row in rows:
 		for cell in row.cells:
 			_row_of[cell.id] = row
@@ -87,7 +90,23 @@ func build_index() -> void:
 		elif element.is_field():
 			if not _fields.has(element.id):
 				_fields.append(element.id)
+	_collect_references()
 	_indexed = true
+
+
+## 导出模板是「哪些字段是块引用」的唯一真相（元素种类只管怎么编辑它）。
+func _collect_references() -> void:
+	for part in export_parts:
+		_register_reference(part)
+	for variant in export_variants:
+		for part in variant.parts:
+			_register_reference(part)
+
+
+func _register_reference(part: ExportPart) -> void:
+	if part != null and part.kind == ExportPart.Kind.FIELD and part.link \
+			and not _references.has(part.field):
+		_references.append(part.field)
 
 
 func element(element_id: StringName) -> ElementDef:
@@ -108,6 +127,17 @@ func field_ids() -> Array[StringName]:
 	if not _indexed:
 		build_index()
 	return _fields.duplicate()
+
+## 本块声明为[b]块引用[/b]的字段 id（Jump 的跳转目标）：值存的是目标节点的引用，
+## 而不是直接进 mlog 的文本 —— 画布清理失效引用、mlog 反向绑定都问它。
+func reference_fields() -> Array[StringName]:
+	if not _indexed:
+		build_index()
+	return _references.duplicate()
+
+
+func is_reference_field(field_id: StringName) -> bool:
+	return reference_fields().has(field_id)
 
 
 func row_of(element_id: StringName) -> RowDef:

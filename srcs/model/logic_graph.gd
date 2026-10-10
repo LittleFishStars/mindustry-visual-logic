@@ -17,6 +17,27 @@ extends RefCounted
 ## 画布（根）在「容器」概念里的 owner_id。
 const ROOT: int = 0
 
+## 块引用（Jump 的跳转目标）在字段里的文本形式：`#<节点 id>`。
+##
+## 带 `#` 前缀是有意的：旧存档里这个字段存的是手填行号（纯数字），前缀让它们
+## 天然认成「未锁定」，而不会被当成节点 id 误锁到别的块上。
+const LINK_PREFIX: String = "#"
+
+
+## 节点 id → 引用文本；[param id] 非法（<= 0）时返回空串，即「未锁定」。
+static func make_link_ref(id: int) -> String:
+	return "%s%d" % [LINK_PREFIX, id] if id > 0 else ""
+
+
+## 引用文本 → 节点 id；不是块引用时返回 [constant ROOT]（= 无效）。
+static func parse_link_ref(value: Variant) -> int:
+	var text := String(value).strip_edges()
+	if not text.begins_with(LINK_PREFIX):
+		return ROOT
+	var digits := text.substr(LINK_PREFIX.length())
+	return int(digits) if digits.is_valid_int() else ROOT
+
+
 signal structure_changed()
 signal field_changed(id: int, field_id: StringName, value: Variant)
 signal chain_position_changed(chain_id: StringName, pos: Vector2)

@@ -38,13 +38,13 @@
 	</Block>
 	<Block name="Jump">
 		<Literal>jump</Literal>
-		<Field id="target" />
+		<Field id="target" link="true" />
 		<Field id="cmp" />
 		<Field id="value1" />
 		<Field id="value2" />
 		<Row>
 			<Text id="T1">Jump</Text>
-			<LineBox id="target" placeholder="0" />
+			<JumpTarget id="target" />
 			<Text id="T2">if</Text>
 			<LineBox id="value1" placeholder="x" />
 			<Option id="cmp">
