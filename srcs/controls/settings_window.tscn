@@ -1,121 +1,222 @@
 [gd_scene format=3]
 
 [ext_resource type="Theme" uid="uid://11wvq82locvq" path="res://assets/styles/main_theme.tres" id="1_theme"]
-[ext_resource type="Script" path="res://srcs/controls/settings_window.gd" id="2_script"]
+[ext_resource type="FontFile" uid="uid://i8tur3ohx1u2" path="res://assets/fonts/font.woff" id="2_font"]
+[ext_resource type="Script" path="res://srcs/controls/settings_window.gd" id="3_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.207843, 0.180392, 0.25098, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar"]
+content_margin_top = 10.0
+content_margin_bottom = 6.0
+bg_color = Color(0.258824, 0.22352941, 0.30980393, 1)
+border_width_top = 5
+border_color = Color(0, 0, 0, 0.419608)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_edit"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.212113, 0.181757, 0.255897, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.142885, 0.124547, 0.161226, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_edit_focus"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.212113, 0.181757, 0.255897, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.398337, 0.3869, 0.73, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_track"]
+content_margin_top = 3.0
+content_margin_bottom = 3.0
+bg_color = Color(0.149020, 0.125490, 0.180392, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
+content_margin_top = 3.0
+content_margin_bottom = 3.0
+bg_color = Color(0.398337, 0.3869, 0.73, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_toggle_normal"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(0, 0, 0, 0.258824)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_toggle_hover"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(1, 1, 1, 0.552941)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_toggle_pressed"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(1, 1, 1, 0.258824)
 
 [node name="SettingsWindow" type="Window"]
 title = "Settings"
-size = Vector2i(460, 300)
+size = Vector2i(560, 400)
 visible = false
 transient = true
 unresizable = true
 theme = ExtResource("1_theme")
-script = ExtResource("2_script")
+script = ExtResource("3_script")
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="Panel" type="PanelContainer" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="Body" type="VBoxContainer" parent="Margin"]
+[node name="Layout" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Margin" type="MarginContainer" parent="Panel/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 12
+
+[node name="Body" type="VBoxContainer" parent="Panel/Layout/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="MaxFpsRow" type="HBoxContainer" parent="Panel/Layout/Margin/Body"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="MaxFpsRow" type="HBoxContainer" parent="Margin/Body"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="Margin/Body/MaxFpsRow"]
+[node name="Title" type="Label" parent="Panel/Layout/Margin/Body/MaxFpsRow"]
 custom_minimum_size = Vector2(110, 0)
 layout_mode = 2
 text = "Max FPS"
 
-[node name="MaxFpsSlider" type="HSlider" parent="Margin/Body/MaxFpsRow"]
+[node name="MaxFpsSlider" type="HSlider" parent="Panel/Layout/Margin/Body/MaxFpsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_styles/slider = SubResource("StyleBoxFlat_track")
+theme_override_styles/grabber_area = SubResource("StyleBoxFlat_fill")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_fill")
 min_value = 10.0
 max_value = 400.0
 step = 1.0
 value = 60.0
 
-[node name="MaxFpsSpin" type="SpinBox" parent="Margin/Body/MaxFpsRow"]
+[node name="MaxFpsEdit" type="LineEdit" parent="Panel/Layout/Margin/Body/MaxFpsRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(88, 0)
+custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
-min_value = 10.0
-max_value = 400.0
-step = 1.0
-value = 60.0
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_styles/normal = SubResource("StyleBoxFlat_edit")
+theme_override_styles/focus = SubResource("StyleBoxFlat_edit_focus")
+text = "60"
+alignment = 1
 
-[node name="UiScaleRow" type="HBoxContainer" parent="Margin/Body"]
+[node name="UiScaleRow" type="HBoxContainer" parent="Panel/Layout/Margin/Body"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="Margin/Body/UiScaleRow"]
+[node name="Title" type="Label" parent="Panel/Layout/Margin/Body/UiScaleRow"]
 custom_minimum_size = Vector2(110, 0)
 layout_mode = 2
 text = "UI scale"
 
-[node name="UiScaleSlider" type="HSlider" parent="Margin/Body/UiScaleRow"]
+[node name="UiScaleSlider" type="HSlider" parent="Panel/Layout/Margin/Body/UiScaleRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_styles/slider = SubResource("StyleBoxFlat_track")
+theme_override_styles/grabber_area = SubResource("StyleBoxFlat_fill")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_fill")
 min_value = 0.5
 max_value = 2.0
 step = 0.05
 value = 1.0
 
-[node name="UiScaleSpin" type="SpinBox" parent="Margin/Body/UiScaleRow"]
+[node name="UiScaleEdit" type="LineEdit" parent="Panel/Layout/Margin/Body/UiScaleRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(88, 0)
+custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
-min_value = 0.5
-max_value = 2.0
-step = 0.05
-value = 1.0
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_styles/normal = SubResource("StyleBoxFlat_edit")
+theme_override_styles/focus = SubResource("StyleBoxFlat_edit_focus")
+text = "1.00"
+alignment = 1
 
-[node name="ExportOnFocusLost" type="CheckButton" parent="Margin/Body"]
+[node name="ExportOnFocusLost" type="CheckButton" parent="Panel/Layout/Margin/Body"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Export mlog to clipboard when the window loses focus"
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_styles/normal = SubResource("StyleBoxFlat_toggle_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_toggle_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_toggle_pressed")
+text = "Export mlog when the window loses focus"
 
-[node name="Hint" type="Label" parent="Margin/Body"]
+[node name="Hint" type="Label" parent="Panel/Layout/Margin/Body"]
 layout_mode = 2
-modulate = Color(1, 1, 1, 0.6)
-text = "Changes take effect immediately and are written to user://settings.json when this window closes."
+theme_override_colors/font_color = Color(1, 1, 1, 0.549020)
+text = "Changes apply immediately; saved when this window closes."
 autowrap_mode = 3
 
-[node name="Spacer" type="Control" parent="Margin/Body"]
+[node name="Spacer" type="Control" parent="Panel/Layout/Margin/Body"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Buttons" type="HBoxContainer" parent="Margin/Body"]
+[node name="BottomBar" type="PanelContainer" parent="Panel/Layout"]
 layout_mode = 2
-alignment = 2
-theme_override_constants/separation = 10
+theme_override_styles/panel = SubResource("StyleBoxFlat_bar")
 
-[node name="Defaults" type="Button" parent="Margin/Body/Buttons"]
+[node name="Buttons" type="HBoxContainer" parent="Panel/Layout/BottomBar"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 40
+
+[node name="Defaults" type="Button" parent="Panel/Layout/BottomBar/Buttons"]
 layout_mode = 2
 text = "Restore defaults"
 
-[node name="Close" type="Button" parent="Margin/Body/Buttons"]
+[node name="Close" type="Button" parent="Panel/Layout/BottomBar/Buttons"]
 layout_mode = 2
 text = "Close"
 
 [connection signal="close_requested" from="." to="." method="_on_close_pressed"]
-[connection signal="value_changed" from="Margin/Body/MaxFpsRow/MaxFpsSlider" to="." method="_on_max_fps_changed"]
-[connection signal="value_changed" from="Margin/Body/MaxFpsRow/MaxFpsSpin" to="." method="_on_max_fps_changed"]
-[connection signal="value_changed" from="Margin/Body/UiScaleRow/UiScaleSlider" to="." method="_on_ui_scale_changed"]
-[connection signal="value_changed" from="Margin/Body/UiScaleRow/UiScaleSpin" to="." method="_on_ui_scale_changed"]
-[connection signal="toggled" from="Margin/Body/ExportOnFocusLost" to="." method="_on_export_toggled"]
-[connection signal="pressed" from="Margin/Body/Buttons/Defaults" to="." method="_on_defaults_pressed"]
-[connection signal="pressed" from="Margin/Body/Buttons/Close" to="." method="_on_close_pressed"]
+[connection signal="value_changed" from="Panel/Layout/Margin/Body/MaxFpsRow/MaxFpsSlider" to="." method="_on_max_fps_changed"]
+[connection signal="text_submitted" from="Panel/Layout/Margin/Body/MaxFpsRow/MaxFpsEdit" to="." method="_on_max_fps_submitted"]
+[connection signal="focus_exited" from="Panel/Layout/Margin/Body/MaxFpsRow/MaxFpsEdit" to="." method="_on_max_fps_submitted"]
+[connection signal="value_changed" from="Panel/Layout/Margin/Body/UiScaleRow/UiScaleSlider" to="." method="_on_ui_scale_changed"]
+[connection signal="text_submitted" from="Panel/Layout/Margin/Body/UiScaleRow/UiScaleEdit" to="." method="_on_ui_scale_submitted"]
+[connection signal="focus_exited" from="Panel/Layout/Margin/Body/UiScaleRow/UiScaleEdit" to="." method="_on_ui_scale_submitted"]
+[connection signal="toggled" from="Panel/Layout/Margin/Body/ExportOnFocusLost" to="." method="_on_export_toggled"]
+[connection signal="pressed" from="Panel/Layout/BottomBar/Buttons/Defaults" to="." method="_on_defaults_pressed"]
+[connection signal="pressed" from="Panel/Layout/BottomBar/Buttons/Close" to="." method="_on_close_pressed"]

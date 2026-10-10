@@ -16,9 +16,11 @@ signal changed()
 signal closed()
 
 @onready var nMaxFpsSlider: HSlider = %MaxFpsSlider
-@onready var nMaxFpsSpin: SpinBox = %MaxFpsSpin
+## 数值用 LineEdit 而不是 SpinBox：SpinBox 的样式长在它内部的 LineEdit 与按钮上，
+## 主题里没这两样，它会顶着引擎默认皮肤（亮框 + 白字），跟项目配色对不上。
+@onready var nMaxFpsEdit: LineEdit = %MaxFpsEdit
 @onready var nUiScaleSlider: HSlider = %UiScaleSlider
-@onready var nUiScaleSpin: SpinBox = %UiScaleSpin
+@onready var nUiScaleEdit: LineEdit = %UiScaleEdit
 @onready var nExportToggle: CheckButton = %ExportOnFocusLost
 
 var settings: AppSettings = null
@@ -45,9 +47,9 @@ func _show_values(data: AppSettings) -> void:
 		return
 	_loading = true
 	nMaxFpsSlider.value = data.max_fps
-	nMaxFpsSpin.value = data.max_fps
+	nMaxFpsEdit.text = str(data.max_fps)
 	nUiScaleSlider.value = data.ui_scale
-	nUiScaleSpin.value = data.ui_scale
+	nUiScaleEdit.text = "%.2f" % data.ui_scale
 	nExportToggle.button_pressed = data.export_on_focus_lost
 	_loading = false
 
@@ -68,6 +70,35 @@ func _on_ui_scale_changed(value: float) -> void:
 	settings.ui_scale = clampf(value, AppSettings.MIN_UI_SCALE, AppSettings.MAX_UI_SCALE)
 	_show_values(settings)
 	changed.emit()
+
+
+## 输入框提交（回车或失焦）：认不出的值就退回当前值，不做“猜你想要”。
+func _on_max_fps_submitted(_text: String = "") -> void:
+	if _loading or settings == null:
+		return
+	settings.max_fps = clampi(_as_int(nMaxFpsEdit.text, settings.max_fps),
+		AppSettings.MIN_MAX_FPS, AppSettings.MAX_MAX_FPS)
+	_show_values(settings)
+	changed.emit()
+
+
+func _on_ui_scale_submitted(_text: String = "") -> void:
+	if _loading or settings == null:
+		return
+	settings.ui_scale = clampf(_as_float(nUiScaleEdit.text, settings.ui_scale),
+		AppSettings.MIN_UI_SCALE, AppSettings.MAX_UI_SCALE)
+	_show_values(settings)
+	changed.emit()
+
+
+static func _as_int(text: String, fallback: int) -> int:
+	var trimmed := text.strip_edges()
+	return int(trimmed) if trimmed.is_valid_int() else fallback
+
+
+static func _as_float(text: String, fallback: float) -> float:
+	var trimmed := text.strip_edges()
+	return float(trimmed) if trimmed.is_valid_float() else fallback
 
 
 func _on_export_toggled(pressed: bool) -> void:

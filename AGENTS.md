@@ -190,6 +190,12 @@ assets/
   改动即时生效、关闭窗口时才写盘；`@tool` 下 `_apply_settings()` 直接 return，
   免得在编辑器里顺手改掉 Godot 编辑器自己的帧率与界面缩放。
   「失焦自动导出」走 `main.gd._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)`（旧实现叫 compile_when_close）。
+  窗口[b]自带 StyleBoxFlat[/b]（与公告窗同一套配色）：主主题只覆盖了 Button/Label/MenuBar/
+  PopupMenu/TabContainer/Tree/ScrollBar，`CheckButton`/`LineEdit`/`HSlider` 会顶引擎默认皮肤。
+  数值用 `LineEdit` 而不是 `SpinBox`——SpinBox 的样式长在它内部的 LineEdit 与箭头按钮上，
+  override 到不了里面；这两类控件的字体也要显式 override（主题里没有它们的 font 条目）。
+  窗口尺寸必须放得下内容最小宽度（`Body.get_combined_minimum_size()`），
+  否则 VBox 会被压扁、左侧与底部文字直接被切掉。
 - **标签页标题**：`LogicEditorTab.display_name()` 先看手动命名（`custom_name`），再跟随文件名。
   重命名是就地编辑：标签条上浮一个 `LineEdit`（TabBar 的子节点，不会变成新页面），
   单击[b]已选中[/b]的标签（延迟一个双击间隔才开，免得双击时闪一下）或[b]右键[/b]任意标签打开；
