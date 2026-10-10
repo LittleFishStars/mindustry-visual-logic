@@ -192,10 +192,15 @@ func _input(event: InputEvent) -> void:
 		return
 	# 松手落地：只认「开始这次拖拽的那个键」—— 左键搬移就左键松手，右键复制就右键松手。
 	# （旧写法只认左键松开，于是右键拖拽松手不会落地，得再点一下左键才把上一次拖拽结束掉。）
+	#
+	# 这里[b]不[/b]调 set_input_as_handled()：画布是 SubViewport，而 [SubViewportContainer]
+	# 正是靠 is_input_handled() 决定要不要把事件转发进去 —— 一口吞掉 mouse-up，
+	# 画布里那层 GUI 的鼠标焦点与按键掩码就永远清不掉，之后的左键按下会被发到
+	# 残留的那个块上（鼠标不在它身上时 _has_point 为假，于是“拖不动块”，
+	# 要点一下空白让那次 release 走完 GUI 才恢复）。
 	if event is InputEventMouseButton and not event.pressed:
 		if event.button_index == self._button:
 			self._finish()
-			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed:
 		# 另一个键按下 = 取消（左键搬移时按右键、右键复制时按左键……）
 		if event.button_index != self._button:
@@ -204,6 +209,13 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		self.cancel()
 		get_viewport().set_input_as_handled()
+
+
+## 拖拽期间窗口失焦（切窗口 / 在窗口外松手）：收尾的 mouse-up 多半收不到了，主动结束 ——
+## 否则会话一直挂着，切回来之后会“拖不动任何块”，要点一下别处才恢复。
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and _active:
+		self.cancel()
 
 
 func _process(_delta: float) -> void:

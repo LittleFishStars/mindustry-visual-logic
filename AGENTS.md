@@ -201,3 +201,10 @@ assets/
 - **GDScript 的 lambda 按值捕获**：不要在闭包里给外部变量赋值再读它（撤销栈的记录就踩过这个坑）。
 - **撤销/读档会整体替换图**：`LogicGraph.load_dict()` 复用同 id 的节点对象，外部引用不会失联，
   但仍应在 `reset` 之后重新取节点。
+- **拖拽控制器不要消费 mouse-up**：画布是 SubViewport，而 `SubViewportContainer` 靠
+  `is_input_handled()` 决定要不要把事件转发进去 —— 一口吞掉 mouse-up，画布里那层 GUI 的
+  鼠标焦点与按键掩码就清不掉，之后的左键按下会被发到残留的那个块上（鼠标不在它身上时
+  `_has_point` 为假 → 表现为“拖不动任何块”，要点一下别处才恢复）。所以拖拽结束只调 `_finish()`，
+  不要 `set_input_as_handled()`；“另一个键按下 = 取消”可以继续消费，因为它不会留下掩码。
+  收尾事件真丢了（切窗口 / 在窗口外松手）时，由 `_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)` 收尾。
+  也不要拿 `Input.is_mouse_button_pressed` 做守时兜底：触屏（项目有 Android 导出）不反映鼠标键。
