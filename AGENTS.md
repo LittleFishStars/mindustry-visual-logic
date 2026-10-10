@@ -169,8 +169,9 @@ assets/
 - **`class_name`**：模型/定义/视图三层的类都全局注册。
 - **公告窗**：`notice_window.tscn` 通过 HTTPRequest 拉 `https://textdb.online/MindVisualLogic`。
 - **自定义光标**：`main.gd._ready()` 从 `assets/sprites/cursors/` 装载。
-- **顶部菜单**：`File`（新建页 / 存 / 开 / 导出到剪贴板 / 退出 / 剪贴板导入）、
-  `Edit`（撤销 / 重做 / 清空，弹出前按当前页状态置灰）、`Help`（文档 / 公告 / 关于）。
+- **顶部工具栏**：左边是 `File`（新建页 / 存 / 开 / 导出到剪贴板 / 剪贴板导入）、
+  `Edit`（撤销 / 重做 / 清空，弹出前按当前页状态置灰）、`Help`（文档 / 公告 / 关于）；
+  右边是独立的 `Quit` 按钮（`UI._on_sort_children` 里右对齐：先量行高，再按它的宽度把菜单栏缩回去）。
   「清空」走 `LogicEditorTab.clear_graph()`，算一条可撤销记录；`new_project()` 则是
   「换成另一个文档」，会连撤销栈一起清掉 —— 两者不要混用。
   菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。

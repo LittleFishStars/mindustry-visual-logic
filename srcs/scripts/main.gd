@@ -11,6 +11,8 @@ extends Container
 @onready var nBackground: Panel = $Panel
 @onready var wNotice: Window = $NoticeWindow
 @onready var wProject: FileDialog = $ProjectDialog
+## 工具栏右侧的退出按钮（不再藏在文件菜单里）。
+@onready var nQuitButton: Button = $Quit
 ## 编辑菜单（撤销 / 重做 / 清空）：弹出前按当前标签页的状态置灰。
 @onready var nEditMenu: PopupMenu = $MenuBar/Edit
 
@@ -58,9 +60,14 @@ func _ready() -> void:
 
 
 func _on_sort_children() -> void:
+	fit_child_in_rect(self.nBackground, Rect2(Vector2.ZERO, Vector2(self.size)))
+	# 工具栏一行：左边菜单栏，右边退出按钮（先量行高，再按它的宽度把菜单栏缩回去）
 	fit_child_in_rect(self.nMenuBar, Rect2(Vector2.ZERO, Vector2(self.size.x, 0)))
-	fit_child_in_rect(self.nEditors, Rect2(0, self.nMenuBar.size.y, self.size.x, self.size.y - self.nMenuBar.size.y))
-	fit_child_in_rect(self.nBackground, Rect2(Vector2.ZERO, self.size))
+	var row_height := self.nMenuBar.size.y
+	var quit_width: float = maxf(self.nQuitButton.get_combined_minimum_size().x, 72.0)
+	fit_child_in_rect(self.nQuitButton, Rect2(self.size.x - quit_width, 0, quit_width, row_height))
+	fit_child_in_rect(self.nMenuBar, Rect2(Vector2.ZERO, Vector2(self.size.x - quit_width, row_height)))
+	fit_child_in_rect(self.nEditors, Rect2(0, row_height, self.size.x, self.size.y - row_height))
 
 
 #region 标签页
@@ -290,8 +297,8 @@ func _clear_current() -> void:
 
 #region 文件菜单
 
-## 文件菜单：0 新建 / 1 保存 / 2 另存为 / 3 打开 / 4 导出到剪贴板 / 5 退出 /
-## 6 从剪贴板导入 / 7 追加导入（撤销、重做、清空都在编辑菜单里）
+## 文件菜单：0 新建 / 1 保存 / 2 另存为 / 3 打开 / 4 导出到剪贴板 /
+## 5 从剪贴板导入 / 6 追加导入（撤销、重做、清空在编辑菜单里，退出在工具栏右侧）
 func _on_file_id_pressed(id: int) -> void:
 	match id:
 		0:
@@ -305,10 +312,8 @@ func _on_file_id_pressed(id: int) -> void:
 		4:
 			self._export_to_clipboard()
 		5:
-			self.get_tree().quit()
-		6:
 			self._import_clipboard(false)
-		7:
+		6:
 			self._import_clipboard(true)
 
 
@@ -398,5 +403,14 @@ func _on_help_id_pressed(id: int) -> void:
 		2:
 			# 关于
 			pass
+
+#endregion
+
+
+#region 工具栏
+
+## 工具栏右侧的退出按钮（不藏在文件菜单里，瞄一眼就能点到）。
+func _on_quit_pressed() -> void:
+	self.get_tree().quit()
 
 #endregion
