@@ -30,6 +30,12 @@ func get_field(field_id: StringName, fallback: Variant = "") -> Variant:
 	return fields.get(field_id, fallback)
 
 
+## 条件求值 / 导出取值用的小闭包：字段 id → 当前值的字符串形式（数据层为准）。
+func value_reader() -> Callable:
+	return func(field_id: StringName) -> String:
+		return String(get_field(field_id, ""))
+
+
 ## 直接写字段（值为 null 表示删除该字段）。
 ## 需要进撤销栈时请走 [method LogicGraph.set_field]。
 func put_field(field_id: StringName, value: Variant) -> void:
@@ -37,6 +43,12 @@ func put_field(field_id: StringName, value: Variant) -> void:
 		fields.erase(field_id)
 	else:
 		fields[field_id] = value
+
+
+## 批量写字段（新块入图时灌默认值用）。
+func apply_fields(values: Dictionary) -> void:
+	for field_id in values:
+		put_field(field_id, values[field_id])
 
 
 ## 取子槽位的 id 数组副本；槽位不存在时返回空数组，且不会建立槽位。
@@ -52,22 +64,6 @@ func slot(slot_id: StringName) -> Array[int]:
 		var empty: Array[int] = []
 		slots[slot_id] = empty
 	return slots[slot_id]
-
-
-## 任意槽位是否有子节点。
-func has_children() -> bool:
-	for slot_id in slots:
-		if not (slots[slot_id] as Array).is_empty():
-			return true
-	return false
-
-
-## 所有槽位子节点 id 的并集（顺序为槽位插入顺序）。
-func child_ids() -> Array[int]:
-	var out: Array[int] = []
-	for slot_id in slots:
-		out.append_array(peek_slot(slot_id))
-	return out
 
 
 func to_dict() -> Dictionary:
@@ -98,8 +94,3 @@ static func from_dict(data: Dictionary) -> LogicNode:
 		ids.assign(raw_slots[key])
 		node.slots[StringName(key)] = ids
 	return node
-
-
-## 深拷贝（用于复制粘贴块）。
-func duplicate_data() -> LogicNode:
-	return LogicNode.from_dict(to_dict())

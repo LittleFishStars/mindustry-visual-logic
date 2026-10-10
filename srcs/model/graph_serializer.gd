@@ -20,7 +20,6 @@ extends RefCounted
 const FORMAT_ID: String = "mvl-graph"
 const FORMAT_VERSION: int = 1
 const FILE_EXTENSION: String = ".json"
-const FILE_FILTER: String = "*.json ; MVL 逻辑图"
 
 static var _last_error: String = ""
 
@@ -67,14 +66,6 @@ static func from_json(text: String) -> LogicGraph:
 		_last_error = "JSON 解析失败"
 		return null
 	return from_dict(parsed)
-
-
-## 读取文件里记录的编辑器名（没有则空字符串）。
-static func peek_name(text: String) -> String:
-	var parsed: Variant = JSON.parse_string(text)
-	if parsed is Dictionary:
-		return String((parsed as Dictionary).get("name", ""))
-	return ""
 
 
 static func save_to_file(graph: LogicGraph, path: String, name: String = "") -> Error:

@@ -17,8 +17,6 @@ extends RefCounted
 ## 画布（根）在「容器」概念里的 owner_id。
 const ROOT: int = 0
 
-signal node_added(id: int)
-signal node_removed(id: int)
 signal structure_changed()
 signal field_changed(id: int, field_id: StringName, value: Variant)
 signal chain_position_changed(chain_id: StringName, pos: Vector2)
@@ -55,34 +53,10 @@ func chain_ids() -> Array[StringName]:
 	return out
 
 
-func chain_head(chain_id: StringName) -> int:
-	var ids: Array[int] = []
-	ids.assign(_chains.get(chain_id, []))
-	return ids[0] if not ids.is_empty() else ROOT
-
 
 func chain_position(chain_id: StringName) -> Vector2:
 	return _chain_positions.get(chain_id, Vector2.ZERO)
 
-
-## 节点所在的链 id；不在图上返回 [code]&""[/code]。
-## 节点可能深居某个块的槽位里，这里会沿宿主逐层往上走到画布为止。
-func find_chain_of(id: int) -> StringName:
-	for chain_id in _chains:
-		if (_chains[chain_id] as Array).has(id):
-			return chain_id
-	var cursor := id
-	var guard := _nodes.size() + 1
-	while cursor != ROOT and guard > 0:
-		guard -= 1
-		var where := locate(cursor)
-		if where.is_empty():
-			return &""
-		var owner_id: int = where["owner_id"]
-		if owner_id == ROOT:
-			return where["slot"]
-		cursor = owner_id
-	return &""
 
 
 ## 深度优先的全部节点 id（从各条链出发，孤儿节点不包含在内）。
@@ -107,13 +81,8 @@ func subtree_ids(id: int) -> Array[int]:
 ## [param owner_id] 为 [constant ROOT] 时 [param slot_id] 必须是链 id。
 func slot_items(owner_id: int, slot_id: StringName = &"") -> Array[int]:
 	var out: Array[int] = []
-	if owner_id == ROOT:
-		out.assign(_chains.get(slot_id, []))
-		return out
-	var node := get_node_by_id(owner_id)
-	if node == null:
-		return out
-	return node.peek_slot(slot_id)
+	out.assign(_container_ref(owner_id, slot_id))
+	return out
 
 
 ## 定位节点所在的容器，返回 {owner_id, slot, index}；不在图中时返回空字典。
@@ -169,24 +138,6 @@ func set_chain_position(chain_id: StringName, pos: Vector2) -> bool:
 	return true
 
 
-## 删除整条链及其全部节点。
-func remove_chain(chain_id: StringName) -> bool:
-	if not _chains.has(chain_id):
-		return false
-	var ids: Array[int] = []
-	ids.assign(_chains[chain_id])
-	var doomed: Array[int] = []
-	for id in ids:
-		_collect_subtree(id, doomed)
-	_chains.erase(chain_id)
-	_chain_positions.erase(chain_id)
-	for victim in doomed:
-		_nodes.erase(victim)
-		node_removed.emit(victim)
-	structure_changed.emit()
-	return true
-
-
 #endregion
 
 
@@ -202,21 +153,11 @@ func new_node(type_id: StringName) -> LogicNode:
 ## 把节点插入到 [param owner_id] 的 [param slot_id] 容器的 [param index] 处。
 ## [param index] 为负表示追加到末尾。容器必须已存在。
 func insert_node(node: LogicNode, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
-	if node == null or _nodes.has(node.id):
+	if node == null or _nodes.has(node.id) or not _can_host(owner_id, slot_id):
 		return false
-	if owner_id == ROOT:
-		if not _chains.has(slot_id):
-			return false
-		_sync_next_id(node.id)
-		_nodes[node.id] = node
-		_insert_at(_chains[slot_id], node.id, index)
-	else:
-		if not _nodes.has(owner_id):
-			return false
-		_sync_next_id(node.id)
-		_nodes[node.id] = node
-		_insert_at(_nodes[owner_id].slot(slot_id), node.id, index)
-	node_added.emit(node.id)
+	_nodes[node.id] = node
+	_sync_next_id(node.id)
+	_insert_at(_container_ref(owner_id, slot_id, true), node.id, index)
 	structure_changed.emit()
 	return true
 
@@ -232,7 +173,6 @@ func remove_node(id: int) -> bool:
 	_drop_empty_container(where)
 	for victim in doomed:
 		_nodes.erase(victim)
-		node_removed.emit(victim)
 	structure_changed.emit()
 	return true
 
@@ -240,16 +180,10 @@ func remove_node(id: int) -> bool:
 ## 移动节点到 [param owner_id] 的 [param slot_id] 容器的 [param index] 处。
 ## 拒绝把自己移进自己或自己的子孙（否则会形成环）。
 func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
-	if not _nodes.has(id):
+	if not _nodes.has(id) or not _can_host(owner_id, slot_id):
 		return false
-	if owner_id == ROOT:
-		if not _chains.has(slot_id):
-			return false
-	else:
-		if not _nodes.has(owner_id):
-			return false
-		if owner_id == id or _is_descendant(owner_id, id):
-			return false
+	if owner_id != ROOT and (owner_id == id or _is_descendant(owner_id, id)):
+		return false
 	var where := locate(id)
 	if where.is_empty():
 		return false
@@ -258,13 +192,10 @@ func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -
 	_detach(where)
 	var target := index
 	if target < 0:
-		target = _container_size(owner_id, slot_id)
+		target = slot_items(owner_id, slot_id).size()
 	elif same_container and old_index < target:
 		target -= 1
-	if owner_id == ROOT:
-		_insert_at(_chains[slot_id], id, target)
-	else:
-		_insert_at(_nodes[owner_id].slot(slot_id), id, target)
+	_insert_at(_container_ref(owner_id, slot_id, true), id, target)
 	_drop_empty_container(where)
 	structure_changed.emit()
 	return true
@@ -296,9 +227,7 @@ func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index:
 			return false
 		if owner_id != ROOT and (owner_id == id or _is_descendant(owner_id, id)):
 			return false
-	if owner_id != ROOT and not _nodes.has(owner_id):
-		return false
-	if owner_id == ROOT and not _chains.has(slot_id):
+	if not _can_host(owner_id, slot_id):
 		return false
 	var places: Array[Dictionary] = []
 	var same_container := true
@@ -312,21 +241,17 @@ func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index:
 			removed_before += 1
 	var target := index
 	if target < 0:
-		target = _container_size(owner_id, slot_id)
+		target = slot_items(owner_id, slot_id).size()
 	elif same_container:
 		target = index - removed_before
 	# 摘出必须倒序：_detach 按记录下来的下标移除，先摘前面的会让后面的下标整体左移
 	for i in range(places.size() - 1, -1, -1):
-		if not places[i].is_empty():
-			_detach(places[i])
+		_detach(places[i])
+	var container := _container_ref(owner_id, slot_id, true)
 	for i in ids.size():
-		if owner_id == ROOT:
-			_insert_at(_chains[slot_id], ids[i], target + i)
-		else:
-			_insert_at(_nodes[owner_id].slot(slot_id), ids[i], target + i)
+		_insert_at(container, ids[i], target + i)
 	for at in places:
-		if not at.is_empty():
-			_drop_empty_container(at)
+		_drop_empty_container(at)
 	structure_changed.emit()
 	return true
 
@@ -439,37 +364,45 @@ func _insert_at(arr: Array, value: int, index: int) -> void:
 		arr.insert(index, value)
 
 
-func _container_size(owner_id: int, slot_id: StringName) -> int:
+## 取容器数组本体（就地增删用）。容器不存在且 [param create] 为真时，按需给节点建出该槽位；
+## 为假时返回一个临时空数组 —— 改它不影响图，只用于读。
+func _container_ref(owner_id: int, slot_id: StringName, create: bool = false) -> Array:
 	if owner_id == ROOT:
-		return slot_items(ROOT, slot_id).size()
+		return _chains.get(slot_id, [])
 	var node := get_node_by_id(owner_id)
-	return node.peek_slot(slot_id).size() if node != null else 0
+	if node == null:
+		return []
+	if create:
+		return node.slot(slot_id)
+	return node.slots.get(slot_id, [])
+
+
+## 该容器现在能否接收成员：根要链存在，节点要自身在图上（槽位按需建立）。
+func _can_host(owner_id: int, slot_id: StringName) -> bool:
+	return _chains.has(slot_id) if owner_id == ROOT else _nodes.has(owner_id)
 
 
 func _detach(where: Dictionary) -> void:
-	var owner_id: int = where["owner_id"]
-	var index: int = where["index"]
-	if owner_id == ROOT:
-		var chain_id: StringName = where["slot"]
-		if _chains.has(chain_id):
-			(_chains[chain_id] as Array).remove_at(index)
+	if where.is_empty():
 		return
-	var owner := get_node_by_id(owner_id)
-	if owner != null:
-		owner.slot(where["slot"]).remove_at(index)
+	var items := _container_ref(where["owner_id"], where["slot"])
+	var index: int = where["index"]
+	if index >= 0 and index < items.size():
+		items.remove_at(index)
 
 
 ## 容器空了就删掉它：链不留空壳，节点槽位也不留空数组当占位。
 func _drop_empty_container(where: Dictionary) -> void:
+	if where.is_empty() or not _container_ref(where["owner_id"], where["slot"]).is_empty():
+		return
 	var owner_id: int = where["owner_id"]
 	var slot_id: StringName = where["slot"]
 	if owner_id == ROOT:
-		if _chains.has(slot_id) and (_chains[slot_id] as Array).is_empty():
-			_chains.erase(slot_id)
-			_chain_positions.erase(slot_id)
+		_chains.erase(slot_id)
+		_chain_positions.erase(slot_id)
 		return
 	var owner := get_node_by_id(owner_id)
-	if owner != null and owner.slots.has(slot_id) and owner.peek_slot(slot_id).is_empty():
+	if owner != null:
 		owner.slots.erase(slot_id)
 
 
