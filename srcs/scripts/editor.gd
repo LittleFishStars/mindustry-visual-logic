@@ -148,12 +148,27 @@ func _unhandled_input(event: InputEvent) -> void:
 ## 当前文件的绝对路径（空 = 尚未保存过）。
 var file_path: String = ""
 
-## 标签页标题跟着文件名变。
+## 标签页标题变了（保存 / 读档 / 手动重命名）。
 signal name_changed(display: String)
 
+## 用户手动起的名字（点标签条就地重命名）；空 = 跟随文件名。
+var custom_name: String = ""
 
+
+## 标签页标题：手动命名优先，否则跟随文件名。
 func display_name() -> String:
+	if custom_name != "":
+		return custom_name
 	return file_path.get_file().get_basename() if file_path != "" else "未命名"
+
+
+## 手动重命名标签页。[param value] 为空（或全空白）时回落到「跟随文件名」。
+func set_custom_name(value: String) -> void:
+	var wanted := value.strip_edges()
+	if custom_name == wanted:
+		return
+	custom_name = wanted
+	name_changed.emit(display_name())
 
 
 func new_project() -> void:

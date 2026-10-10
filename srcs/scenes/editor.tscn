@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://ba61nhstol3lv" path="res://srcs/view/editor_canvas.gd" id="2_canvas"]
 [ext_resource type="Script" uid="uid://b53fyu6tp4klc" path="res://srcs/view/editor_camera.gd" id="3_camera"]
 [ext_resource type="Script" uid="uid://bo00f80eayfyo" path="res://srcs/view/drag_controller.gd" id="5_drag"]
-[ext_resource type="Script" uid="uid://3xatsnop50gh" path="res://srcs/view/link_layer.gd" id="6_links"]
-[ext_resource type="Script" uid="uid://bqc2txv188bhw" path="res://srcs/view/link_controller.gd" id="7_link"]
+[ext_resource type="Script" path="res://srcs/view/link_layer.gd" id="6_links"]
+[ext_resource type="Script" path="res://srcs/view/link_controller.gd" id="7_link"]
 
 [node name="Editor" type="Control" unique_id=614836996]
 layout_mode = 3

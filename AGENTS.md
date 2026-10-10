@@ -54,7 +54,7 @@ srcs/
 │   ├── editor.tscn             ← 编辑器标签页（脚本已外置，不再内嵌 GDScript）
 │   └── main.tscn               ← 应用入口
 └── scripts/
-    ├── main.gd                 ← @tool，顶层 UI + 菜单 + 光标
+    ├── main.gd                 ← @tool，顶层 UI + 菜单 + 标签页重命名 + 光标
     └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 锁定 + 选择器
 
 blocks/{locale}/*.xml           ← 块定义
@@ -169,6 +169,10 @@ assets/
 - **`class_name`**：模型/定义/视图三层的类都全局注册。
 - **公告窗**：`notice_window.tscn` 通过 HTTPRequest 拉 `https://textdb.online/MindVisualLogic`。
 - **自定义光标**：`main.gd._ready()` 从 `assets/sprites/cursors/` 装载。
+- **标签页标题**：`LogicEditorTab.display_name()` 先看手动命名（`custom_name`），再跟随文件名。
+  重命名是就地编辑：标签条上浮一个 `LineEdit`（TabBar 的子节点，不会变成新页面），
+  点[b]已选中[/b]的标签或右键任意标签打开（双击因此是「先切过去、再改名」），
+  回车/失焦提交、Esc 取消、空名字回落文件名；切页时会自动提交。
 
 ## Conventions and gotchas
 

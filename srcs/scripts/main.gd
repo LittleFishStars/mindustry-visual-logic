@@ -25,6 +25,10 @@ var fdiagsize_cursor = preload("res://assets/sprites/cursors/fdiagsize.png")
 ## 文件对话框当前是"保存"还是"打开"。
 var _dialog_mode: StringName = &"open"
 
+## 标签条上的就地重命名输入框（TabBar 的子节点，不占标签页）。
+var _rename_edit: LineEdit = null
+## 正在重命名的标签下标（-1 = 没在重命名）。
+var _rename_index: int = -1
 
 func _ready() -> void:
 	# 设置鼠标指针
@@ -38,6 +42,7 @@ func _ready() -> void:
 
 	# 创建初始编辑器
 	self.new_editor()
+	self._setup_tab_rename()
 
 
 func _on_sort_children() -> void:
@@ -84,6 +89,86 @@ func _refresh_tab_title(editor: LogicEditorTab) -> void:
 func _on_editor_name_changed(_display: String, editor: LogicEditorTab) -> void:
 	_refresh_tab_title(editor)
 
+
+## 标签条就地重命名：点[b]已选中[/b]的标签进入编辑（双击任意标签因此是「先切过去、再改名」），
+## 右键任意标签也能直接改名；回车/失焦提交，Esc 取消。空名字 = 回落到跟随文件名。
+func _setup_tab_rename() -> void:
+	var bar := self.nEditors.get_tab_bar()
+	if bar == null:
+		return
+	bar.tab_clicked.connect(_on_tab_clicked)
+	bar.tab_rmb_clicked.connect(_open_rename)
+	self.nEditors.tab_changed.connect(_on_tab_changed)
+	self._rename_edit = LineEdit.new()
+	self._rename_edit.hide()
+	self._rename_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	self._rename_edit.text_submitted.connect(func(_text: String) -> void:
+		self._commit_rename())
+	self._rename_edit.focus_exited.connect(_commit_rename)
+	self._rename_edit.gui_input.connect(_on_rename_input)
+	bar.add_child(self._rename_edit)
+
+
+func _on_tab_clicked(tab: int) -> void:
+	# 点没选中的标签 = 切页（TabContainer 自己处理）；再点一下已选中的那个 = 重命名
+	if tab == self.nEditors.current_tab:
+		self._open_rename(tab)
+
+
+func _on_tab_changed(_tab: int) -> void:
+	# 切页/新增页时先把没提交的名字落下去，免得输入框留在旧标签的位置上
+	self._commit_rename()
+
+
+## 把输入框摆在那个标签上就地编辑（不另弹窗）。
+func _open_rename(index: int) -> void:
+	if self._rename_edit == null or index < 0 or index >= self.nEditors.get_tab_count():
+		return
+	var bar := self.nEditors.get_tab_bar()
+	if bar == null:
+		return
+	self._rename_index = index
+	var rect := bar.get_tab_rect(index)
+	self._rename_edit.text = self.nEditors.get_tab_title(index)
+	self._rename_edit.position = rect.position
+	self._rename_edit.size = Vector2(maxf(rect.size.x, 96.0), rect.size.y)
+	self._rename_edit.show()
+	self._rename_edit.grab_focus()
+	self._rename_edit.select_all()
+
+
+func _on_rename_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		self._close_rename()
+		self._rename_edit.accept_event()
+
+
+## 提交：写进标签页的自定义名（空 = 回落到文件名）。
+func _commit_rename() -> void:
+	if self._rename_index < 0 or self._rename_edit == null:
+		return
+	var index := self._rename_index
+	var value := self._rename_edit.text
+	self._close_rename()
+	var editor := self._editor_at(index)
+	if editor != null:
+		editor.set_custom_name(value)
+		self._refresh_tab_title(editor)
+
+
+## 收起输入框。先清下标再放焦点：release_focus 会发 focus_exited，
+## 不这样做会递归回到 [_commit_rename]。
+func _close_rename() -> void:
+	self._rename_index = -1
+	if self._rename_edit != null:
+		self._rename_edit.hide()
+		self._rename_edit.release_focus()
+
+
+func _editor_at(index: int) -> LogicEditorTab:
+	if index < 0 or index >= self.nEditors.get_tab_count():
+		return null
+	return self.nEditors.get_tab_control(index) as LogicEditorTab
 #endregion
 
 
