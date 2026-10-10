@@ -102,6 +102,19 @@ func view_of(id: int) -> BlockView:
 	return _views.get(id)
 
 
+## 某节点各槽位在[b]当前布局[/b]里的尺寸（巢里子链的总尺寸）。
+## 幽灵与落点占位块拿它再量一次自己 —— 否则带巢的块（If）副本只看得见空巢，
+## 拖动时会比本体矮一截，巢里的子块也就“掉”到块外面了。
+func slot_extents_of(id: int) -> Dictionary[StringName, Vector2]:
+	var out: Dictionary[StringName, Vector2] = {}
+	var node := graph.get_node_by_id(id)
+	if node == null or layout == null:
+		return out
+	for slot_id in node.slots:
+		out[slot_id] = LayoutSolver.chain_extent(node.peek_slot(slot_id), layout)
+	return out
+
+
 func _create_view(id: int) -> BlockView:
 	var node := graph.get_node_by_id(id)
 	if node == null:
@@ -272,11 +285,10 @@ func find_anchor(world_pos: Vector2, radius: float, exclude: Dictionary = {}) ->
 	return best
 
 
-## 造一个拖拽幽灵/调色板样品：绑定临时节点，不写历史。
-## 造一个"幽灵"块视图（半透明、不吃鼠标）。
-##
+## 造一个"幽灵"块视图（半透明、不吃鼠标、绑临时节点不写历史）。
 ## [param parent] 指定父节点 —— 需要画在整个界面之上时传顶层覆盖层（画布是 SubViewport，
-## 里面的块永远盖不过兄弟控件）；[param source] 传入真实节点，则显示它的字段值而不是默认值。
+## 里面的块永远盖不过兄弟控件）；[param source] 传入真实节点，则显示它的字段值而不是默认值，
+## 并按本体在当前布局里的槽位尺寸再量一次（否则带巢的块副本只会量出空巢）。
 func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = null) -> BlockView:
 	var def := library.by_id(type_id) if library != null else null
 	if def == null:
@@ -289,6 +301,8 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 	ghost.interactive = false
 	(parent if parent != null else nBlocks).add_child(ghost)
 	ghost.setup(def, temp, true)
+	if source != null:
+		ghost.measure(slot_extents_of(source.id))
 	ghost.z_index = 50
 	return ghost
 
@@ -311,6 +325,8 @@ func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
 			if ghost == null or def == null:
 				continue
 			ghost.setup(def, node, false)
+			# 与本体同形：带巢的块要把巢里子链的尺寸量进去
+			ghost.measure(slot_extents_of(node.id))
 			ghost.modulate = Color(1, 1, 1, 0.5)
 			_preview_views.append(ghost)
 			_preview_origins.append(layout.rect_of(id).position if layout != null else Vector2.ZERO)

@@ -50,13 +50,14 @@ static func _measure_node(
 		var children := node.peek_slot(slot_id)
 		for child_id in children:
 			_measure_node(graph, measure, child_id, result, measured)
-		slot_extents[slot_id] = _chain_extent(children, result)
+		slot_extents[slot_id] = chain_extent(children, result)
 	var metrics: BlockMetrics = measure.call(node, slot_extents)
 	result.metrics[id] = metrics if metrics != null else BlockMetrics.new()
 
 
 ## 一条链的总尺寸：宽 = 最宽成员，高 = 首个成员顶到末尾成员底。
-static func _chain_extent(ids: Array[int], result: LayoutResult) -> Vector2:
+## 求解内部用它；幽灵/占位块要按「图上真实布局」再量一次时也用它。
+static func chain_extent(ids: Array[int], result: LayoutResult) -> Vector2:
 	var width := 0.0
 	var height := 0.0
 	var previous: BlockMetrics = null
