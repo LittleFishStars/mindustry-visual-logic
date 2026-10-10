@@ -181,6 +181,24 @@ func insert_node(node: LogicNode, owner_id: int, slot_id: StringName = &"", inde
 	return true
 
 
+## 把一棵[b]尚未入图[/b]的子树整体放进容器。
+##
+## [param nodes] 是子树里的全部节点，[b]第一个必须是根[/b]（其余节点由根按槽位引用，
+## 它们之间的父子关系在克隆时就已建好）。与 [method insert_node] 的区别：后者只登记一个
+## 节点，子树得一个一个插；复制整棵子树时那样做会把中间状态也暴露给信号。
+func insert_subtree(nodes: Array[LogicNode], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
+	if nodes.is_empty() or not _can_host(owner_id, slot_id):
+		return false
+	for node in nodes:
+		if node == null or _nodes.has(node.id):
+			return false
+	for node in nodes:
+		_nodes[node.id] = node
+		_sync_next_id(node.id)
+	_insert_at(_container_ref(owner_id, slot_id, true), nodes[0].id, index)
+	structure_changed.emit()
+	return true
+
 ## 删除节点及其整棵子树。链被清空时会一并删除该链。
 func remove_node(id: int) -> bool:
 	var where := locate(id)

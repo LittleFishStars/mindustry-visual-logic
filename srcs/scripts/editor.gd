@@ -30,6 +30,7 @@ func _ready() -> void:
 	nCanvas.drag_requested.connect(_on_canvas_drag_requested)
 	nCanvas.picker_requested.connect(_on_picker_requested)
 	nCanvas.link_requested.connect(_on_canvas_link_requested)
+	nCanvas.copy_requested.connect(_on_canvas_copy_requested)
 	nDrag.canvas = nCanvas
 	nDrag.area = nEditArea
 	# 拖到左侧块列表（分类按钮列 + 块列表）松手 = 删掉搬的块
@@ -99,6 +100,12 @@ func _show_kind(kind: StringName) -> void:
 func _on_canvas_drag_requested(view: BlockView, offset: Vector2) -> void:
 	_close_picker()
 	nDrag.start_from_view(view, offset)
+
+
+## 画布上的块按下右键：拖出一份副本（原块留在原地；拖到左侧块列表松手 = 取消）。
+func _on_canvas_copy_requested(view: BlockView, offset: Vector2) -> void:
+	_close_picker()
+	nDrag.start_copy_from_view(view, offset)
 
 
 ## 块上的「跳转目标」按钮被按下：交给锁定控制器接管拖拽。

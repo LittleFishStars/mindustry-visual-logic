@@ -95,6 +95,11 @@ assets/
    拖拽期间块里的可交互控件会被统一禁用（`EditorCanvas.set_elements_enabled` →
    `BlockView.set_elements_enabled` → 构建器的 `set_enabled`）：输入框变只读并交出焦点，
    下拉 / 开关 / 选择器按钮置为 `disabled`，松手/取消后恢复。
+   [b]右键在块上按下 = 复制[/b]：`BlockView.copy_requested` → `DragController.start_copy_from_view`，
+   跟手的是覆盖层里的一组副本（源块既不隐藏也不移动），松手时由 `EditorCanvas.duplicate_subtree`
+   一次克隆整棵子树（含槽位结构），一条撤销记录；块引用指向子树[b]内部[/b]的重映射到新节点、
+   指向外部的不变。拖到左侧块列表/画布外 = 取消，原地松手 = 不动数据。
+   新节点在克隆时就彼此挂好，最后由 `LogicGraph.insert_subtree` 整体入图（不会把中间态暴露给信号）。
 4. 锁定跳转目标：Jump 块的目标是一个 `<JumpTarget>` 按钮（不再是手填行号的输入框）。
    在它上面按下 → `BlockView.link_requested` → `LinkController` 接管：拖到某一块上松手 = 锁定到那块，
    拖到自己/左侧块列表 = 解除，空白处松手、右键、Esc = 取消（原样不动；原地松手只算点了一下）。

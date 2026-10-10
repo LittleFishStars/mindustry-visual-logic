@@ -11,8 +11,10 @@ extends Control
 ## [br]3. 嵌套子块不是本节点的子节点：它们与父块一样是画布的直接子级，
 ##    位置由布局求解给出 —— 于是「拖拽时 reparent 整条链」这件事彻底不存在了。
 
-## 请求开始拖动（画布/拖拽控制器接管）。
+## 请求开始拖动（画布/拖拽控制器接管）：左键按下 = 搬移，右键按下 = 复制一份。
 signal drag_requested(view: BlockView, offset: Vector2)
+## 请求复制：右键按下时发出，落地时由画布深拷贝这棵子树（原块不动）。
+signal copy_requested(view: BlockView, offset: Vector2)
 ## 某个字段被用户改动（画布负责写进图与撤销栈）。
 signal field_committed(node: LogicNode, field_id: StringName, value: Variant, merge_key: StringName)
 ## 可见性/尺寸变了，需要重新布局。
@@ -505,9 +507,15 @@ func _gui_input(event: InputEvent) -> void:
 	# 拖动幽灵的 interactive 为 false，不会抢输入。
 	if not interactive:
 		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		if _has_point(event.position):
-			drag_requested.emit(self, event.position)
-			accept_event()
+	if not (event is InputEventMouseButton) or not event.pressed:
+		return
+	if not _has_point(event.position):
+		return
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		drag_requested.emit(self, event.position)
+		accept_event()
+	elif event.button_index == MOUSE_BUTTON_RIGHT:
+		copy_requested.emit(self, event.position)
+		accept_event()
 
 #endregion

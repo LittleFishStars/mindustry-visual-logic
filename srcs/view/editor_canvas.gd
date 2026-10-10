@@ -11,6 +11,8 @@ extends SubViewport
 signal picker_requested(element: ElementDef, control: Control)
 ## 需要编辑器标签页接管「拖拽锁定跳转目标」（见 [LinkController]）。
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
+## 右键在块上按下：要拖出一份副本（见 [method duplicate_subtree]）。
+signal copy_requested(view: BlockView, offset: Vector2)
 
 @onready var nBlocks: Node2D = $Blocks
 ## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
@@ -144,6 +146,8 @@ func _create_view(id: int) -> BlockView:
 	var view := BlockView.new()
 	view.name = "Block%d" % id
 	view.drag_requested.connect(_on_view_drag_requested)
+	view.copy_requested.connect(func(v: BlockView, offset: Vector2) -> void:
+		copy_requested.emit(v, offset))
 	view.link_labeler = _link_label
 	view.link_requested.connect(func(v: BlockView, element: ElementDef, control: Control) -> void:
 		link_requested.emit(v, element, control))
@@ -257,6 +261,77 @@ func remove_tail(ids: Array[int]) -> bool:
 			graph.remove_node(id)
 		_clear_links_to(links))
 	return true
+
+## 复制以 [param source_id] 为根的整棵子树，插到 [param owner_id] 的容器里（一条撤销记录）。
+## 返回新根的节点 id（失败返回 0）。
+func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index: int) -> int:
+	var clone := _clone_subtree(source_id)
+	if clone.is_empty():
+		return 0
+	var nodes: Array[LogicNode] = clone["nodes"]
+	var new_root: LogicNode = clone["root"]
+	history.record("复制块", func() -> void:
+		graph.insert_subtree(nodes, owner_id, slot_id, index))
+	return new_root.id
+
+
+## 复制到画布上的一条新链（拖到空白处松手）。
+func duplicate_subtree_to_new_chain(source_id: int, world_pos: Vector2) -> int:
+	var clone := _clone_subtree(source_id)
+	if clone.is_empty():
+		return 0
+	var nodes: Array[LogicNode] = clone["nodes"]
+	var new_root: LogicNode = clone["root"]
+	history.record("复制块", func() -> void:
+		var chain := graph.create_chain(world_pos)
+		graph.insert_subtree(nodes, LogicGraph.ROOT, chain, -1))
+	return new_root.id
+
+
+## 深拷贝一棵子树（含槽位结构），返回 {root: LogicNode, nodes: Array[LogicNode]}。
+##
+## 块引用字段（Jump 的跳转目标）：指向子树[b]内部[/b]的会重映射到对应的新节点 ——
+## 副本内部的跳转仍然自洽；指向子树外的不动 —— 副本向外跳的目标还是原来那一块。
+func _clone_subtree(source_id: int) -> Dictionary:
+	if graph == null or not graph.has(source_id):
+		return {}
+	# 源 id → 副本节点（先整棵建完，映射表才是全的）
+	var copies: Dictionary = {}
+	var order: Array[LogicNode] = []
+	_clone_into(source_id, copies, order)
+	if order.is_empty():
+		return {}
+	for source_key in copies:
+		var copy: LogicNode = copies[source_key]
+		var def := library.by_id(copy.type_id) if library != null else null
+		if def == null:
+			continue
+		for field_id in def.reference_fields():
+			var target := LogicGraph.parse_link_ref(copy.get_field(field_id, ""))
+			if target > 0 and copies.has(target):
+				copy.put_field(field_id, LogicGraph.make_link_ref((copies[target] as LogicNode).id))
+	return {"root": copies.get(source_id), "nodes": order}
+
+
+func _clone_into(source_id: int, copies: Dictionary, order: Array[LogicNode]) -> LogicNode:
+	var source := graph.get_node_by_id(source_id)
+	if source == null or copies.has(source_id):
+		return null
+	var copy := graph.new_node(source.type_id)
+	for key in source.fields:
+		copy.fields[key] = source.fields[key]
+	copies[source_id] = copy
+	order.append(copy)
+	for slot_id in source.slots:
+		var children: Array[int] = []
+		for child_id in source.peek_slot(slot_id):
+			var child_copy := _clone_into(child_id, copies, order)
+			if child_copy != null:
+				children.append(child_copy.id)
+		if not children.is_empty():
+			copy.slots[slot_id] = children
+	return copy
+
 
 ## 撤销/重做：history 内部会 load_dict，图发出 reset 信号后画布自行重建。
 func undo() -> bool:
