@@ -22,7 +22,6 @@ var _hint: Label
 var _element: ElementDef = null
 
 var _icon_cache: Dictionary[String, Texture2D] = {}
-var _current_kind: StringName = &""
 
 
 func _ready() -> void:

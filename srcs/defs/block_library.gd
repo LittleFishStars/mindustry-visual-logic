@@ -37,7 +37,6 @@ var warnings: PackedStringArray = []
 var kinds: Array[Kind] = []
 
 var _by_id: Dictionary[StringName, BlockDef] = {}
-var _kind_of: Dictionary[StringName, StringName] = {}
 
 
 ## 读取当前语言的定义；该语言目录不存在时回退到 [constant FALLBACK_LANG]。
@@ -54,7 +53,6 @@ static func load_localized(locale: String = "") -> BlockLibrary:
 func load_dir(dir: String) -> void:
 	kinds.clear()
 	_by_id.clear()
-	_kind_of.clear()
 	warnings.clear()
 	if not DirAccess.dir_exists_absolute(dir):
 		warnings.append("块定义目录不存在：%s" % dir)
@@ -271,7 +269,6 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 		warnings.append("块 id 重复：%s" % block.id)
 	else:
 		_by_id[block.id] = block
-		_kind_of[block.id] = current_kind.id
 	current_kind.blocks.append(block)
 	return block
 

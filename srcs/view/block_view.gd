@@ -51,7 +51,6 @@ var _theme_remeasure_queued: bool = false
 var _rows: Array[HBoxContainer] = []
 var _row_kind: Array[StringName] = []
 var _row_slot: Array[StringName] = []
-var _row_size: Array[Vector2] = []
 var _row_widths: Array[float] = []
 var _row_heights: Array[float] = []
 ## 每个可视行对应的定义行（nest / tail 行为 null）
@@ -60,7 +59,6 @@ var _row_def: Array[BlockDef.RowDef] = []
 var _row_skip: Array[bool] = []
 var _nest_controls: Dictionary[StringName, Control] = {}
 var _elements: Dictionary[StringName, Control] = {}
-var _element_defs: Dictionary[StringName, ElementDef] = {}
 var _bg_rects: Array[Rect2] = []
 var _styles: Array[StyleBoxFlat] = []
 
@@ -167,10 +165,8 @@ func _build() -> void:
 	_rows.clear()
 	_row_kind.clear()
 	_row_slot.clear()
-	_row_size.clear()
 	_nest_controls.clear()
 	_elements.clear()
-	_element_defs.clear()
 	_bg_rects.clear()
 	_styles.clear()
 	_row_def.clear()
@@ -192,7 +188,6 @@ func _build() -> void:
 			if control != null:
 				row.add_child(control)
 				_elements[cell.id] = control
-				_element_defs[cell.id] = cell
 	# 没有任何元素的块（如 None）也要有一行，否则它在画布上是不可见也不可点的
 	if _rows.is_empty():
 		_make_row(ROW_NORMAL, &"", null)
@@ -216,7 +211,6 @@ func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> 
 	_rows.append(row)
 	_row_kind.append(kind)
 	_row_slot.append(slot)
-	_row_size.append(Vector2.ZERO)
 	_row_def.append(row_def)
 	return row
 
@@ -311,7 +305,6 @@ func _layout_rows(widths: Array[float], heights: Array[float], block_width: floa
 		var row_h := heights[i]
 		if i < _row_skip.size() and _row_skip[i]:
 			row.visible = false
-			_row_size[i] = Vector2.ZERO
 			continue
 		row.visible = true
 		if kind == ROW_TAIL:
@@ -320,7 +313,6 @@ func _layout_rows(widths: Array[float], heights: Array[float], block_width: floa
 		else:
 			row.position = Vector2(margin * 2, y + margin / 2.0)
 			row.size = Vector2(block_width - margin * 4, maxf(row_h - margin, 1.0))
-		_row_size[i] = Vector2(row_w, row_h)
 		# 体（nest）行只在最左边画一条竖条 —— 子块挂在它右边，其余地方保持透明
 		var bg_width := float(body_bar_width) if kind == ROW_NEST else block_width
 		_bg_rects.append(Rect2(0, y, bg_width, row_h + 1.0))
