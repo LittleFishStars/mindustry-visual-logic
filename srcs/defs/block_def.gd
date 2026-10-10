@@ -40,6 +40,9 @@ class RowDef extends RefCounted:
 var id: StringName = &""
 var kind: StringName = &""
 var color: Color = Color.WHITE
+## 程序入口块（XML 里 `<Block entry="true">`，目前是 Start）：一个文档只应有一个，
+## 所以它不能复制、导出从它开始；新建页由编辑器自动放一个。
+var entry: bool = false
 
 ## 扁平的全部元素（按出现顺序）—— 导出与字段查询用它。
 var elements: Array[ElementDef] = []

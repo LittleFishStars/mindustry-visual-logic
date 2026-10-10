@@ -122,6 +122,11 @@ func view_of(id: int) -> BlockView:
 	return _views.get(id)
 
 
+## 这个节点是不是入口块（XML `entry="true"`，目前是 Start）。
+## 一个文档只该有一个：不放复制、不准删，导出也从它开始。
+func is_entry(node: LogicNode) -> bool:
+	return node != null and library != null and library.is_entry(node.type_id)
+
 ## 某节点各槽位在[b]当前布局[/b]里的尺寸（巢里子链的总尺寸）。
 ## 幽灵与落点占位块拿它再量一次自己 —— 否则带巢的块（If）副本只看得见空巢，
 ## 拖动时会比本体矮一截，巢里的子块也就“掉”到块外面了。
@@ -265,6 +270,10 @@ func remove_tail(ids: Array[int]) -> bool:
 ## 复制以 [param source_id] 为根的整棵子树，插到 [param owner_id] 的容器里（一条撤销记录）。
 ## 返回新根的节点 id（失败返回 0）。
 func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index: int) -> int:
+	# 入口块拒绝复制（右键拖拽在 [DragController] 就已经拦下了，这里再兜一道：
+	# 复制入口 = 一个文档冒出两个起点，导出“从 Start 开始”就没意义了）
+	if self.is_entry(graph.get_node_by_id(source_id)):
+		return 0
 	var clone := _clone_subtree(source_id)
 	if clone.is_empty():
 		return 0
@@ -277,6 +286,8 @@ func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index
 
 ## 复制到画布上的一条新链（拖到空白处松手）。
 func duplicate_subtree_to_new_chain(source_id: int, world_pos: Vector2) -> int:
+	if self.is_entry(graph.get_node_by_id(source_id)):
+		return 0
 	var clone := _clone_subtree(source_id)
 	if clone.is_empty():
 		return 0

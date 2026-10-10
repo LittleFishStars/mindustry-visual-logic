@@ -117,6 +117,10 @@ func start_copy_from_view(view: BlockView, offset: Vector2) -> void:
 		return
 	if not canvas.graph.has(view.node.id):
 		return
+	# 入口块（Start）不许复制：一个文档只该有一个，导出从它开始才有确定的意义。
+	# 连会话都不开 —— 这样右键按下去不会冒出跟手的副本，比“放下时再拒绝”清楚。
+	if canvas.is_entry(view.node):
+		return
 	_active = true
 	_button = MOUSE_BUTTON_RIGHT
 	_source_node = null
@@ -333,6 +337,11 @@ func _finish() -> void:
 	var copy_source := _copy_source_id
 	_cleanup()
 	if deleting and not carried.is_empty():
+		# 入口块也不能删 —— 删了文档就没起点了（导出“从 Start 开始”也就无从谈起）。
+		if self._carries_entry(carried):
+			print("[MVL] 入口块（Start）不能删除")
+			canvas.relayout()
+			return
 		canvas.remove_tail(carried)
 		return
 	if not inside or not moved:
@@ -359,6 +368,14 @@ func _finish() -> void:
 		canvas.insert_new_chain(type_id, origin)
 	else:
 		canvas.move_tail_to_new_chain(_carried, origin)
+
+
+## 这串块里有没有入口块（拿起的整串里带上它就不让删）。
+func _carries_entry(ids: Array[int]) -> bool:
+	for id in ids:
+		if canvas.is_entry(canvas.graph.get_node_by_id(id)):
+			return true
+	return false
 
 
 ## 右键 / Esc：取消拖拽，位置复原。

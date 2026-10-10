@@ -200,6 +200,17 @@ assets/
   `_unhandled_key_input` 只是焦点不在菜单栏时的兜底；两者不会双触发（前者会标 handled）。
   导出无内容（当前页是文档页等）时在 [method Main._export_to_clipboard] 里统一提示一声，
   菜单项与 F5 共用这一个出口，别再各写一份。
+- **入口块（Start）**：XML 里 `<Block entry="true">`，它所在的类别用 `<Kind hidden="true">` 藏起来
+  （Special 就是：块还在库里、`BlockLibrary.entry_def()` 找得到，只是不进调色板）。
+  新页由 `LogicEditorTab._place_entry_block()` 自动放一个，[b]不进撤销栈[/b]。
+  一个文档只该有一个，所以：不能复制（[DragController.start_copy_from_view] 连会话都不开，
+  [method EditorCanvas.duplicate_subtree] 再兜一道）、不能删除（拖到左侧列表时
+  `_carries_entry()` 拦下）；`is_empty()` [b]不算[/b]入口块，否则「清空」永远不置灰。
+  [b]导出只走入口块那条链、从它开始[/b]（[method MlogExporter._walk]）：它前面的块与
+  其他链都不导出；它自己渲染成空行、不占行号（跳到它身上的 jump 落到下一条指令）。
+  没有入口块的旧存档退回旧规矩（所有链都导出）。
+  「清空 / new_project / 剪贴板 Load」都要把入口块放回来，Load 还要把导入的块插到
+  入口块那条链上 —— 插到别的链等于导不出来（见 `LogicEditorTab._import_target()`）。
 - **应用设置**：`AppSettings`（`model/app_settings.gd`）是纯数据 + `user://settings.json`（容错读、超范围钳制）；
   `SettingsWindow` 只管「值 ↔ 控件」，[b]应用[/b]（`Engine.max_fps` / `root.content_scale_factor`）在 `main.gd`。
   改动即时生效、关闭窗口时才写盘；`@tool` 下 `_apply_settings()` 直接 return，

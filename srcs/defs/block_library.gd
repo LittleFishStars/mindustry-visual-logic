@@ -18,11 +18,16 @@ extends RefCounted
 ## - `Row` 显式分行（取代 `<Br/>`）；行与元素都可带 `when`，条件支持 `&` `|` `~` 与括号
 ## - `Group` 给一串连续元素共享一个条件（不换行），解析时并入元素条件
 ## - `Export` 也可带 `when`；`<Br/>` / `<Pressed>` / `<Item show>` 等旧写法已不再支持（会给出解析警告）
+## - `<Kind name="…" hidden="true">`：这个类别不进调色板（里头的块仍然能用 ——
+##   比如入口块就是编辑器自动放的，不该让用户从列表里拖）
+## - `<Block name="…" entry="true">`：程序入口块（一个文档只应有一个，见 [method entry_def]）
 
 class Kind extends RefCounted:
 	var id: StringName = &""
 	var color: Color = Color.WHITE
 	var blocks: Array[BlockDef] = []
+	## XML 里 `hidden="true"`：这个类别不进调色板（里面的块仍能用，比如自动放的入口块）。
+	var hidden: bool = false
 
 	func _init(p_id: StringName = &"", p_color: Color = Color.WHITE) -> void:
 		id = p_id
@@ -69,8 +74,24 @@ func by_id(block_id: StringName) -> BlockDef:
 	return _by_id.get(block_id)
 
 
+## 这个块是不是入口块（XML `entry="true"`，目前是 Start）。
+func is_entry(block_id: StringName) -> bool:
+	var def := by_id(block_id)
+	return def != null and def.entry
+
+
 func has(block_id: StringName) -> bool:
 	return _by_id.has(block_id)
+
+
+## 程序入口块（XML 里 `entry="true"`，目前是 Start）：编辑器用它给新页放起点，
+## 导出器用它决定从哪里开始导。没有这样的块时返回 null。
+func entry_def() -> BlockDef:
+	for kind in kinds:
+		for block in kind.blocks:
+			if block.entry:
+				return block
+	return null
 
 
 func block_ids() -> Array[StringName]:
@@ -116,6 +137,7 @@ func _parse_file(path: String) -> void:
 							StringName(attrs.get("name", "")),
 							_parse_hex_color(String(attrs.get("color", "#FFFFFF")))
 						)
+						current_kind.hidden = _as_bool(attrs.get("hidden", "false"))
 						order = 0
 						kinds.append(current_kind)
 					"Block":
@@ -264,6 +286,7 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	var block := BlockDef.new(StringName(attrs.get("name", "")), current_kind.id)
 	block.color = current_kind.color
 	block.order = order
+	block.entry = _as_bool(attrs.get("entry", "false"))
 	if block.id == &"":
 		warnings.append("存在没有 name 的 <Block>（%s）" % current_kind.id)
 	elif _by_id.has(block.id):

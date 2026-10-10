@@ -64,11 +64,41 @@ static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Cal
 
 ## 遍历顺序表的一项：`{"node": LogicNode, "def": BlockDef}`。
 ## [b]不输出行的块也在表里[/b]：它虽然不占行号，但当跳转目标时要落到"它之后的第一条指令"。
+## 从[b]入口块[/b]（XML `entry="true"`，目前是 Start）开始往下走：它所在的那条链、
+## 从它自己开始（它渲染成空行、不占行号，但当跳转目标要有个落点），
+## 它前头的块与其他链[b]都不导出[/b] —— 「只导出从 Start 开始的」就是这个意思。
+## 入口块被删掉的老存档仍旧按老规矩：所有链都导出。
 static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[String]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for chain_id in graph.chain_ids():
-		_walk_chain(graph, library, graph.slot_items(LogicGraph.ROOT, chain_id), out, warnings)
+	var entry := _entry_node(graph, library)
+	if entry == null:
+		for chain_id in graph.chain_ids():
+			_walk_chain(graph, library, graph.slot_items(LogicGraph.ROOT, chain_id), out, warnings)
+		return out
+	var where := graph.locate(entry.id)
+	if where.is_empty():
+		return out
+	var siblings := graph.slot_items(int(where["owner_id"]), StringName(where["slot"]))
+	# 手抄一份带类型的尾巴（Array.slice() 回来的是无类型数组，直接传会类型不符）
+	var tail: Array[int] = []
+	for i in range(int(where["index"]), siblings.size()):
+		tail.append(siblings[i])
+	_walk_chain(graph, library, tail, out, warnings)
 	return out
+
+
+## 图里的入口块节点（没有就返回 null）。
+static func _entry_node(graph: LogicGraph, library: BlockLibrary) -> LogicNode:
+	if library == null:
+		return null
+	var def := library.entry_def()
+	if def == null:
+		return null
+	for id in graph.all_ids():
+		var node := graph.get_node_by_id(id)
+		if node != null and node.type_id == def.id:
+			return node
+	return null
 
 
 static func _walk_chain(

@@ -43,12 +43,16 @@ func _ready() -> void:
 	_picker.picked.connect(_on_picker_picked)
 	add_child(_picker)
 	_build_palette()
+	_place_entry_block()
 
 
 #region 调色板
 
 func _build_palette() -> void:
 	for kind in library.kinds:
+		# hidden 的类别不进列表（Special：里面只有自动放的入口块这种内部块）
+		if kind.hidden:
+			continue
 		var button := Button.new()
 		button.text = String(kind.id)
 		button.pressed.connect(func() -> void: _show_kind(kind.id))
@@ -62,8 +66,24 @@ func _build_palette() -> void:
 		for block in kind.blocks:
 			kind_list.add_child(_make_sample(block))
 		nBlockArea.add_child(kind_list)
-	if not library.kinds.is_empty():
-		_show_kind(library.kinds[0].id)
+	# 默认展开第一个[b]可见[/b]的类别（hidden 的类别没有按钮，不能选它）
+	for kind in library.kinds:
+		if not kind.hidden:
+			_show_kind(kind.id)
+			break
+
+
+
+## 新页的起点：把入口块（XML 里 `entry="true"`，目前是 Start）放在画布左上。
+## 它[b]不进撤销栈[/b] —— 这是文档的初始状态，不是用户做的某一步操作。
+func _place_entry_block() -> void:
+	var def := library.entry_def() if library != null else null
+	if def == null:
+		return
+	var node := nCanvas.graph.new_node(def.id)
+	def.apply_defaults(node)
+	var chain := nCanvas.graph.create_chain(Vector2(40, 40))
+	nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1)
 
 
 ## 调色板里的一块样品：绑定一个临时节点（带默认值），拖动时才在画布上建真节点。
@@ -182,22 +202,36 @@ func set_custom_name(value: String) -> void:
 func new_project() -> void:
 	nCanvas.history.clear()
 	nCanvas.graph.clear()
+	_place_entry_block()
 	file_path = ""
 	name_changed.emit(display_name())
 
 
 ## 清空当前项目里的所有块。与 [method new_project] 不同：文件名与撤销栈都保留，
 ## 而且清空本身算一条[b]可撤销[/b]的记录 —— 误清空可以直接撤销回来。
+## 清空后回到「新页」的样子：[b]入口块重新放回来[/b]（Special 类别在调色板里是隐藏的，
+## 不放回来这个文档就再也加不出入口块了）。
 func clear_graph() -> void:
-	if nCanvas.graph.count() == 0:
+	if self.is_empty():
 		return
 	nCanvas.history.record("清空", func() -> void:
-		nCanvas.graph.clear())
+		nCanvas.graph.clear()
+		_place_entry_block())
 
 
-## 画布上有没有块（编辑菜单用它决定「清空」能不能点）。
+## 画布上有没有用户搭的东西（编辑菜单用它决定「清空」能不能点）。
+## [b]入口块不算[/b]：每个新页都自带一个，算进去的话「清空」永远不会置灰。
 func is_empty() -> bool:
-	return nCanvas.graph.count() == 0
+	for id in nCanvas.graph.all_ids():
+		var node := nCanvas.graph.get_node_by_id(id)
+		if node != null and not self.is_entry(node):
+			return false
+	return true
+
+
+## 这个节点是不是入口块（XML `entry="true"`，目前是 Start）。真相在 [EditorCanvas]。
+func is_entry(node: LogicNode) -> bool:
+	return nCanvas.is_entry(node)
 
 func save_to(path: String) -> Error:
 	var error := GraphSerializer.save_to_file(nCanvas.graph, path, display_name())
@@ -254,20 +288,33 @@ func import_mlog(text: String, append: bool = false) -> int:
 	# 追加时，导入块的整体行号要加上「已有程序占掉的行数」：mlog 的 jump 用的是绝对行号
 	var line_offset := MlogExporter.line_count(nCanvas.graph, library) if append else 0
 	nCanvas.history.record("导入 %d 个块" % nodes.size(), func() -> void:
-		var chain: StringName
-		if append:
-			chain = nCanvas.graph.primary_chain(Vector2(40, 40))
-		else:
+		if not append:
+			# 换掉当前程序：入口块跟着回来（Special 在调色板里是隐藏的，不回来就再也加不出）
 			nCanvas.graph.clear()
-			chain = nCanvas.graph.create_chain(Vector2(40, 40))
+			_place_entry_block()
+		var target := self._import_target(Vector2(40, 40))
 		for node in nodes:
-			nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1)
+			nCanvas.graph.insert_node(node, int(target["owner_id"]), StringName(target["slot"]), -1)
 		# 块都入图了，现在才谈得上「第 N 行是哪一块」
 		MlogImporter.bind_links(nodes, src_lines, line_offset, nCanvas.graph, library, warnings))
 	for message in warnings:
 		push_warning(message)
 	return nodes.size()
 
+
+## 导入的块往哪里插：入口块所在的那条链（导出只走它 —— 插到别的链上等于导不出来）。
+## 没有入口块、或入口块被塞进某个巢里时，退回主链。
+func _import_target(fallback_pos: Vector2) -> Dictionary:
+	var def := library.entry_def() if library != null else null
+	if def != null:
+		for id in nCanvas.graph.all_ids():
+			var node := nCanvas.graph.get_node_by_id(id)
+			if node == null or node.type_id != def.id:
+				continue
+			var where := nCanvas.graph.locate(id)
+			if not where.is_empty() and int(where["owner_id"]) == LogicGraph.ROOT:
+				return {"owner_id": LogicGraph.ROOT, "slot": StringName(where["slot"])}
+	return {"owner_id": LogicGraph.ROOT, "slot": nCanvas.graph.primary_chain(fallback_pos)}
 
 func can_undo() -> bool:
 	return nCanvas.history.can_undo()
