@@ -21,18 +21,9 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 	return "\n".join(lines) + "\n"
 
 
-## 只导出某一个块（含其子树），用于块级预览/单独复制。
-static func export_node(graph: LogicGraph, library: BlockLibrary, id: int, warnings: Array[String] = []) -> String:
-	var lines := PackedStringArray()
-	_emit_node(graph, library, id, lines, warnings)
-	if lines.is_empty():
-		return ""
-	return "\n".join(lines) + "\n"
-
-
 ## 渲染单行 mlog（不含换行）。模板为空（如 If 这类纯容器）时返回空串。
 static func render_node(def: BlockDef, node: LogicNode) -> String:
-	var value_of := _reader_of(node)
+	var value_of := node.value_reader()
 	var parts := def.export_parts_for(value_of)
 	if parts.is_empty():
 		return ""
@@ -101,9 +92,3 @@ static func _render_part(
 static func _value_of(node: LogicNode, field_id: StringName) -> String:
 	var value := String(node.get_field(field_id, ""))
 	return value if value != "" else "0"
-
-
-## 从数据层取值的小闭包（条件求值用）。
-static func _reader_of(node: LogicNode) -> Callable:
-	return func(field_id: StringName) -> String:
-		return String(node.get_field(field_id, ""))

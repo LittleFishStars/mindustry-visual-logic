@@ -151,3 +151,9 @@ func default_field_values() -> Dictionary:
 		if value != null:
 			out[element.id] = value
 	return out
+
+
+## 把一个新建（尚未入图）的节点按本块声明的默认值灌好 —— 三处建节点的地方共用它。
+func apply_defaults(node: LogicNode) -> void:
+	if node != null:
+		node.apply_fields(default_field_values())

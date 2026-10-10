@@ -190,7 +190,6 @@ func _is_value_at(index: int) -> bool:
 	return next_kind != "=" and next_kind != "!="
 
 
-
 #endregion
 
 

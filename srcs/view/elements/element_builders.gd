@@ -47,9 +47,12 @@ static func make_edit(element: ElementDef, host: Object, min_width: float) -> Li
 
 
 ## 回填输入框：正在输入的控件不动，避免光标跳位。
-static func apply_edit_value(control: Control, value: String) -> void:
+static func apply_edit_value(control: Control, value: String, force: bool = false) -> void:
 	var edit := resolve_edit(control)
-	if edit != null and not edit.has_focus():
+	if edit == null:
+		return
+	# 默认不打断正在输入的控件（避免光标跳位）；picker 回填这类明确动作传 force = true
+	if force or not edit.has_focus():
 		edit.text = value
 
 
@@ -82,8 +85,8 @@ class InputBuilder extends ElementBuilder:
 	func is_field() -> bool:
 		return true
 
-	func apply_value(_element: ElementDef, control: Control, value: String) -> void:
-		ElementBuilders.apply_edit_value(control, value)
+	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
+		ElementBuilders.apply_edit_value(control, value, force)
 
 
 ## 下拉选项：显示文本与导出值可以不同（<Item value="33">!</Item>）。
@@ -106,7 +109,7 @@ class OptionBuilder extends ElementBuilder:
 	func is_field() -> bool:
 		return true
 
-	func apply_value(element: ElementDef, control: Control, value: String) -> void:
+	func apply_value(element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if control is OptionButton and not element.items.is_empty():
 			(control as OptionButton).select(index_of(element, value))
 
@@ -155,7 +158,7 @@ class ToggleBuilder extends ElementBuilder:
 	func is_field() -> bool:
 		return true
 
-	func apply_value(_element: ElementDef, control: Control, value: String) -> void:
+	func apply_value(_element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if control is BaseButton:
 			(control as BaseButton).set_pressed_no_signal(value == "true")
 
@@ -192,8 +195,8 @@ class SelectorBuilder extends ElementBuilder:
 	func is_field() -> bool:
 		return true
 
-	func apply_value(_element: ElementDef, control: Control, value: String) -> void:
-		ElementBuilders.apply_edit_value(control, value)
+	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
+		ElementBuilders.apply_edit_value(control, value, force)
 
 
 ## 子槽位：本类只建一个占位控件（槽里的块是画布的直接子级）；占位尺寸由布局求解灌进来。

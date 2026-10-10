@@ -26,7 +26,8 @@ func is_slot() -> bool:
 
 
 ## 把数据层的值写回控件 —— 控件只是数据层的显示，唯一真相在 [LogicNode]。
-func apply_value(_element: ElementDef, _control: Control, _value: String) -> void:
+## [param force] 为假时跳过"正在输入"的控件（避免光标跳位）；明确的用户动作（如候选回填）传真。
+func apply_value(_element: ElementDef, _control: Control, _value: String, _force: bool = false) -> void:
 	pass
 
 

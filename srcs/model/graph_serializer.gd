@@ -92,5 +92,3 @@ static func load_from_file(path: String) -> LogicGraph:
 	var text := file.get_as_text()
 	file.close()
 	return from_json(text)
-
-

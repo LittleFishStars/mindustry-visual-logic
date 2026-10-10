@@ -70,8 +70,7 @@ static func tokenize(line: String) -> PackedStringArray:
 
 static func _make_node(graph: LogicGraph, def: BlockDef, values: Dictionary, states: Dictionary) -> LogicNode:
 	var node := graph.new_node(def.id)
-	for field_id in def.default_field_values():
-		node.fields[field_id] = def.default_field_values()[field_id]
+	def.apply_defaults(node)
 	for field_id in values:
 		node.fields[field_id] = values[field_id]
 	for button_id in states:

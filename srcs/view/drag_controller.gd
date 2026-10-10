@@ -190,12 +190,8 @@ func _update() -> void:
 			var view: BlockView = canvas.view_of(id)
 			if view != null and is_instance_valid(view):
 				view.position = (_subtree_positions[id] as Vector2) + delta
-	if _delete_hover:
-		_target = {}
-		_release_shift()
-		canvas.clear_placement_preview()
-		return
-	if not _inside_canvas():
+	if _delete_hover or not _inside_canvas():
+		# 拖到删除区 / 画布外：不找吸附点，也不摆占位块（松手时自行决定是删是取消）
 		_target = {}
 		_release_shift()
 		canvas.clear_placement_preview()

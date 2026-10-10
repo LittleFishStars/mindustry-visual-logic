@@ -7,10 +7,6 @@ extends SubViewport
 ## 位置一律来自 [LayoutSolver] 的求解结果。旧实现里「拖拽时 reparent 整条链、
 ## 画布外松手 queue_free 连带删掉下游」的结构性风险在这里不存在。
 
-## 撤销栈或内容变化（供菜单/状态栏刷新）。
-signal history_changed()
-## 字段值变化（导出内容随之改变）。
-signal content_changed()
 ## 需要编辑器标签页打开选择器浮层。
 signal picker_requested(element: ElementDef, control: Control)
 
@@ -34,19 +30,18 @@ var _applying_field: bool = false
 
 func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	library = p_library
-	graph = p_graph if p_graph != null else LogicGraph.new()
-	history = GraphHistory.new(graph)
-	graph.structure_changed.connect(_on_structure_changed)
-	graph.reset.connect(_on_graph_reset)
-	graph.field_changed.connect(_on_field_changed)
-	history.changed.connect(func() -> void: history_changed.emit())
-	rebuild()
+	_attach_graph(p_graph)
 
 
 ## 换成另一张图（打开项目用）：断开旧信号、接上新图并重建视图与撤销栈。
 func adopt_graph(p_graph: LogicGraph) -> void:
 	if graph == p_graph:
 		return
+	_attach_graph(p_graph)
+
+
+## 建图接线只在这一处：setup 与 adopt_graph 共用同一条路径。
+func _attach_graph(p_graph: LogicGraph) -> void:
 	if graph != null:
 		graph.structure_changed.disconnect(_on_structure_changed)
 		graph.reset.disconnect(_on_graph_reset)
@@ -56,7 +51,6 @@ func adopt_graph(p_graph: LogicGraph) -> void:
 	graph.reset.connect(_on_graph_reset)
 	graph.field_changed.connect(_on_field_changed)
 	history = GraphHistory.new(graph)
-	history.changed.connect(func() -> void: history_changed.emit())
 	rebuild()
 
 
@@ -85,7 +79,6 @@ func relayout() -> void:
 		var rect := layout.rect_of(id)
 		view.position = rect.position
 		view.size = rect.size
-	content_changed.emit()
 
 
 func _measure(node: LogicNode, slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
@@ -241,8 +234,7 @@ func _make_node(type_id: StringName) -> LogicNode:
 	var node := graph.new_node(type_id)
 	var def := library.by_id(type_id) if library != null else null
 	if def != null:
-		for field_id in def.default_field_values():
-			node.fields[field_id] = def.default_field_values()[field_id]
+		def.apply_defaults(node)
 	return node
 
 #endregion
@@ -295,8 +287,7 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 		return null
 	var temp := source if source != null else LogicNode.new(0, type_id)
 	if source == null:
-		for field_id in def.default_field_values():
-			temp.fields[field_id] = def.default_field_values()[field_id]
+		def.apply_defaults(temp)
 	var ghost := BlockView.new()
 	ghost.interactive = false
 	(parent if parent != null else nBlocks).add_child(ghost)
@@ -320,13 +311,10 @@ func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
 			var node := graph.get_node_by_id(id)
 			if node == null:
 				continue
-			var def := library.by_id(node.type_id)
-			var ghost := make_ghost(node.type_id)
-			if ghost == null or def == null:
+			# make_ghost(source) 已经带着真实字段值、不吃鼠标，并按本体布局量过巢的尺寸
+			var ghost := make_ghost(node.type_id, null, node)
+			if ghost == null:
 				continue
-			ghost.setup(def, node, false)
-			# 与本体同形：带巢的块要把巢里子链的尺寸量进去
-			ghost.measure(slot_extents_of(node.id))
 			ghost.modulate = Color(1, 1, 1, 0.5)
 			_preview_views.append(ghost)
 			_preview_origins.append(layout.rect_of(id).position if layout != null else Vector2.ZERO)
@@ -346,7 +334,6 @@ func show_new_placement_preview(def: BlockDef, top_left: Vector2) -> void:
 		var ghost := make_ghost(def.id)
 		if ghost != null:
 			ghost.modulate = Color(1, 1, 1, 0.5)
-			ghost.measure({})
 			_preview_views.append(ghost)
 	for view in _preview_views:
 		if is_instance_valid(view):

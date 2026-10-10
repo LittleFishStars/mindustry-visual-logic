@@ -53,10 +53,8 @@ func chain_ids() -> Array[StringName]:
 	return out
 
 
-
 func chain_position(chain_id: StringName) -> Vector2:
 	return _chain_positions.get(chain_id, Vector2.ZERO)
-
 
 
 ## 深度优先的全部节点 id（从各条链出发，孤儿节点不包含在内）。

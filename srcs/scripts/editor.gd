@@ -19,6 +19,7 @@ var library: BlockLibrary
 var _current_kind: StringName = &""
 var _picker: SelectorPanel = null
 var _picker_target: Control = null
+var _picker_element: ElementDef = null
 
 
 func _ready() -> void:
@@ -60,8 +61,7 @@ func _build_palette() -> void:
 ## 调色板里的一块样品：绑定一个临时节点（带默认值），拖动时才在画布上建真节点。
 func _make_sample(block: BlockDef) -> BlockView:
 	var temp := LogicNode.new(0, block.id)
-	for field_id in block.default_field_values():
-		temp.fields[field_id] = block.default_field_values()[field_id]
+	block.apply_defaults(temp)
 	var view := BlockView.new()
 	view.name = "Sample_%s" % block.id
 	view.setup(block, temp, true)
@@ -98,20 +98,24 @@ func _on_picker_requested(element: ElementDef, control: Control) -> void:
 	if element == null or control == null or not is_instance_valid(control):
 		return
 	_picker_target = control
+	_picker_element = element
 	_picker.open(element, control, control.get_global_rect().position + Vector2(0, control.size.y))
 
 
 func _on_picker_picked(value: String) -> void:
-	if _picker_target != null and is_instance_valid(_picker_target):
-		var edit: Variant = _picker_target.get_meta(&"value_control", null)
-		if edit is LineEdit:
-			(edit as LineEdit).text = value
-			# text_changed 会带着新值走一遍 commit_field
+	if _picker_target != null and is_instance_valid(_picker_target) and _picker_element != null:
+		# 回填走元素构建器：编辑器不需要知道"值存在组合控件里的哪个子控件"
+		# force = true：这是明确的用户动作，即使输入框还拿着焦点也要写进去
+		var builder: Variant = ElementRegistry.builder(_picker_element.type)
+		if builder != null:
+			builder.apply_value(_picker_element, _picker_target, value, true)
+		# 输入框的 text_changed 会带着新值走一遍 commit_field
 	_close_picker()
 
 
 func _close_picker() -> void:
 	_picker_target = null
+	_picker_element = null
 	if _picker != null:
 		_picker.close()
 

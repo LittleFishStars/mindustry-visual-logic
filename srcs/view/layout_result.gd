@@ -22,5 +22,3 @@ func has(id: int) -> bool:
 
 func rect_of(id: int) -> Rect2:
 	return rects.get(id, Rect2())
-
-
