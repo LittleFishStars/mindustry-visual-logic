@@ -11,6 +11,8 @@ extends Container
 @onready var nBackground: Panel = $Panel
 @onready var wNotice: Window = $NoticeWindow
 @onready var wProject: FileDialog = $ProjectDialog
+## 编辑菜单（撤销 / 重做 / 清空）：弹出前按当前标签页的状态置灰。
+@onready var nEditMenu: PopupMenu = $MenuBar/Edit
 
 var Editor = preload("res://srcs/scenes/editor.tscn")
 
@@ -255,10 +257,41 @@ func _editor_at(index: int) -> LogicEditorTab:
 	return self.nEditors.get_tab_control(index) as LogicEditorTab
 #endregion
 
+#region 编辑菜单
+
+## 编辑菜单：0 撤销 / 1 重做 / 2 清空
+func _on_edit_id_pressed(id: int) -> void:
+	match id:
+		0:
+			self._undo()
+		1:
+			self._redo()
+		2:
+			self._clear_current()
+
+
+## 菜单弹出来之前刷一下可用性：没得撤销/重做、画布本来就空，就置灰。
+func _on_edit_about_to_popup() -> void:
+	var editor := self._current_editor()
+	self.nEditMenu.set_item_disabled(0, editor == null or not editor.can_undo())
+	self.nEditMenu.set_item_disabled(1, editor == null or not editor.can_redo())
+	self.nEditMenu.set_item_disabled(2, editor == null or editor.is_empty())
+
+
+## 清空当前项目的所有块（[method LogicEditorTab.clear_graph] 会记一条可撤销的记录）。
+func _clear_current() -> void:
+	var editor := self._current_editor()
+	if editor != null:
+		editor.clear_graph()
+
+
+#endregion
+
 
 #region 文件菜单
 
-## 文件菜单：0 新建 / 1 保存 / 2 另存为 / 3 打开 / 4 导出到剪贴板 / 5 撤销 / 6 重做 / 7 退出
+## 文件菜单：0 新建 / 1 保存 / 2 另存为 / 3 打开 / 4 导出到剪贴板 / 5 退出 /
+## 6 从剪贴板导入 / 7 追加导入（撤销、重做、清空都在编辑菜单里）
 func _on_file_id_pressed(id: int) -> void:
 	match id:
 		0:
@@ -272,14 +305,10 @@ func _on_file_id_pressed(id: int) -> void:
 		4:
 			self._export_to_clipboard()
 		5:
-			self._undo()
-		6:
-			self._redo()
-		7:
 			self.get_tree().quit()
-		8:
+		6:
 			self._import_clipboard(false)
-		9:
+		7:
 			self._import_clipboard(true)
 
 

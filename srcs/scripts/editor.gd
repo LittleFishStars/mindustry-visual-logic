@@ -171,12 +171,26 @@ func set_custom_name(value: String) -> void:
 	name_changed.emit(display_name())
 
 
+## 换成一张全新的空图：撤销栈也一并丢掉（文件名重置，相当于另一个文档）。
 func new_project() -> void:
 	nCanvas.history.clear()
 	nCanvas.graph.clear()
 	file_path = ""
 	name_changed.emit(display_name())
 
+
+## 清空当前项目里的所有块。与 [method new_project] 不同：文件名与撤销栈都保留，
+## 而且清空本身算一条[b]可撤销[/b]的记录 —— 误清空可以直接撤销回来。
+func clear_graph() -> void:
+	if nCanvas.graph.count() == 0:
+		return
+	nCanvas.history.record("清空", func() -> void:
+		nCanvas.graph.clear())
+
+
+## 画布上有没有块（编辑菜单用它决定「清空」能不能点）。
+func is_empty() -> bool:
+	return nCanvas.graph.count() == 0
 
 func save_to(path: String) -> Error:
 	var error := GraphSerializer.save_to_file(nCanvas.graph, path, display_name())

@@ -169,6 +169,11 @@ assets/
 - **`class_name`**：模型/定义/视图三层的类都全局注册。
 - **公告窗**：`notice_window.tscn` 通过 HTTPRequest 拉 `https://textdb.online/MindVisualLogic`。
 - **自定义光标**：`main.gd._ready()` 从 `assets/sprites/cursors/` 装载。
+- **顶部菜单**：`File`（新建页 / 存 / 开 / 导出到剪贴板 / 退出 / 剪贴板导入）、
+  `Edit`（撤销 / 重做 / 清空，弹出前按当前页状态置灰）、`Help`（文档 / 公告 / 关于）。
+  「清空」走 `LogicEditorTab.clear_graph()`，算一条可撤销记录；`new_project()` 则是
+  「换成另一个文档」，会连撤销栈一起清掉 —— 两者不要混用。
+  菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。
 - **标签页标题**：`LogicEditorTab.display_name()` 先看手动命名（`custom_name`），再跟随文件名。
   重命名是就地编辑：标签条上浮一个 `LineEdit`（TabBar 的子节点，不会变成新页面），
   单击[b]已选中[/b]的标签（延迟一个双击间隔才开，免得双击时闪一下）或[b]右键[/b]任意标签打开；
