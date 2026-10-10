@@ -76,15 +76,17 @@ func build_index() -> void:
 		for cell in row.cells:
 			_row_of[cell.id] = row
 	for element in elements:
-		if element.id != &"" and not _by_id.has(element.id):
+		if element.id == &"":
+			continue
+		if not _by_id.has(element.id):
 			_by_id[element.id] = element
-		match element.type:
-			&"Nest":
-				if element.id != &"" and not _slots.has(element.id):
-					_slots.append(element.id)
-			&"LineBox", &"Option", &"Button", &"Selector":
-				if element.id != &"" and not _fields.has(element.id):
-					_fields.append(element.id)
+		# 「承载字段值 / 是子槽位」由构建器自报，本层不枚举元素种类
+		if element.is_slot():
+			if not _slots.has(element.id):
+				_slots.append(element.id)
+		elif element.is_field():
+			if not _fields.has(element.id):
+				_fields.append(element.id)
 	_indexed = true
 
 
@@ -144,14 +146,8 @@ func default_field_values() -> Dictionary:
 	for element in elements:
 		if not element.is_field():
 			continue
-		match element.type:
-			&"Option":
-				if not element.items.is_empty():
-					var index := clampi(element.default_index, 0, element.items.size() - 1)
-					out[element.id] = element.items[index].value_or_text()
-			&"Button":
-				out[element.id] = element.default_value if element.default_value != "" else "false"
-			_:
-				if element.default_value != "":
-					out[element.id] = element.default_value
+		# 每种元素的默认值规则长在它自己的构建器上
+		var value: Variant = ElementRegistry.default_value(element)
+		if value != null:
+			out[element.id] = value
 	return out

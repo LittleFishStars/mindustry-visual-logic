@@ -236,20 +236,10 @@ func _validate_condition(block: BlockDef, text: String, condition: ConditionDef)
 			warnings.append("%s：when=\"%s\" —— 未知字段：%s（本块字段：%s）"
 				% [block.id, text, String(condition.field), _join_ids(block.field_ids())])
 			return
-		match element.type:
-			&"Option":
-				var legal := PackedStringArray()
-				for item in element.items:
-					legal.append(item.value_or_text())
-				for value in condition.values:
-					if not legal.has(value):
-						warnings.append("%s：when=\"%s\" —— 字段 %s 没有取值 `%s`（合法值：%s）"
-							% [block.id, text, String(condition.field), value, ", ".join(legal)])
-			&"Button":
-				for value in condition.values:
-					if value != "true" and value != "false":
-						warnings.append("%s：when=\"%s\" —— 开关 %s 只能与 true / false 比较（实际 `%s`）"
-							% [block.id, text, String(condition.field), value])
+		for value in condition.values:
+			var problem := ElementRegistry.validate_value(element, value)
+			if problem != "":
+				warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, problem])
 		return
 	for child in condition.children:
 		_validate_condition(block, text, child)

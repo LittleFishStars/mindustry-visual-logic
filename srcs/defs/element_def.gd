@@ -62,9 +62,14 @@ func _init(p_type: StringName = &"", p_id: StringName = &"") -> void:
 	id = p_id
 
 
-## 这个元素是否承载一个"字段值"（导出时会读写它）。
+## 这个元素是否承载一个"字段值"（由注册表里的构建器自报，本层不枚举元素种类）。
 func is_field() -> bool:
-	return type in [&"LineBox", &"Option", &"Button", &"Selector"]
+	return ElementRegistry.is_field(type)
+
+
+## 这个元素是否是子槽位（<Nest>）：槽位里可以挂子块。
+func is_slot() -> bool:
+	return ElementRegistry.is_slot(type)
 
 
 func set_text(value: String) -> void:

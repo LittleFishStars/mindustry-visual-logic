@@ -3,15 +3,11 @@ extends RefCounted
 
 ## 元素种类 → 构建器 的注册表。
 ##
-## 构建器是视图层的对象（见 srcs/view/elements/），契约是两个方法：
-## [codeblock]
-## func build(element: ElementDef, host: Object) -> Control     # 建控件并接线
-## func read_value(element: ElementDef, control: Control) -> String  # 导出时取值
-## [/codeblock]
-## host 是块视图，提供 commit_field / refresh_visibility / invalidate_layout 等回调。
+## 构建器是 [ElementBuilder] 的子类（内置实现在 [code]view/elements/element_builders.gd[/code]）：
+## 一种元素种类的全部行为都长在它自己身上 —— 建控件、回填、默认值、取值校验。
 ##
-## 因此[b]新增一种元素类型 = 写一个构建器 + 注册[/b]，解析器（本目录）与块视图
-## 都不需要改动；引擎外的扩展也可以自己调 register()。
+## 因此[b]新增一种元素类型 = 写一个子类 + 注册[/b]：解析、条件校验、默认值灌入、
+## 块视图都不用改；引擎外的扩展也可以自己调 register()。
 
 static var _builders: Dictionary[StringName, Variant] = {}
 static var _defaults_installed: bool = false
@@ -36,6 +32,30 @@ static func has(type: StringName) -> bool:
 static func builder(type: StringName) -> Variant:
 	ensure_defaults()
 	return _builders.get(type)
+
+
+## 该元素种类是否承载字段值。
+static func is_field(type: StringName) -> bool:
+	var builder: Variant = ElementRegistry.builder(type)
+	return builder != null and builder.is_field()
+
+
+## 该元素种类是否是子槽位（<Nest>）。
+static func is_slot(type: StringName) -> bool:
+	var builder: Variant = ElementRegistry.builder(type)
+	return builder != null and builder.is_slot()
+
+
+## 该元素种类对 [param value] 的合法性检查；返回问题描述（空串 = 合法）。
+static func validate_value(element: ElementDef, value: String) -> String:
+	var builder: Variant = ElementRegistry.builder(element.type)
+	return String(builder.validate_value(element, value)) if builder != null else ""
+
+
+## 该元素种类在 [param element] 上的初始值；null 表示不预置。
+static func default_value(element: ElementDef) -> Variant:
+	var builder: Variant = ElementRegistry.builder(element.type)
+	return builder.default_value(element) if builder != null else null
 
 
 static func types() -> Array[StringName]:

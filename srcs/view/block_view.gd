@@ -61,7 +61,6 @@ var _row_skip: Array[bool] = []
 var _nest_controls: Dictionary[StringName, Control] = {}
 var _elements: Dictionary[StringName, Control] = {}
 var _element_defs: Dictionary[StringName, ElementDef] = {}
-var _button_state: Dictionary[StringName, bool] = {}
 var _bg_rects: Array[Rect2] = []
 var _styles: Array[StyleBoxFlat] = []
 
@@ -85,6 +84,20 @@ func color() -> Color:
 
 func font() -> Font:
 	return FONT
+
+
+## 给控件套上块内统一的字体（元素构建器用）。
+func apply_font(control: Control) -> void:
+	control.add_theme_font_override("font", font())
+
+
+## 给按钮套上块配色（normal / hover / pressed 三态）。
+func style_button(button: Button) -> void:
+	apply_font(button)
+	var base := block_color()
+	button.add_theme_stylebox_override("normal", control_style(base))
+	button.add_theme_stylebox_override("hover", control_style(base, true))
+	button.add_theme_stylebox_override("pressed", control_style(base, false, true))
 
 
 func block_color() -> Color:
@@ -115,27 +128,6 @@ func commit_field(field_id: StringName, value: Variant, grouped: bool = false) -
 	field_committed.emit(node, field_id, value, merge_key)
 	# 用户点选时控件本来就对；程序化写入（行为脚本、批量修改）时把它拉回来
 	_sync_control(field_id)
-
-
-## 按钮当前是否按下（供可见性判定）。
-func toggle_state(element_id: StringName) -> bool:
-	return _button_state.get(element_id, false)
-
-
-func set_toggle_state(element_id: StringName, pressed: bool) -> void:
-	_button_state[element_id] = pressed
-	var control: Control = _elements.get(element_id)
-	if control is BaseButton:
-		(control as BaseButton).set_pressed_no_signal(pressed)
-
-
-## Option 当前选中的导出值。
-func option_value(element: ElementDef) -> String:
-	var control: Control = _elements.get(element.id)
-	if control is OptionButton and not element.items.is_empty():
-		var index := clampi((control as OptionButton).selected, 0, element.items.size() - 1)
-		return element.items[index].value_or_text()
-	return ""
 
 
 func request_picker(element: ElementDef, control: Control) -> void:
@@ -179,7 +171,6 @@ func _build() -> void:
 	_nest_controls.clear()
 	_elements.clear()
 	_element_defs.clear()
-	_button_state.clear()
 	_bg_rects.clear()
 	_styles.clear()
 	_row_def.clear()
@@ -214,19 +205,7 @@ func _build_element(element: ElementDef) -> Control:
 	if builder == null:
 		push_warning("元素种类未注册，已跳过：%s（块 %s）" % [element.type, def.id])
 		return null
-	var control: Control = builder.build(element, self)
-	if control == null:
-		return null
-	if control is Button:
-		button_setup(control as Button, element)
-	return control
-
-
-func button_setup(button: Button, element: ElementDef) -> void:
-	var pressed := String(field_value(element.id, "false")) == "true"
-	_button_state[element.id] = pressed
-	button.set_pressed_no_signal(pressed)
-
+	return builder.build(element, self)
 
 func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -243,12 +222,19 @@ func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> 
 
 
 func _make_nest_row(element: ElementDef, row_def: BlockDef.RowDef) -> void:
+	# 占位控件由构建器建（元素种类只在一处认识），尺寸由布局求解灌进来
+	var placeholder := _build_element(element)
+	if placeholder == null:
+		return
 	var row := _make_row(ROW_NEST, element.id, row_def)
-	var placeholder := Control.new()
-	placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	placeholder.custom_minimum_size = Vector2(separation * 4, row_height / 2.0)
+	placeholder.custom_minimum_size = _empty_nest_size()
 	row.add_child(placeholder)
 	_nest_controls[element.id] = placeholder
+
+
+## 空巢的占位尺寸：巢里有子链时由 [method measure] 换成子链的真实尺寸。
+func _empty_nest_size() -> Vector2:
+	return Vector2(separation * 4, row_height / 2.0)
 
 #endregion
 
@@ -263,7 +249,7 @@ func measure(slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 		var placeholder: Control = _nest_controls[slot_id]
 		var extent: Vector2 = slot_extents.get(slot_id, Vector2.ZERO)
 		if extent == Vector2.ZERO:
-			placeholder.custom_minimum_size = Vector2(separation * 4, row_height / 2.0)
+			placeholder.custom_minimum_size = _empty_nest_size()
 		else:
 			placeholder.custom_minimum_size = extent
 	var value_of := _value_reader()
@@ -429,8 +415,10 @@ func _apply_visibility() -> void:
 
 ## 条件求值用的小闭包：取值一律以数据层为准。
 func _value_reader() -> Callable:
-	return func(field_id: StringName) -> String:
-		return String(field_value(field_id, &""))
+	if node != null:
+		return node.value_reader()
+	return func(_field_id: StringName) -> String:
+		return ""
 
 
 ## 同步单个字段对应的控件显示（数据为准）。正在输入的 LineEdit 不动，避免光标跳位。
@@ -438,37 +426,12 @@ func _sync_control(field_id: StringName) -> void:
 	if def == null or node == null:
 		return
 	var element := def.element(field_id)
-	if element == null:
-		return
 	var control: Control = _elements.get(field_id)
-	if control == null:
+	if element == null or control == null:
 		return
-	match element.type:
-		&"LineBox":
-			if control is LineEdit and not (control as LineEdit).has_focus():
-				(control as LineEdit).text = String(field_value(field_id, element.default_value))
-		&"Option":
-			if control is OptionButton and not element.items.is_empty():
-				var current := String(field_value(field_id, ""))
-				var index := clampi(element.default_index, 0, element.items.size() - 1)
-				if current != "":
-					for i in element.items.size():
-						if element.items[i].value_or_text() == current:
-							index = i
-							break
-				(control as OptionButton).select(index)
-		&"Button":
-			set_toggle_state(field_id, String(field_value(field_id, "false")) == "true")
-		&"Selector":
-			var edit: LineEdit = null
-			if control is LineEdit:
-				edit = control
-			elif control.has_meta(&"value_control"):
-				var inner: Variant = control.get_meta(&"value_control")
-				if inner is LineEdit:
-					edit = inner
-			if edit != null and not edit.has_focus():
-				edit.text = String(field_value(field_id, element.default_value))
+	var builder: Variant = ElementRegistry.builder(element.type)
+	if builder != null:
+		builder.apply_value(element, control, String(field_value(field_id, element.default_value)))
 
 
 ## 由画布把控件状态同步回数据层（撤销/重做后会整体重建，一般不需要）。
