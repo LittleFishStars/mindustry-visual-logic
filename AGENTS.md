@@ -22,12 +22,14 @@ srcs/
 │   ├── graph_history.gd        ← 快照式撤销/重做
 │   └── graph_serializer.gd     ← JSON 存盘/读盘
 ├── defs/                       ← 定义层（块定义的类型化对象）
-│   ├── block_def.gd            ← BlockDef：元素、导出模板、事件、行为脚本
+│   ├── block_def.gd            ← BlockDef：行/元素、导出模板、默认值、字段与槽位索引
 │   ├── element_def.gd          ← ElementDef / OptionItem（各自带生效条件 when）
 │   ├── export_part.gd          ← ExportPart：字面量 / 取字段 / 首个可见
-│   ├── action_def.gd           ← ActionDef：声明式事件（<Event>）
+│   ├── condition_def.gd        ← ConditionDef：when 的表达式树（求值 + 规范化回写）
+│   ├── condition_parser.gd     ← when="…" 的词法/语法解析（只做语法，不校验字段）
+│   ├── element_builder.gd      ← ElementBuilder：一种元素种类的行为契约
 │   ├── block_library.gd        ← XML → BlockDef（不认识具体元素种类）
-│   ├── element_registry.gd     ← 元素种类 → 构建器
+│   ├── element_registry.gd     ← 元素种类 → 构建器（defs 只问它，不枚举元素种类）
 │   └── selector_data.gd        ← 选择器候选（读 blocks/selectors/*.json）
 ├── view/                       ← 视图层（只渲染与交互，不持有拓扑真相）
 │   ├── block_view.gd           ← BlockView：一个块的控件、几何度量、背景绘制
@@ -39,7 +41,10 @@ srcs/
 │   ├── drag_controller.gd      ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
 │   ├── selector_panel.gd       ← 单位/传感器选择器浮层
 │   └── elements/
-│       └── element_builders.gd ← 内置元素构建器 + 注册
+│       └── element_builders.gd ← 内置元素构建器（ElementBuilder 子类 + 注册）
+├── mlog/                       ← 与 mlog 文本互转（纯函数，不碰控件）
+│   ├── mlog_exporter.gd        ← LogicGraph → mlog 文本
+│   └── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型）
 ├── controls/
 │   ├── notice_window.tscn      ← 公告弹窗（textdb.online）
 │   └── notice_item.tscn
@@ -67,7 +72,9 @@ assets/
   没有控件、没有绝对坐标递归。容器统一表示为 `(owner_id, slot_id)`，成员是**有序数组**，
   顺序即数组下标，空位就是不存在 —— 没有 `_next_block`/`_last_block` 双向指针，也没有用 `null` 占位的字典项。
 - **defs 不知道视图**：`BlockLibrary` 把 XML 解析成有类型的 `BlockDef`，且**不认识具体元素种类**；
-  「怎么建控件、怎么读值」由 `ElementRegistry` 里的构建器决定（内置的放在 `view/elements/`）。
+  一种元素种类的全部行为（建控件 / 回填 / 默认值 / 取值校验 / 是否承载字段或槽位）都长在
+  [ElementBuilder] 的子类上，由 [ElementRegistry] 注册（内置实现在 `view/elements/`）。
+  导出与条件求值一律读数据层，不读控件 —— 「从控件里读值」这件事在实现里不存在。
 - **view 从数据推导**：`BlockView` 是 `Control`（不是 `Container`），行位置自己给；
   尺寸由 `measure(slot_extents) -> BlockMetrics` 主动算出，位置由 `LayoutSolver.solve()` 统一求解。
   **位置绝不从绘制缓存反读**；块与块之间也没有父子关系，嵌套只体现在位置上。
@@ -77,7 +84,8 @@ assets/
 1. 用户改控件 → `BlockView.commit_field()` → `EditorCanvas` 用 `GraphHistory.record()` 包住 `LogicGraph.set_field()`；
 2. 图发出 `structure_changed` / `field_changed` / `reset` → 画布同步视图集合并重新求解布局；
 3. 拖拽：`BlockView.drag_requested` → `DragController` 拿起"这个块 + 它后面的所有块"（各自子树跟着），
-   每帧向画布要 `find_anchor()` 找落点，并在落点摆出一组**占位块**（半透明、显示真实字段值）指示
+   每帧向画布要 `find_anchor()` 找落点，并在落点摆出一组**占位块**（半透明、显示真实字段值、
+   不吃鼠标）指示
    "现在放下会怎么样"；插入到链中间时，插入点之后的块会被临时下移给占位块腾位置。
    左键**松开**才落地（一次撤销记录），原地松手视为没搬动；
    **拖到左侧块列表上松手 = 删除**（拿起的整串一起删，同样只记一条撤销）；
@@ -123,12 +131,17 @@ assets/
   条件不成立的元素既不占位置也不显示，但控件不重建（输入焦点不会被打断）。
 - **选择器**：`<Selector id="unit" kind="units" />`，候选取自 `blocks/selectors/{kind}.json`。
 - **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 是显示字符、导出字符码）。
+- **报错要出声**：`condition_parser.gd` 只做语法解析；「字段是否存在、取值是否合法」由 `BlockLibrary`
+  在整块解析完后统一校验。语法错、未知字段、非法取值、未注册的元素标签与 `<Br>`/`<Pressed>` 旧写法
+  都会进 `BlockLibrary.warnings` —— 写错不会静默变成"恒生效"。
 - **改格式时的安全做法**：先 dump 一遍行为快照（每个字段组合的生效元素集合 + 导出结果），
   改完再 dump 比对 —— 迁移就是这么做的（见 git 历史），它抓出过三个"解析零警告但行为已变"的 bug。
 
 ### 扩展点
 
-- 新增元素类型：在 `view/elements/element_builders.gd` 里加一个构建器并注册，**只改这一处**；解析器与 `BlockView` 都不用动。
+- 新增元素类型：在 `view/elements/element_builders.gd` 里继承 `ElementBuilder` 写一个子类并注册，
+  **只改这一处**：解析、条件校验、默认值灌入、`BlockView` 与 `BlockDef` 都不用动
+  （它们一律通过 `ElementRegistry` 问构建器：`is_field` / `is_slot` / `validate_value` / `default_value`）。
 - 新增块：往 XML 里加 `<Block>`，不需要写 GDScript。
 - 新增选择器候选：改 `blocks/selectors/*.json`。
 
