@@ -7,7 +7,8 @@ extends Node
 ## 画布之外（包括左侧调色板）的鼠标事件 —— 这是旧实现把 Dragger 放在根节点下的原因。
 ## 根本差别是：它[b]不再 reparent 任何节点[/b]，拖拽期间图与视图树都保持原样 ——
 ## 只有幽灵（新建）或被拖块及其子树（搬移）在动，落地时才产生一条撤销记录。
-## 于是「拖到画布外松手」等价于取消，绝不会像旧实现那样连带删掉下游逻辑。
+## 于是「拖到画布外松手」等价于取消；唯一删数据的是[b]拖到左侧块列表上松手[/b]——
+## 那是有意为之的删除入口（一次撤销记录，拿起的整串一起删），不像旧实现那样「甩出画布就没了」。
 
 signal drag_started()
 signal drag_finished()
@@ -17,6 +18,9 @@ signal drag_finished()
 
 var canvas: EditorCanvas
 var area: SubViewportContainer
+## 拖到这里松手 = 删掉搬的块（左侧块列表：分类按钮 + 块列表）。
+## 从调色板拖出的新块不算（本来就不在图上）。
+var delete_zones: Array[Control] = []
 
 var _active: bool = false
 ## 非空表示「从图上搬移」，为空表示「从调色板新建」。
@@ -34,6 +38,8 @@ var _target: Dictionary = {}
 var _carried: Array[int] = []
 ## 为落点占位块让位而被临时下移的块（松手/换目标时按布局结果还原）
 var _pushed: Array[int] = []
+## 悬停提示：当前是否停在删除区（用来给拖动副本压暗红）。
+var _delete_hover: bool = false
 ## 拖动中的块改用顶层覆盖层（SubViewport 之外）的副本显示 —— 画布里的块永远盖不过
 ## 兄弟控件（比如左侧的块列表），所以副本必须挂在这一层
 var _overlay: Control = null
@@ -160,6 +166,11 @@ func _update() -> void:
 	var world := _world_mouse()
 	var layer := _layer_mouse()
 	var zoom := _zoom()
+	# 悬停到左侧块列表上：不找吸附点，只提示「松手就删」
+	var deleting := _source_node != null and _over_delete_zone()
+	if deleting != _delete_hover:
+		_delete_hover = deleting
+		_apply_delete_hint(deleting)
 	if _ghost != null and is_instance_valid(_ghost):
 		_ghost.position = layer - _offset * zoom
 		_ghost.scale = Vector2(zoom, zoom)
@@ -179,8 +190,14 @@ func _update() -> void:
 			var view: BlockView = canvas.view_of(id)
 			if view != null and is_instance_valid(view):
 				view.position = (_subtree_positions[id] as Vector2) + delta
+	if _delete_hover:
+		_target = {}
+		_release_shift()
+		canvas.clear_placement_preview()
+		return
 	if not _inside_canvas():
 		_target = {}
+		_release_shift()
 		canvas.clear_placement_preview()
 		return
 	_target = canvas.find_anchor(world, capture_radius, _exclude)
@@ -242,10 +259,16 @@ func _finish() -> void:
 	var source := _source_node
 	var type_id := _type_id
 	var moved := (world - _start_mouse).length() > 4.0
+	# 拖到左侧块列表松手 = 删除（要在 _cleanup() 清掉 _source_node / _carried 之前判断）
+	var carried := _carried.duplicate()
+	var deleting := source != null and moved and _over_delete_zone()
 	_cleanup()
+	if deleting and not carried.is_empty():
+		canvas.remove_tail(carried)
+		return
 	if not inside or not moved:
 		# 画布外松手 = 取消；原地松手 = 没搬动，都不动数据
-		# （旧实现落在画布外会 queue_free 掉整块及其下游）
+		# （旧实现落在画布外就把整块及其下游 queue_free 掉；现在只有左侧块列表是有意的删除区）
 		canvas.relayout()
 		return
 	if not target.is_empty():
@@ -290,6 +313,7 @@ func _cleanup() -> void:
 		_ghost.queue_free()
 	_ghost = null
 	_active = false
+	_delete_hover = false
 	_source_node = null
 	_type_id = &""
 	_type_def = null
@@ -316,11 +340,29 @@ func _zoom() -> float:
 	return 1.0
 
 
+## 鼠标是否停在「拖到这里就删掉」的区域（左侧块列表）。
+func _over_delete_zone() -> bool:
+	var mouse := get_viewport().get_mouse_position()
+	for zone in delete_zones:
+		if is_instance_valid(zone) and zone.is_visible_in_tree() and zone.get_global_rect().has_point(mouse):
+			return true
+	return false
+
+
+## 给拖动副本压一层暗红，提示「松手就删」；离开时恢复本色。
+func _apply_delete_hint(on: bool) -> void:
+	var tint := Color(1.0, 0.45, 0.45, 0.85) if on else Color.WHITE
+	if _ghost != null and is_instance_valid(_ghost):
+		_ghost.modulate = tint
+	for float_view in _floats:
+		if is_instance_valid(float_view):
+			float_view.modulate = tint
+
+
 func _inside_canvas() -> bool:
 	if area == null or not is_instance_valid(area):
 		return false
 	return area.get_global_rect().has_point(get_viewport().get_mouse_position())
-
 
 func _world_mouse() -> Vector2:
 	return canvas.world_from_screen(area.get_global_rect(), get_viewport().get_mouse_position())

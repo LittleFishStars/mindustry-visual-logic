@@ -202,6 +202,18 @@ func remove_node(id: int) -> bool:
 	return true
 
 
+## 删除一串块（被拖走的那整串）——一次撤销记录，整串一起消失。
+## [param ids] 一般是 [method LogicGraph.tail_ids] 的结果（拿起的块 + 它后面的兄弟）。
+func remove_tail(ids: Array[int]) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
+		return false
+	# lambda 按值捕获，不能在闭包里给外部变量赋值，所以先把要删的名单复制出来
+	var doomed := ids.duplicate()
+	history.record("删除块", func() -> void:
+		for id in doomed:
+			graph.remove_node(id))
+	return true
+
 ## 撤销/重做：history 内部会 load_dict，图发出 reset 信号后画布自行重建。
 func undo() -> bool:
 	return history.undo()

@@ -28,6 +28,8 @@ func _ready() -> void:
 	nCanvas.picker_requested.connect(_on_picker_requested)
 	nDrag.canvas = nCanvas
 	nDrag.area = nEditArea
+	# 拖到左侧块列表（分类按钮列 + 块列表）松手 = 删掉搬的块
+	nDrag.delete_zones.assign([nBlockKindList, nBlockArea])
 	_picker = SelectorPanel.new()
 	_picker.picked.connect(_on_picker_picked)
 	add_child(_picker)
