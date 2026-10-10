@@ -21,26 +21,21 @@ extends RefCounted
 ## 解析失败不抛异常：返回恒真条件，把原因写进 `errors`（编辑器可以就地提示），
 ## 而不是像旧的 `show` 白名单那样拼错就静默失效。
 
-## 结果字典：{"condition": ConditionDef, "errors": PackedStringArray, "warnings": PackedStringArray}
-static func parse(text: String, def: BlockDef = null) -> Dictionary:
+## 结果字典：{"condition": ConditionDef, "errors": PackedStringArray}
+## 只做语法解析；「字段是否存在、取值是否合法」由 [BlockLibrary] 在整块解析完后统一校验。
+static func parse(text: String) -> Dictionary:
 	var parser := ConditionParser.new()
-	return parser._run(text, def)
+	return parser._run(text)
 
 
 var _tokens: Array[Dictionary] = []
 var _index: int = 0
-var _source: String = ""
-var _def: BlockDef = null
 var _errors := PackedStringArray()
-var _warnings := PackedStringArray()
 
 
-func _run(text: String, def: BlockDef) -> Dictionary:
-	_source = text
-	_def = def
+func _run(text: String) -> Dictionary:
 	_index = 0
 	_errors = PackedStringArray()
-	_warnings = PackedStringArray()
 	_tokens = _tokenize(text)
 	var condition := ConditionDef.always()
 	if _errors.is_empty():
@@ -49,7 +44,7 @@ func _run(text: String, def: BlockDef) -> Dictionary:
 			_error("多余的内容：%s" % _describe_token(_tokens[_index]))
 	if not _errors.is_empty():
 		condition = ConditionDef.always()
-	return {"condition": condition, "errors": _errors, "warnings": _warnings}
+	return {"condition": condition, "errors": _errors}
 
 
 #region 词法
@@ -178,7 +173,7 @@ func _parse_comparison() -> ConditionDef:
 	while _peek_kind() == "|" and _is_value_at(_index + 1):
 		_index += 1
 		values.append(String(_advance()["text"]))
-	return _validate_compare(first, values, negated)
+	return ConditionDef.compare(StringName(first), values, negated)
 
 #endregion
 
@@ -195,34 +190,6 @@ func _is_value_at(index: int) -> bool:
 	return next_kind != "=" and next_kind != "!="
 
 
-func _validate_compare(field: String, values: Array[String], negated: bool) -> ConditionDef:
-	if _def == null:
-		return ConditionDef.compare(StringName(field), values, negated)
-	var element := _def.element(StringName(field))
-	if element == null:
-		_error("未知字段：%s（本块字段：%s）" % [field, _join_ids(_def.field_ids())])
-		return ConditionDef.always()
-	match element.type:
-		&"Option":
-			if not element.items.is_empty():
-				var legal := PackedStringArray()
-				for item in element.items:
-					legal.append(item.value_or_text())
-				for value in values:
-					if not legal.has(value):
-						_error("字段 %s 没有取值 `%s`（合法值：%s）" % [field, value, ", ".join(legal)])
-		&"Button":
-			for value in values:
-				if value != "true" and value != "false":
-					_error("开关 %s 只能与 true / false 比较（实际 `%s`" % [field, value] + "）")
-	return ConditionDef.compare(StringName(field), values, negated)
-
-
-static func _join_ids(ids: Array[StringName]) -> String:
-	var parts := PackedStringArray()
-	for id in ids:
-		parts.append(String(id))
-	return ", ".join(parts)
 
 #endregion
 

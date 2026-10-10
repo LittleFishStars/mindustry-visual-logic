@@ -56,8 +56,6 @@ var selector_kind: StringName = &""
 ## 原始属性兜底：新元素类型可以自带属性，解析器不必认识它们。
 var attrs: Dictionary = {}
 
-var actions: Array[ActionDef] = []
-
 
 func _init(p_type: StringName = &"", p_id: StringName = &"") -> void:
 	type = p_type

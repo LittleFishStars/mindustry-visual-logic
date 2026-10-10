@@ -49,12 +49,8 @@ var rows: Array[RowDef] = []
 var export_parts: Array[ExportPart] = []
 ## 条件化的导出模板：第一个条件成立的优先，都不成立时用 [member export_parts]。
 var export_variants: Array[ExportVariant] = []
-var actions: Array[ActionDef] = []
 ## 解析期收集的条件（整块解析完再统一校验字段与取值）
 var pending_conditions: Array[Dictionary] = []
-## 行为脚本路径（可选），用于旧实现里只能硬编码的自定义交互。
-var behavior_path: String = ""
-var behavior: Script = null
 ## 在所属类别里的顺序（保持 XML 中的书写顺序）。
 var order: int = 0
 
@@ -112,12 +108,6 @@ func field_ids() -> Array[StringName]:
 	return _fields.duplicate()
 
 
-func has_slot(slot_id: StringName) -> bool:
-	if not _indexed:
-		build_index()
-	return _slots.has(slot_id)
-
-
 func row_of(element_id: StringName) -> RowDef:
 	if not _indexed:
 		build_index()
@@ -143,15 +133,6 @@ func export_parts_for(value_of: Callable) -> Array[ExportPart]:
 		if variant.condition == null or variant.condition.matches(value_of):
 			return variant.parts
 	return export_parts
-
-
-## 触发源为 [param changed_field] 的声明式动作。
-func actions_for(changed_field: StringName) -> Array[ActionDef]:
-	var out: Array[ActionDef] = []
-	for action in actions:
-		if action.matches(changed_field):
-			out.append(action)
-	return out
 
 
 ## 新块入图时应当预置的字段值（字段 id → 值）。

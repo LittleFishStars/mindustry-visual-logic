@@ -98,7 +98,6 @@ func _parse_file(path: String) -> void:
 	var current_kind: Kind = null
 	var block: BlockDef = null
 	var option_element: ElementDef = null
-	var action: ActionDef = null
 	var row: BlockDef.RowDef = null
 	var group_condition: ConditionDef = null
 	var variant: BlockDef.ExportVariant = null
@@ -132,7 +131,6 @@ func _parse_file(path: String) -> void:
 							group_condition = null
 							variant = null
 							option_element = null
-							action = null
 					"Row":
 						if block != null:
 							row = _start_row(block, _condition_of(block, attrs))
@@ -169,39 +167,21 @@ func _parse_file(path: String) -> void:
 							item.value = String(attrs.get("value", ""))
 							option_element.items.append(item)
 							text_target = item
-					"Event":
-						if block != null:
-							action = ActionDef.new()
-							action.trigger = ActionDef.trigger_from(String(attrs.get("on", "field_changed")))
-							action.field = StringName(attrs.get("field", ""))
-							block.actions.append(action)
-					"SetField":
-						if action != null:
-							action.do = ActionDef.Do.SET_FIELD
-							action.target = StringName(attrs.get("id", ""))
-							action.value = attrs.get("value", "")
-					"SetVisible":
-						if action != null:
-							action.do = ActionDef.Do.SET_VISIBLE
-							action.ids = _ids(String(attrs.get("ids", "")))
-					"Call":
-						if action != null:
-							action.do = ActionDef.Do.CALL_BEHAVIOR
-							action.target = StringName(attrs.get("method", attrs.get("id", "")))
-					"Script":
-						if block != null:
-							block.behavior_path = String(attrs.get("path", ""))
 					_:
 						if block != null:
-							var element := _make_element(tag, attrs, block, group_condition)
-							block.elements.append(element)
-							if row == null:
-								row = _start_row(block, null)
-							row.cells.append(element)
-							if tag == "Option":
-								option_element = element
-							if tag == "Text":
-								text_target = element
+							if not ElementRegistry.has(tag):
+								warnings.append("%s：未知元素种类 <%s>（已注册：%s）"
+									% [block.id, tag, _join_ids(ElementRegistry.types())])
+							else:
+								var element := _make_element(tag, attrs, block, group_condition)
+								block.elements.append(element)
+								if row == null:
+									row = _start_row(block, null)
+								row.cells.append(element)
+								if tag == "Option":
+									option_element = element
+								if tag == "Text":
+									text_target = element
 				if self_closing:
 					text_target = null
 					if tag == "Option":
@@ -223,8 +203,6 @@ func _parse_file(path: String) -> void:
 						group_condition = null
 					"Export":
 						variant = null
-					"Event":
-						action = null
 					"Block":
 						if block != null:
 							_validate_conditions(block)
@@ -237,10 +215,13 @@ func _parse_file(path: String) -> void:
 		block.build_index()
 
 
-## 整块解析完后统一校验条件（字段是否存在、取值是否合法）。
+## 整块解析完后统一校验条件：语法错误、字段是否存在、取值是否合法。
 func _validate_conditions(block: BlockDef) -> void:
 	for entry in block.pending_conditions:
-		_validate_condition(block, String(entry["text"]), entry["condition"])
+		var text := String(entry["text"])
+		for message in entry["errors"]:
+			warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
+		_validate_condition(block, text, entry["condition"])
 	block.pending_conditions.clear()
 
 
@@ -294,7 +275,6 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	var block := BlockDef.new(StringName(attrs.get("name", "")), current_kind.id)
 	block.color = current_kind.color
 	block.order = order
-	block.behavior_path = String(attrs.get("script", ""))
 	if block.id == &"":
 		warnings.append("存在没有 name 的 <Block>（%s）" % current_kind.id)
 	elif _by_id.has(block.id):
@@ -333,7 +313,8 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	# 那时校验会把合法条件误判成"未知字段"并丢弃 —— 校验推迟到整块解析完（_validate_conditions）
 	var result := ConditionParser.parse(text)
 	var condition: ConditionDef = result["condition"]
-	block.pending_conditions.append({"text": text, "condition": condition})
+	# 语法错误也一并记下：整块解析完后由 _validate_conditions 报进 warnings
+	block.pending_conditions.append({"text": text, "condition": condition, "errors": result["errors"]})
 	return condition
 
 
