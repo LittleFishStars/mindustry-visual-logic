@@ -31,6 +31,11 @@ func apply_value(_element: ElementDef, _control: Control, _value: String, _force
 	pass
 
 
+## 开关本元素输入框的可编辑状态（拖拽期间由块视图统一禁用/恢复）；不承载输入的元素什么都不做。
+func set_editable(_element: ElementDef, _control: Control, _editable: bool) -> void:
+	pass
+
+
 ## 校验条件里对该字段的取值；返回问题描述（空串 = 合法）。
 func validate_value(_element: ElementDef, _value: String) -> String:
 	return ""

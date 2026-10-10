@@ -127,6 +127,8 @@ func _begin() -> void:
 		return
 	if canvas.nCamera != null:
 		canvas.nCamera.stop_panning()
+	# 拖拽期间不允许往任何块的输入框里打字
+	canvas.set_inputs_editable(false)
 	_target = {}
 	set_process(true)
 	drag_started.emit()
@@ -318,6 +320,7 @@ func _cleanup() -> void:
 	_target = {}
 	set_process(false)
 	if canvas != null:
+		canvas.set_inputs_editable(true)
 		canvas.clear_placement_preview()
 	drag_finished.emit()
 

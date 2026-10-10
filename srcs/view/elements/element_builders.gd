@@ -11,6 +11,7 @@ extends RefCounted
 ## func apply_value(element, control, value)                  # 数据层 → 控件（回填）
 ## func validate_value(element, value) -> String              # when 里的取值是否合法
 ## func default_value(element) -> Variant                     # 新块的初始值（null = 不预置）
+## func set_editable(element, control, editable)               # 输入框能否编辑（拖拽期间统一禁用）
 ## [/codeblock]
 ## host 是 [BlockView]，它提供 font() / apply_font() / style_button() / field_value() /
 ## commit_field() / refresh_visibility() / flush_history_group() / request_picker() 等回调
@@ -67,6 +68,17 @@ static func resolve_edit(control: Control) -> LineEdit:
 	return null
 
 
+## 开关输入框：不可编辑时连焦点一起交出去（拖拽期间键盘输入不该落进任何块的字段）。
+static func set_edit_editable(control: Control, editable: bool) -> void:
+	var edit := resolve_edit(control)
+	if edit == null:
+		return
+	edit.editable = editable
+	edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
+	if not editable and edit.has_focus():
+		edit.release_focus()
+
+
 ## 静态文本：不吃鼠标，保证从标签上按下也能拖动整块。
 class TextBuilder extends ElementBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
@@ -87,6 +99,9 @@ class InputBuilder extends ElementBuilder:
 
 	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
 		ElementBuilders.apply_edit_value(control, value, force)
+
+	func set_editable(_element: ElementDef, control: Control, editable: bool) -> void:
+		ElementBuilders.set_edit_editable(control, editable)
 
 
 ## 下拉选项：显示文本与导出值可以不同（<Item value="33">!</Item>）。
@@ -197,6 +212,9 @@ class SelectorBuilder extends ElementBuilder:
 
 	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
 		ElementBuilders.apply_edit_value(control, value, force)
+
+	func set_editable(_element: ElementDef, control: Control, editable: bool) -> void:
+		ElementBuilders.set_edit_editable(control, editable)
 
 
 ## 子槽位：本类只建一个占位控件（槽里的块是画布的直接子级）；占位尺寸由布局求解灌进来。
