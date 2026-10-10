@@ -29,6 +29,16 @@ var _dialog_mode: StringName = &"open"
 var _rename_edit: LineEdit = null
 ## 正在重命名的标签下标（-1 = 没在重命名）。
 var _rename_index: int = -1
+## 等待中的重命名：单击后要等过一个双击间隔再开输入框，否则双击关标签时会闪一下。
+var _pending_rename_tab: int = -1
+var _pending_rename_token: int = 0
+## 标签上按下时的位置：按住后拖走（重排标签）就取消排队中的改名。
+var _press_pos: Vector2 = Vector2.ZERO
+## 单击后等多久才开重命名框（毫秒）：与引擎判定双击用的间隔取同一个值（Godot 的 Viewport
+## 里是这个字面量，没有暴露成项目设置），于是双击时永远不会先闪出一个重命名框。
+const RENAME_DELAY_MS: int = 400
+## 按下后鼠标挪动超过这么多像素，就当“在拖动重排标签”，不再弹重命名框。
+const DRAG_CANCEL_PX: float = 4.0
 
 func _ready() -> void:
 	# 设置鼠标指针
@@ -84,19 +94,23 @@ func _refresh_tab_title(editor: LogicEditorTab) -> void:
 	var index := editor.get_index()
 	if index >= 0 and index < self.nEditors.get_tab_count():
 		self.nEditors.set_tab_title(index, editor.display_name())
+		self.nEditors.set_tab_tooltip(index, "双击关闭 · 右键重命名")
 
 
 func _on_editor_name_changed(_display: String, editor: LogicEditorTab) -> void:
 	_refresh_tab_title(editor)
 
 
-## 标签条就地重命名：点[b]已选中[/b]的标签进入编辑（双击任意标签因此是「先切过去、再改名」），
-## 右键任意标签也能直接改名；回车/失焦提交，Esc 取消。空名字 = 回落到跟随文件名。
+## 标签条手势：单击[b]已选中[/b]的标签 = 就地重命名，双击任意标签 = 关闭它，
+## 右键任意标签 = 重命名。回车/失焦/切页提交，Esc 取消；空名字 = 回落到跟随文件名。
+## 单击要延迟一个双击间隔才开输入框 —— 否则双击关标签时会先闪出一个重命名框。
 func _setup_tab_rename() -> void:
 	var bar := self.nEditors.get_tab_bar()
 	if bar == null:
 		return
-	bar.tab_clicked.connect(_on_tab_clicked)
+	# 用 gui_input 而不是 tab_clicked 信号：信号是在内建处理[b]之后[/b]才发的，那时当前页已经切过去了，
+	# 也拿不到引擎判定的 double_click（见下方注释）。
+	bar.gui_input.connect(_on_tab_gui_input)
 	bar.tab_rmb_clicked.connect(_open_rename)
 	self.nEditors.tab_changed.connect(_on_tab_changed)
 	self._rename_edit = LineEdit.new()
@@ -109,10 +123,76 @@ func _setup_tab_rename() -> void:
 	bar.add_child(self._rename_edit)
 
 
-func _on_tab_clicked(tab: int) -> void:
-	# 点没选中的标签 = 切页（TabContainer 自己处理）；再点一下已选中的那个 = 重命名
-	if tab == self.nEditors.current_tab:
-		self._open_rename(tab)
+## 标签条上的鼠标按下：单击[b]已选中[/b]的标签 = 重命名，双击任意标签 = 关闭它。
+##
+## [param event] 的位置是 TabBar 局部坐标；这里拿到的事件早于内建处理，
+## 所以既能看到「点击前的当前页」（用来区分切页与重命名），也能用引擎给的 double_click。
+func _on_tab_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		# 按住左键拖走 = 在拖动重排标签（不是要改名）：取消排队中的改名
+		# （没按着键的鼠标移动不算：单击后随手挪开鼠标不应该把改名吞掉）
+		if self._pending_rename_tab >= 0 \
+				and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 \
+				and (event.position - self._press_pos).length() > DRAG_CANCEL_PX:
+			self._cancel_pending_rename()
+		return
+	if not (event is InputEventMouseButton) or not event.pressed \
+			or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	self._press_pos = event.position
+	var index := self._tab_at(event.position)
+	if index < 0:
+		return
+	if event.double_click:
+		# 双击：第一下已经把页切过来了，所以双击任意标签都是「关掉它」
+		self._cancel_pending_rename()
+		self._close_tab(index)
+		return
+	if index != self.nEditors.current_tab:
+		# 点别的标签 = 切页（内建处理会做），不改名
+		return
+	self._queue_rename(index)
+
+
+## 点在哪个标签上（[param point] 是 TabBar 局部坐标）；没命中返回 -1。
+func _tab_at(point: Vector2) -> int:
+	var bar := self.nEditors.get_tab_bar()
+	if bar == null:
+		return -1
+	for i in self.nEditors.get_tab_count():
+		if bar.get_tab_rect(i).has_point(point):
+			return i
+	return -1
+
+
+## 单击后不立刻开输入框：等过一个双击间隔，期间来了第二次点击（双击关了标签）就取消。
+func _queue_rename(index: int) -> void:
+	self._pending_rename_tab = index
+	self._pending_rename_token += 1
+	var token := self._pending_rename_token
+	await self.get_tree().create_timer(RENAME_DELAY_MS / 1000.0).timeout
+	if token != self._pending_rename_token or self._pending_rename_tab != index:
+		return
+	self._pending_rename_tab = -1
+	self._open_rename(index)
+
+
+func _cancel_pending_rename() -> void:
+	self._pending_rename_tab = -1
+	self._pending_rename_token += 1
+
+
+## 双击已选中的标签：关掉这个标签页；关掉最后一个就补一个空白页。
+func _close_tab(index: int) -> void:
+	self._close_rename()
+	if index < 0 or index >= self.nEditors.get_tab_count():
+		return
+	var page := self.nEditors.get_tab_control(index)
+	if page != null:
+		self.nEditors.remove_child(page)
+		page.queue_free()
+	if self.nEditors.get_tab_count() == 0:
+		self.new_editor()
 
 
 func _on_tab_changed(_tab: int) -> void:
@@ -126,6 +206,10 @@ func _open_rename(index: int) -> void:
 		return
 	var bar := self.nEditors.get_tab_bar()
 	if bar == null:
+		return
+	if self._rename_index == index and self._rename_edit.visible:
+		# 已经在改这个名字了：不要把正在输入的内容重置回标签标题
+		self._rename_edit.grab_focus()
 		return
 	self._rename_index = index
 	var rect := bar.get_tab_rect(index)
