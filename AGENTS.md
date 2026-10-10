@@ -52,7 +52,11 @@ srcs/
 │   ├── notice_window.tscn      ← 公告弹窗（textdb.online）
 │   ├── notice_item.tscn
 │   ├── settings_window.tscn    ← 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）
-│   └── settings_window.gd
+│   ├── settings_window.gd
+│   ├── document_page.tscn      ← 文档页（标签页形态：左边章节 / 右边富文本）
+│   ├── document_page.gd        ← 文档正文就在这个文件的 SECTIONS 常量里
+│   ├── about_window.tscn       ← 关于窗（版本 / 作者 / 反馈与仓库链接）
+│   └── about_window.gd
 ├── scenes/
 │   ├── editor.tscn             ← 编辑器标签页（脚本已外置，不再内嵌 GDScript）
 │   └── main.tscn               ← 应用入口
@@ -182,9 +186,13 @@ assets/
 - **顶部工具栏**：左边是 `File`（新建页 / 存 / 开 / 导出到剪贴板 / 剪贴板导入）、
   `Edit`（撤销 / 重做 / 清空 / 设置…，弹出前按当前页状态置灰）、`Help`（文档 / 公告 / 关于）；
   右边是独立的 `Quit` 按钮（`UI._on_sort_children` 里右对齐：先量行高，再按它的宽度把菜单栏缩回去）。
+  Help 里的「文档」是标签页（[DocumentPage]，开过就切过去、不重复开），
+  「公告」与「关于」是独立窗口（[AboutWindow] 的版本号与引擎版本是运行期读的）。
   「清空」走 `LogicEditorTab.clear_graph()`，算一条可撤销记录；`new_project()` 则是
   「换成另一个文档」，会连撤销栈一起清掉 —— 两者不要混用。
   菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。
+  文档页[b]不是[/b] [LogicEditorTab]，所以在它上面「存 / 导出 / 撤销」都是空操作
+  （`_current_editor()` 返回 null，编辑菜单据此置灰）—— 这不是 bug，别把菜单项接死。
 - **应用设置**：`AppSettings`（`model/app_settings.gd`）是纯数据 + `user://settings.json`（容错读、超范围钳制）；
   `SettingsWindow` 只管「值 ↔ 控件」，[b]应用[/b]（`Engine.max_fps` / `root.content_scale_factor`）在 `main.gd`。
   改动即时生效、关闭窗口时才写盘；`@tool` 下 `_apply_settings()` 直接 return，

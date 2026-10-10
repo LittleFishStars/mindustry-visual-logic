@@ -1,0 +1,60 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://srcs/controls/document_page.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_content"]
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+bg_color = Color(0.207843, 0.180392, 0.25098, 1)
+
+[node name="DocumentPage" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Split" type="HSplitContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+dragger_visibility = 1
+split_offset = 168
+
+[node name="Scroll" type="ScrollContainer" parent="Split"]
+custom_minimum_size = Vector2(168, 0)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Chapters" type="VBoxContainer" parent="Split/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Content" type="PanelContainer" parent="Split"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_content")
+
+[node name="Layout" type="VBoxContainer" parent="Split/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Split/Content/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "章节"
+
+[node name="Body" type="RichTextLabel" parent="Split/Content/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+selection_enabled = true

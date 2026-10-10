@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://doffj7i1kogj" path="res://srcs/scripts/main.gd" id="2_o81g6"]
 [ext_resource type="PackedScene" uid="uid://bbc36pgut7e0g" path="res://srcs/controls/notice_window.tscn" id="4_2lg1k"]
 [ext_resource type="PackedScene" path="res://srcs/controls/settings_window.tscn" id="5_settings"]
+[ext_resource type="PackedScene" path="res://srcs/controls/about_window.tscn" id="6_about"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3x73n"]
 content_margin_left = 12.0
@@ -74,6 +75,8 @@ item_2/text = "About"
 item_2/id = 2
 
 [node name="SettingsWindow" parent="." instance=ExtResource("5_settings")]
+
+[node name="AboutWindow" parent="." instance=ExtResource("6_about")]
 
 [node name="Editors" type="TabContainer" parent="." unique_id=1245003327]
 layout_mode = 2

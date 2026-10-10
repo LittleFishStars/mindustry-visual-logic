@@ -17,8 +17,12 @@ extends Container
 @onready var nEditMenu: PopupMenu = $MenuBar/Edit
 ## 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）。
 @onready var wSettings: SettingsWindow = $SettingsWindow
+## 关于窗（版本 / 作者 / 反馈渠道）。
+@onready var wAbout: AboutWindow = $AboutWindow
 
 var Editor = preload("res://srcs/scenes/editor.tscn")
+## 文档页是标签页系统里的一个页面（不是编辑器），所以是代码实例化而不是场景里的节点。
+var Document = preload("res://srcs/controls/document_page.tscn")
 
 var custom_cursor = preload("res://assets/sprites/cursors/cursor.png")
 var ibeam_cursor = preload("res://assets/sprites/cursors/ibeam.png")
@@ -446,14 +450,30 @@ func _redo() -> void:
 func _on_help_id_pressed(id: int) -> void:
 	match id:
 		0:
-			# 文档
-			pass
+			self._open_document()
 		1:
 			self.wNotice.show()
 		2:
-			# 关于
-			pass
+			self.wAbout.open()
 
+
+## 文档页：已经开着就切过去，不重复开（否则每点一次多一个标签页）。
+func _open_document() -> void:
+	var existing := self._document_page()
+	if existing != null:
+		self.nEditors.current_tab = existing.get_index()
+		return
+	# 节点名会自动去重（Manual1/Manual2…），但标签标题给它一个干净的名字
+	# （编辑器页的标题由 display_name() 刷成「未命名」，文档页没人刷）
+	var page := self.new_page("Manual", self.Document)
+	self.nEditors.set_tab_title(page.get_index(), "使用说明")
+
+
+func _document_page() -> DocumentPage:
+	for child in self.nEditors.get_children():
+		if child is DocumentPage:
+			return child
+	return null
 #endregion
 
 
