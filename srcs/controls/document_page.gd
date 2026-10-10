@@ -70,6 +70,7 @@ Mindustry 处理器的 mlog 文本。
 		"body": """[ul]
 [*][code]File → Save[/code] / [code]Save As…[/code]：存成 .json 项目文件；
 [*][code]File → Export to clipboard[/code]：导出 mlog 到系统剪贴板，直接粘进游戏；
+[*][code]F5[/code]：快捷导出 —— 与上一条同一件事，不用点菜单（当前页不是编辑器时只会提示一声）；
 [*][code]File → Load from clipboard[/code]：把剪贴板里的 mlog 变回积木（替换当前项目）；
 [*][code]File → Append from clipboard[/code]：追加到当前项目后面（jump 行号会自动按偏移对齐）；
 [*][code]Edit → Undo[/code] / [code]Redo[/code]：撤销 / 重做；[code]Edit → Clear[/code]：清空（可撤销）。

@@ -193,6 +193,13 @@ assets/
   菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。
   文档页[b]不是[/b] [LogicEditorTab]，所以在它上面「存 / 导出 / 撤销」都是空操作
   （`_current_editor()` 返回 null，编辑菜单据此置灰）—— 这不是 bug，别把菜单项接死。
+- **F5 快捷导出**：等价于 `File → 导出到剪贴板`。键位在 [code]project.godot[/code] 的 `[input]` 里，
+  action 名沿用旧版的 `compile`（旧版把「导出 mlog」叫 compile），代码里只认
+  `Main.QUICK_EXPORT_ACTION` 常量 —— 要换键就改 project.godot，不用碰代码。
+  实际按下时是菜单栏先把菜单项的 accelerator 接走（菜单里因此看得见 F5），
+  `_unhandled_key_input` 只是焦点不在菜单栏时的兜底；两者不会双触发（前者会标 handled）。
+  导出无内容（当前页是文档页等）时在 [method Main._export_to_clipboard] 里统一提示一声，
+  菜单项与 F5 共用这一个出口，别再各写一份。
 - **应用设置**：`AppSettings`（`model/app_settings.gd`）是纯数据 + `user://settings.json`（容错读、超范围钳制）；
   `SettingsWindow` 只管「值 ↔ 控件」，[b]应用[/b]（`Engine.max_fps` / `root.content_scale_factor`）在 `main.gd`。
   改动即时生效、关闭窗口时才写盘；`@tool` 下 `_apply_settings()` 直接 return，

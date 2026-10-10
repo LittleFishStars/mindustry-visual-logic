@@ -15,6 +15,8 @@ extends Container
 @onready var nQuitButton: Button = $Quit
 ## 编辑菜单（撤销 / 重做 / 清空）：弹出前按当前标签页的状态置灰。
 @onready var nEditMenu: PopupMenu = $MenuBar/Edit
+## 文件菜单：给「导出到剪贴板」挂 F5 快捷键显示。
+@onready var nFileMenu: PopupMenu = $MenuBar/File
 ## 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）。
 @onready var wSettings: SettingsWindow = $SettingsWindow
 ## 关于窗（版本 / 作者 / 反馈渠道）。
@@ -49,6 +51,9 @@ var _press_pos: Vector2 = Vector2.ZERO
 const RENAME_DELAY_MS: int = 400
 ## 按下后鼠标挪动超过这么多像素，就当“在拖动重排标签”，不再弹重命名框。
 const DRAG_CANCEL_PX: float = 4.0
+## F5 快捷导出的输入动作名：沿用旧版 project.godot 里的 `compile`（旧版把「导出 mlog」
+## 叫 compile）。键位写在 project.godot 的 [input] 段里 —— 换键改那里，代码不用动。
+const QUICK_EXPORT_ACTION: StringName = &"compile"
 
 ## 应用设置（[AppSettings]）：打开时读盘、改完即时应用、关窗时写盘。
 var _settings: AppSettings = null
@@ -67,6 +72,9 @@ func _ready() -> void:
 	self.wSettings.setup(self._settings)
 	self.wSettings.changed.connect(_on_settings_changed)
 	self.wSettings.closed.connect(_on_settings_closed)
+
+	# 给「File → 导出到剪贴板」挂上 F5：菜单里能看见键位，按下去也真的触发
+	self.nFileMenu.set_item_accelerator(4, KEY_F5)
 
 	# 创建初始编辑器
 	self.new_editor()
@@ -351,7 +359,7 @@ func _notification(what: int) -> void:
 
 #region 文件菜单
 
-## 文件菜单：0 新建 / 1 保存 / 2 另存为 / 3 打开 / 4 导出到剪贴板 /
+## 文件菜单：0 新建 / 1 保存 / 2 另存为 / 3 打开 / 4 导出到剪贴板（F5）/
 ## 5 从剪贴板导入 / 6 追加导入（撤销、重做、清空在编辑菜单里，退出在工具栏右侧）
 func _on_file_id_pressed(id: int) -> void:
 	match id:
@@ -410,12 +418,28 @@ func _on_project_dialog_file_selected(path: String) -> void:
 
 
 ## 导出当前编辑器的 mlog 到系统剪贴板（旧版的「快捷导出」行为）。
+## 菜单项、菜单栏的 F5、[method _unhandled_key_input] 三条路都走这里，
+## 所以「当前页没有可导出的东西」的提示只需要写一处。
 func _export_to_clipboard() -> void:
 	var editor := self._current_editor()
 	if editor == null:
+		print("[MVL] 当前页没有逻辑可导出（导出只对编辑器页有意义）")
 		return
 	var text := editor.copy_mlog_to_clipboard()
 	print("[MVL] 已导出 %d 行 mlog 到剪贴板" % text.count("\n"))
+
+## F5 快捷导出：与「File → Export to clipboard」同一件事，只是不用点菜单。
+func _quick_export() -> void:
+	self._export_to_clipboard()
+
+
+## F5 的兜底路径：动作名指向 project.godot 的 [input] 定义（换键位只改那一个文件）。
+## 平时事件在菜单栏就被「Export to clipboard」的 accelerator 接走了（菜单里能看见 F5），
+## 这里只为“事件没到菜单栏”的焦点情形保留 —— 别到手了才发现 F5 是个哑键。
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed(QUICK_EXPORT_ACTION):
+		self._quick_export()
+		self.get_viewport().set_input_as_handled()
 
 
 func _undo() -> void:
