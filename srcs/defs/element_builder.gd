@@ -31,8 +31,9 @@ func apply_value(_element: ElementDef, _control: Control, _value: String, _force
 	pass
 
 
-## 开关本元素输入框的可编辑状态（拖拽期间由块视图统一禁用/恢复）；不承载输入的元素什么都不做。
-func set_editable(_element: ElementDef, _control: Control, _editable: bool) -> void:
+## 开关本元素里[b]全部可交互控件[/b]（输入框 / 下拉 / 开关按钮 / 组合控件里的按钮）；
+## 拖拽期间由块视图统一禁用，不承载交互的元素什么都不做。
+func set_enabled(_element: ElementDef, _control: Control, _enabled: bool) -> void:
 	pass
 
 

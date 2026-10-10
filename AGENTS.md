@@ -90,8 +90,9 @@ assets/
    左键**松开**才落地（一次撤销记录），原地松手视为没搬动；
    **拖到左侧块列表上松手 = 删除**（拿起的整串一起删，同样只记一条撤销）；
    拖到画布外其他地方/右键/Esc = 取消 —— 拖拽本身不改数据。
-   拖拽期间所有块的输入框会被统一禁用（`EditorCanvas.set_inputs_editable` → `BlockView.set_inputs_editable`
-   → 构建器的 `set_editable`），松手/取消后恢复 —— 免得键盘输入落进"拖拽期间还拿着焦点"的输入框。
+   拖拽期间块里的可交互控件会被统一禁用（`EditorCanvas.set_elements_enabled` →
+   `BlockView.set_elements_enabled` → 构建器的 `set_enabled`）：输入框变只读并交出焦点，
+   下拉 / 开关 / 选择器按钮置为 `disabled`，松手/取消后恢复。
 
 ### 块定义格式（`blocks/{locale}/*.xml`）
 
@@ -144,7 +145,7 @@ assets/
 - 新增元素类型：在 `view/elements/element_builders.gd` 里继承 `ElementBuilder` 写一个子类并注册，
   **只改这一处**：解析、条件校验、默认值灌入、`BlockView` 与 `BlockDef` 都不用动
   （它们只问构建器：`is_field` / `is_slot` / `validate_value` / `default_value` / `apply_value` /
-  `set_editable`）。
+  `set_enabled`）。
 - 新增块：往 XML 里加 `<Block>`，不需要写 GDScript。
 - 新增选择器候选：改 `blocks/selectors/*.json`。
 

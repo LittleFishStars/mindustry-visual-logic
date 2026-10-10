@@ -11,7 +11,7 @@ extends RefCounted
 ## func apply_value(element, control, value)                  # 数据层 → 控件（回填）
 ## func validate_value(element, value) -> String              # when 里的取值是否合法
 ## func default_value(element) -> Variant                     # 新块的初始值（null = 不预置）
-## func set_editable(element, control, editable)               # 输入框能否编辑（拖拽期间统一禁用）
+## func set_enabled(element, control, enabled)               # 元素内的可交互控件能否用（拖拽期间禁用）
 ## [/codeblock]
 ## host 是 [BlockView]，它提供 font() / apply_font() / style_button() / field_value() /
 ## commit_field() / refresh_visibility() / flush_history_group() / request_picker() 等回调
@@ -68,15 +68,24 @@ static func resolve_edit(control: Control) -> LineEdit:
 	return null
 
 
-## 开关输入框：不可编辑时连焦点一起交出去（拖拽期间键盘输入不该落进任何块的字段）。
-static func set_edit_editable(control: Control, editable: bool) -> void:
+## 开关一个元素控件：输入框改成只读并交出焦点，控件自身与其中的按钮置为 disabled。
+## 用 disabled（而不是 mouse_filter）是为了连键盘也不响应；实测它不会重置开关的按下状态，
+## 也不会发出 toggled/item_selected —— 所以拖拽期间不会顺手改数据。
+static func set_control_enabled(control: Control, enabled: bool) -> void:
 	var edit := resolve_edit(control)
-	if edit == null:
-		return
-	edit.editable = editable
-	edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
-	if not editable and edit.has_focus():
-		edit.release_focus()
+	if edit != null:
+		edit.editable = enabled
+		edit.focus_mode = Control.FOCUS_ALL if enabled else Control.FOCUS_NONE
+		if not enabled and edit.has_focus():
+			edit.release_focus()
+	_set_buttons_disabled(control, not enabled)
+
+
+static func _set_buttons_disabled(node: Node, disabled: bool) -> void:
+	if node is BaseButton:
+		(node as BaseButton).disabled = disabled
+	for child in node.get_children():
+		_set_buttons_disabled(child, disabled)
 
 
 ## 静态文本：不吃鼠标，保证从标签上按下也能拖动整块。
@@ -100,8 +109,8 @@ class InputBuilder extends ElementBuilder:
 	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
 		ElementBuilders.apply_edit_value(control, value, force)
 
-	func set_editable(_element: ElementDef, control: Control, editable: bool) -> void:
-		ElementBuilders.set_edit_editable(control, editable)
+	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
+		ElementBuilders.set_control_enabled(control, enabled)
 
 
 ## 下拉选项：显示文本与导出值可以不同（<Item value="33">!</Item>）。
@@ -127,6 +136,9 @@ class OptionBuilder extends ElementBuilder:
 	func apply_value(element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if control is OptionButton and not element.items.is_empty():
 			(control as OptionButton).select(index_of(element, value))
+
+	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
+		ElementBuilders.set_control_enabled(control, enabled)
 
 	func validate_value(element: ElementDef, value: String) -> String:
 		if element.items.is_empty():
@@ -177,6 +189,9 @@ class ToggleBuilder extends ElementBuilder:
 		if control is BaseButton:
 			(control as BaseButton).set_pressed_no_signal(value == "true")
 
+	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
+		ElementBuilders.set_control_enabled(control, enabled)
+
 	func validate_value(element: ElementDef, value: String) -> String:
 		if value == "true" or value == "false":
 			return ""
@@ -213,8 +228,8 @@ class SelectorBuilder extends ElementBuilder:
 	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
 		ElementBuilders.apply_edit_value(control, value, force)
 
-	func set_editable(_element: ElementDef, control: Control, editable: bool) -> void:
-		ElementBuilders.set_edit_editable(control, editable)
+	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
+		ElementBuilders.set_control_enabled(control, enabled)
 
 
 ## 子槽位：本类只建一个占位控件（槽里的块是画布的直接子级）；占位尺寸由布局求解灌进来。

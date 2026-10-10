@@ -81,12 +81,12 @@ func relayout() -> void:
 		view.size = rect.size
 
 
-## 拖拽期间统一开关所有块视图里的输入框（拖拽只搬位置，不该顺手改数据）。
-func set_inputs_editable(editable: bool) -> void:
+## 拖拽期间统一开关所有块视图里的可交互控件（拖拽只搬位置，不该顺手改数据）。
+func set_elements_enabled(enabled: bool) -> void:
 	for id in _views:
 		var view: BlockView = _views[id]
 		if is_instance_valid(view):
-			view.set_inputs_editable(editable)
+			view.set_elements_enabled(enabled)
 
 
 func _measure(node: LogicNode, slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:

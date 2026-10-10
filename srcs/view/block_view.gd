@@ -435,12 +435,13 @@ func sync_from_data() -> void:
 	_apply_visibility()
 
 
-## 拖拽期间统一禁用/恢复本块的所有输入框 —— 拖拽只搬位置，键盘输入不该顺手改数据。
-## [param editable] 是"画布允许输入"：preview（调色板样品 / 幽灵）始终保持不可编辑。
-func set_inputs_editable(editable: bool) -> void:
+## 拖拽期间统一禁用/恢复本块里所有可交互控件（输入框 / 下拉 / 开关 / 选择器按钮）——
+## 拖拽只搬位置，键鼠不该顺手改数据。
+## [param enabled] 是"画布允许操作"：preview（调色板样品 / 幽灵）始终保持禁用。
+func set_elements_enabled(enabled: bool) -> void:
 	if def == null:
 		return
-	var want := editable and not preview
+	var want := enabled and not preview
 	for id in _elements:
 		var element := def.element(id)
 		var control: Control = _elements[id]
@@ -448,7 +449,7 @@ func set_inputs_editable(editable: bool) -> void:
 			continue
 		var builder: Variant = ElementRegistry.builder(element.type)
 		if builder != null:
-			builder.set_editable(element, control, want)
+			builder.set_enabled(element, control, want)
 
 
 func _draw() -> void:
