@@ -40,6 +40,8 @@ var _carried: Array[int] = []
 var _copy_source_id: int = 0
 ## 复制拖拽时源子树的全部节点：落点占位与让位都按它们的布局算。
 var _copy_ids: Array[int] = []
+## 这次拖拽是用哪个键起的：松手落地只认它（右键拖拽就得右键松手）。
+var _button: MouseButton = MOUSE_BUTTON_LEFT
 ## 为落点占位块让位而被临时下移的块（松手/换目标时按布局结果还原）
 var _pushed: Array[int] = []
 ## 悬停提示：当前是否停在删除区（用来给拖动副本压暗红）。
@@ -72,6 +74,7 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 	if not canvas.graph.has(view.node.id):
 		return
 	_active = true
+	_button = MOUSE_BUTTON_LEFT
 	_source_node = view.node
 	_type_id = view.node.type_id
 	_type_def = canvas.library.by_id(_type_id)
@@ -115,6 +118,7 @@ func start_copy_from_view(view: BlockView, offset: Vector2) -> void:
 	if not canvas.graph.has(view.node.id):
 		return
 	_active = true
+	_button = MOUSE_BUTTON_RIGHT
 	_source_node = null
 	_copy_source_id = view.node.id
 	_copy_ids = canvas.graph.subtree_ids(_copy_source_id)
@@ -148,6 +152,7 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	if _active or canvas == null or block == null:
 		return
 	_active = true
+	_button = MOUSE_BUTTON_LEFT
 	_source_node = null
 	_type_id = block.id
 	_type_def = block
@@ -185,17 +190,19 @@ func _begin() -> void:
 func _input(event: InputEvent) -> void:
 	if not _active:
 		return
-	# 按下鼠标拿起、松开放下：左键松开即落地；右键/Esc 仍然是取消
+	# 松手落地：只认「开始这次拖拽的那个键」—— 左键搬移就左键松手，右键复制就右键松手。
+	# （旧写法只认左键松开，于是右键拖拽松手不会落地，得再点一下左键才把上一次拖拽结束掉。）
 	if event is InputEventMouseButton and not event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			_finish()
+		if event.button_index == self._button:
+			self._finish()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			cancel()
+		# 另一个键按下 = 取消（左键搬移时按右键、右键复制时按左键……）
+		if event.button_index != self._button:
+			self.cancel()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		cancel()
+		self.cancel()
 		get_viewport().set_input_as_handled()
 
 
