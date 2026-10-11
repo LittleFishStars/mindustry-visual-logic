@@ -22,17 +22,6 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 	return "\n".join(lines) + "\n"
 
 
-## 行号表：`{line_of, fallback, after, count}`，顺序与 [method export] 的输出一致。
-static func line_table(graph: LogicGraph, library: BlockLibrary) -> Dictionary:
-	var discarded: Array[String] = []
-	return _table_of(_walk(graph, library, discarded))
-
-
-## 这张图会输出多少行（追加导入时算行号偏移用）。
-static func line_count(graph: LogicGraph, library: BlockLibrary) -> int:
-	return int(line_table(graph, library).get("count", 0))
-
-
 ## [param after_line] 是本块子树之后的第一条指令行号（`<AfterSubtree/>` 用它；算不出来时传 -1）。
 static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Callable(),
 		after_line: int = -1) -> String:

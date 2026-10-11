@@ -73,7 +73,7 @@ srcs/                                   ← 按职责分区：app 外壳 / pages
 │   └── selector_panel.gd       ← 内容选择弹窗（单位/建筑/物品/液体/传感器属性）
 └── mlog/                       ← 与 mlog 文本互转（纯函数，不碰控件）
     ├── mlog_exporter.gd        ← LogicGraph → mlog 文本
-    ├── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型；结构块按行尾标记还原嵌套）
+    ├── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型；结构块按行尾标记还原嵌套；jump 的行号按这段文本自己重新分析）
     └── mlog_text.gd            ← mlog 字符串字面量读写（与游戏 LParser 对齐）
 
 blocks/{locale}/*.xml           ← 块定义（en_US / zh_CN；只差显示文本，见「本地化」）
@@ -252,7 +252,8 @@ assets/
 - **块引用**：`<Field id="target" link="true"/>` 声明该字段存的是**另一块的引用**（`#<节点 id>`），
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
   （注释行 `#…` 与别人手写的标签行 `label:` 不占行号 —— **[b]标签块已经移除**[/b]：跳转目标只能用块引用，
-  导入时标签行会出声跳过、`jump 标签` 按未锁定处理），导入时 `MlogImporter.bind_links` 再把行号绑回块。
+  导入时标签行会出声跳过、`jump 标签` 按未锁定处理），导入时按[b]这段文本自己的行号[/b]把数字绑回片段内的块
+  （`MlogImporter.parse` 边解析边数指令，不查当前文档的行号表 —— 否则粘贴片段时 jump 会直接连到已有的块上）。
   「哪些字段是引用」的唯一真相在导出模板上（`BlockDef.reference_fields()`），元素种类只管怎么编辑它。
 - **结构块（`If` / `While`）的导出与还原**：它们没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
   取反逐项写在 `<Export when="cmp=…">` 里（`equal`→`notEqual`、`lessThan`→`greaterThanEq`…），
@@ -270,7 +271,8 @@ assets/
   在行尾补一段 `#if 字段=值…`（值带空白/引号就加引号，同 mlog 字面量写法）—— 字段要写全，因为模板里的比较是
   取反导出的，从行里认不回来。标记只写在头部那一条上。导入侧 `MlogImporter` 拿它把这一行认回结构块：
   `_match(…, allow_lines=true)` 允许 `<AfterSubtree/>` / `<SelfLine/>` 那两格取到行号，`_build_structure` 按
-  「没标记的行照旧」把序号区间挂回槽位，并把结构块自己的尾跳（对得上 `<Tail>`、且 `<SelfLine/>` 就是它头部那一行）
+  「没标记的行照旧」把序号区间挂回槽位，顺手数出[b]这段文本自己的行号表[/b]（指令序号 → 节点，尾跳占号但不记），
+  并把结构块自己的尾跳（对得上 `<Tail>`、且 `<SelfLine/>` 就是它头部那一行）
   从结果里剔掉 —— 它由导出时重新补。[b]尾跳剔不干净 = 回跳重复一条[/b]，这是这块最容易踩的坑。
   [b]改这里要注意[/b]：`parse()` 现在会写好槽位，调用方（`editor.gd` 的两处导入）必须用 `MlogImporter.subtrees()`
   + `LogicGraph.insert_subtree` 整棵插入 —— 再逐个 `insert_node` 会把巢里的块也塞进链里。
@@ -410,7 +412,7 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   摆在现有内容下方（空隙 [constant LogicEditorTab.PASTE_GAP]，靠 [method EditorCanvas.content_rect]
   算出「现有内容」），[b]不接到入口块那条链上[/b] —— 所以它不会被导出，要接上去得自己拖。
   这与 File 菜单里那两个导入项[b]不是[/b]一回事（那两个是接进入口链的），
-  行号偏移也不一样：粘贴进来的片段自成一体，`jump` 的行号就是它自己的（偏移 0）。
+  行号不按插入点偏移：两个入口都按这段文本自己的指令序号绑跳转 —— 片段自成一体，不会连到已有的块上。
 - **入口块（Start）**：XML 里 `<Block entry="true">`，它所在的类别用 `<Kind hidden="true">` 藏起来
   （Special 就是：块还在库里、`BlockLibrary.entry_def()` 找得到，只是不进调色板）。
   新页由 `LogicEditorTab._place_entry_block()` 自动放一个，[b]不进撤销栈[/b]。

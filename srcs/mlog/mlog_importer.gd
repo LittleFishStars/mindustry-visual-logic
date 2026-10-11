@@ -1,8 +1,9 @@
 class_name MlogImporter
 extends RefCounted
 
-## mlog 文本 → 逻辑节点（尚未入图）。反向利用导出模板：行首字面量定位块类型，其余段按模板顺序回填字段 —— 模板是唯一真相，新增块自动可导入。
-## [param src_lines] 与返回值平行：第 i 个节点在文本里的 0 基行号（行号绑引用的唯一线索）。
+## mlog 文本 → 逻辑节点（尚未入图，引用已绑好）。反向利用导出模板：行首字面量定位块类型，其余段按模板顺序回填字段 —— 模板是唯一真相，新增块自动可导入。
+## jump 的行号按[b]这段文本自己[/b]重新分析：第 N 条指令就是文本里的第 N 条，与当前文档已有多少行无关 ——
+## 否则导入/粘贴的片段里，jump 会直接连到文档里已有的块上。
 ## 结构块（XML `<Block marker="if">`）导出时会在指令行尾留一份字段快照 `#if 字段=值…`：导入靠它把这一行认回结构块、
 ## 还原字段与巢。没有标记的行照旧 —— 模板里 `<AfterSubtree/>` 那一格匹配不上，结构块导出的 jump 会当成普通 Jump 导进来。
 const AFTER_KEY: StringName = &"@after"
@@ -14,8 +15,7 @@ static func parse(
 	text: String,
 	library: BlockLibrary,
 	graph: LogicGraph,
-	warnings: Array[String] = [],
-	src_lines: Array[int] = []
+	warnings: Array[String] = []
 ) -> Array[LogicNode]:
 	var out: Array[LogicNode] = []
 	if text == "" or library == null or graph == null:
@@ -24,6 +24,8 @@ static func parse(
 	var markers := _marker_index(library)
 	## 与 out 平行：结构块的巢结束指令序号（-1 = 不是结构块）
 	var ends: Array[int] = []
+	## 与 out 平行：第 i 个节点在文本里的 0 基行号（只在警告里报位置）
+	var src_lines: Array[int] = []
 	var lines := text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 	for line_index in lines.size():
 		var line := String(lines[line_index]).strip_edges()
@@ -74,7 +76,8 @@ static func parse(
 			out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
 			ends.append(-1)
 			src_lines.append(line_index)
-	var dropped := _build_structure(out, ends, library, warnings)
+	var structure := _build_structure(out, ends, library, warnings)
+	var dropped: Dictionary = structure["dropped"]
 	if not dropped.is_empty():
 		# 尾跳不留在图里：它是导出时补的，导入还原时会重新生成
 		var kept: Array[LogicNode] = []
@@ -86,6 +89,7 @@ static func parse(
 			kept_lines.append(src_lines[i])
 		out = kept
 		src_lines.assign(kept_lines)
+	_resolve_links(out, structure["line_of"], src_lines, library, warnings)
 	return out
 
 
@@ -140,50 +144,33 @@ static func split_statements(line: String) -> PackedStringArray:
 	return out
 
 
-## 把刚导入节点里「数字行号」的跳转目标绑回块引用（返回绑定个数）；[param line_offset] 是插入点之前已有的行数。
-static func bind_links(
-	nodes: Array[LogicNode],
-	src_lines: Array[int],
-	line_offset: int,
-	graph: LogicGraph,
-	library: BlockLibrary,
-	warnings: Array[String] = []
-) -> int:
-	if graph == null or library == null or nodes.is_empty():
-		return 0
-	var line_of: Dictionary = MlogExporter.line_table(graph, library).get("line_of", {})
-	var node_at: Dictionary = {}
-	for id in line_of:
-		node_at[line_of[id]] = id
-	var bound := 0
+## 把跳转目标绑回块引用。数字行号指的是[b]这段文本自己[/b]的第 N 条指令（[param line_of] 由
+## [method _build_structure] 按同一套数法算出），不查当前文档的行号表 —— 片段自成一体，不会连到已有的块上。
+static func _resolve_links(nodes: Array[LogicNode], line_of: Dictionary, src_lines: Array[int],
+		library: BlockLibrary, warnings: Array[String]) -> void:
 	for i in nodes.size():
 		var node := nodes[i]
 		var def := library.by_id(node.type_id)
 		if def == null:
 			continue
+		var at := int(src_lines[i]) + 1 if i < src_lines.size() else 0
 		for field_id in def.reference_fields():
 			var raw := String(node.get_field(field_id, "")).strip_edges()
 			if raw == "":
 				continue
 			if not raw.is_valid_int():
 				# `jump label always 0 0` 这种标签引用：标签已不支持，按未锁定处理
-				warnings.append("mlog 第 %d 行的跳转目标是标签 `%s`：标签已不支持，已按未锁定处理"
-					% [int(src_lines[i]) + 1 if i < src_lines.size() else 0, raw])
-				graph.set_field(node.id, field_id, "")
+				warnings.append("mlog 第 %d 行的跳转目标是标签 `%s`：标签已不支持，已按未锁定处理" % [at, raw])
+				node.put_field(field_id, "")
 				continue
 			var want := int(raw)
 			if want < 0:
-				graph.set_field(node.id, field_id, "")
-				continue
-			var line := line_offset + want
-			if node_at.has(line):
-				graph.set_field(node.id, field_id, LogicGraph.make_link_ref(int(node_at[line])))
-				bound += 1
+				node.put_field(field_id, "")
+			elif line_of.has(want):
+				node.put_field(field_id, LogicGraph.make_link_ref(int(line_of[want])))
 			else:
-				warnings.append("mlog 第 %d 行的跳转目标（第 %d 行）不在程序里，已按未锁定处理"
-					% [int(src_lines[i]) + 1 if i < src_lines.size() else 0, want + 1])
-				graph.set_field(node.id, field_id, "")
-	return bound
+				warnings.append("mlog 第 %d 行的跳转目标（第 %d 行）不在导入的这段文本里，已按未锁定处理" % [at, want + 1])
+				node.put_field(field_id, "")
 
 
 static func tokenize(line: String) -> PackedStringArray:
@@ -456,12 +443,15 @@ static func _match_marked(def: BlockDef, tokens: PackedStringArray) -> Variant:
 
 
 ## 按结构块的巢结束序号把扁表还原成嵌套：挂进槽位后顺序不变，仍是文档顺序。
-## 返回要丢掉的节点 id：结构块自己的尾跳（`<Tail>`）是导出时补的，不挂回巢里。
+## 返回 `{dropped, line_of}`：要丢掉的节点 id（结构块自己的尾跳，导出时补、不挂回巢里），
+## 以及[b]本段文本自己的行号表[/b]（指令序号 → 节点 id，跳转引用据此绑回块）。
 static func _build_structure(nodes: Array[LogicNode], ends: Array[int], library: BlockLibrary,
 		warnings: Array[String]) -> Dictionary:
 	## 打开着的结构块：{node, slot, end（巢结束序号）, line（头部指令序号）}
 	var open: Array[Dictionary] = []
 	var dropped: Dictionary = {}
+	## 尾跳也占一个号但不记进来，与导出的数法一致
+	var line_of: Dictionary = {}
 	var instruction := 0
 	for i in nodes.size():
 		var node := nodes[i]
@@ -490,8 +480,9 @@ static func _build_structure(nodes: Array[LogicNode], ends: Array[int], library:
 			else:
 				open.append({"node": node, "slot": slot, "end": ends[i], "line": instruction})
 		if _is_instruction_node(library, node):
+			line_of[instruction] = node.id
 			instruction += 1
-	return dropped
+	return {"dropped": dropped, "line_of": line_of}
 
 
 ## 这一行是不是这个结构块自己的尾跳：对得上 `<Tail>` 模板，且 `<SelfLine/>` 指着它的头部。

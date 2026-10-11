@@ -278,14 +278,11 @@ func redo() -> bool:
 ## 从 mlog 文本导入块；[param append] 为假时先清空，整个动作算一条撤销记录。
 func import_mlog(text: String, append: bool = false) -> int:
 	var warnings: Array[String] = []
-	var src_lines: Array[int] = []
-	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings, src_lines)
+	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings)
 	if nodes.is_empty():
 		for message in warnings:
 			push_warning(message)
 		return 0
-	# 追加时行号要加上已有程序占掉的行数：mlog 的 jump 用绝对行号
-	var line_offset := MlogExporter.line_count(nCanvas.graph, library) if append else 0
 	nCanvas.history.record("导入 %d 个块" % nodes.size(), func() -> void:
 		if not append:
 			# 换掉当前程序：入口块跟着回来（Special 在调色板里是隐藏的）
@@ -295,19 +292,17 @@ func import_mlog(text: String, append: bool = false) -> int:
 		# 结构块还原后子节点已经挂在它的巢里，所以按子树整体入图（逐个插会把子节点也塞进链里）
 		for group in MlogImporter.subtrees(nodes):
 			var subtree: Array[LogicNode] = group
-			nCanvas.graph.insert_subtree(subtree, int(target["owner_id"]), StringName(target["slot"]), -1)
-		# 块都入图了，现在才谈得上「第 N 行是哪一块」
-		MlogImporter.bind_links(nodes, src_lines, line_offset, nCanvas.graph, library, warnings))
+			nCanvas.graph.insert_subtree(subtree, int(target["owner_id"]), StringName(target["slot"]), -1))
 	for message in warnings:
 		push_warning(message)
 	return nodes.size()
 
 
-## Ctrl+V：把 mlog 转成块，另起一条新链摆在现有内容下方（不接入口块那条链），行号偏移取 0。
+## Ctrl+V：把 mlog 转成块，另起一条新链摆在现有内容下方（不接入口块那条链）。
+## jump 的行号按这段文本自己重新分析，所以片段内部的跳转照样连得上。
 func paste_mlog_new_chain(text: String) -> int:
 	var warnings: Array[String] = []
-	var src_lines: Array[int] = []
-	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings, src_lines)
+	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings)
 	if nodes.is_empty():
 		for message in warnings:
 			push_warning(message)
@@ -317,8 +312,7 @@ func paste_mlog_new_chain(text: String) -> int:
 		var chain := nCanvas.graph.create_chain(pos)
 		for group in MlogImporter.subtrees(nodes):
 			var subtree: Array[LogicNode] = group
-			nCanvas.graph.insert_subtree(subtree, LogicGraph.ROOT, chain, -1)
-		MlogImporter.bind_links(nodes, src_lines, 0, nCanvas.graph, library, warnings))
+			nCanvas.graph.insert_subtree(subtree, LogicGraph.ROOT, chain, -1))
 	for message in warnings:
 		push_warning(message)
 	return nodes.size()
