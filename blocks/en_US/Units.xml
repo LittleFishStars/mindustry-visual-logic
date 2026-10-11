@@ -47,11 +47,14 @@
 			<Item>pathfind</Item>
 			<Item>autoPathfind</Item>
 		</Option>
-			<Text id="T2">x</Text>
-			<LineBox id="x" placeholder="0" />
-			<Text id="T3">y</Text>
-			<LineBox id="y" placeholder="0" />
-			<LineBox id="t" placeholder="0" />
+			<!-- 官方 LUnitControl 的参数表：move(x,y) / approach(x,y,radius) /
+			     pathfind(x,y) / autoPathfind(无参数) —— 不用的输入框不显示 -->
+			<Text id="T2" when="mode!=autoPathfind">x</Text>
+			<LineBox id="x" placeholder="0" when="mode!=autoPathfind" />
+			<Text id="T3" when="mode!=autoPathfind">y</Text>
+			<LineBox id="y" placeholder="0" when="mode!=autoPathfind" />
+			<Text id="Tt" when="mode=approach">radius</Text>
+			<LineBox id="t" placeholder="0" when="mode=approach" />
 		</Row>
 	</Block>
 	<Block name="UnitBoost">
@@ -70,9 +73,11 @@
 	<Block name="UnitShoot">
 		<Literal>ucontrol</Literal>
 		<Field id="mode" />
-		<Field id="x" />
-		<Field id="y" />
-		<Field id="s" />
+		<!-- target(x, y, shoot) / targetp(unit, shoot)：p1、p2 是两套不同的含义，
+		    所以 p1 是 x|unit、p2 是 y|shoot（按模式只显示其中一套） -->
+		<FirstOf ids="x unit" />
+		<FirstOf ids="y sp" />
+		<FirstOf ids="s" />
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
@@ -81,12 +86,15 @@
 			<Item>target</Item>
 			<Item>targetp</Item>
 		</Option>
-			<Text id="T2">x</Text>
-			<LineBox id="x" placeholder="0" />
-			<Text id="T3">y</Text>
-			<LineBox id="y" placeholder="0" />
+			<Text id="T2" when="mode=target">x</Text>
+			<LineBox id="x" placeholder="0" when="mode=target" />
+			<Text id="T3" when="mode=target">y</Text>
+			<LineBox id="y" placeholder="0" when="mode=target" />
+			<Text id="Tu" when="mode=targetp">unit</Text>
+			<LineBox id="unit" placeholder="@unit" when="mode=targetp" />
 			<Text id="T4">shoot</Text>
-			<LineBox id="s" placeholder="0" />
+			<LineBox id="s" placeholder="0" when="mode=target" />
+			<LineBox id="sp" placeholder="0" when="mode=targetp" />
 		</Row>
 	</Block>
 	<Block name="UnitItem">
@@ -131,8 +139,9 @@
 			<Item>payDrop</Item>
 			<Item>payEnter</Item>
 		</Option>
-			<Text id="T2">unit</Text>
-			<LineBox id="unit" placeholder="0" />
+			<!-- 官方 payTake(takeUnits) 才有一个参数；payDrop / payEnter 无参数 -->
+			<Text id="T2" when="mode=payTake">takeUnits</Text>
+			<LineBox id="unit" placeholder="0" when="mode=payTake" />
 		</Row>
 	</Block>
 	<Block name="UnitMine">
@@ -344,8 +353,25 @@
 			<LineBox id="outY" placeholder="outy" />
 			<Text id="T6">found</Text>
 			<LineBox id="found" placeholder="found" />
-			<Text id="T7" when="find=building">building</Text>
-			<LineBox id="building" placeholder="building" when="find=building" />
+			<!-- 官方：building 这个输出在 ore 以外的三种查找下都有（`if(locate != ore)`） -->
+			<Text id="T7" when="find!=ore">building</Text>
+			<LineBox id="building" placeholder="building" when="find!=ore" />
+		</Row>
+	</Block>
+	<Block name="UnitDeconstruct">
+		<Literal>ucontrol</Literal>
+		<Literal>deconstruct</Literal>
+		<Field id="x" />
+		<Field id="y" />
+		<Literal>0</Literal>
+		<Literal>0</Literal>
+		<Literal>0</Literal>
+		<Row>
+			<Text id="T1">UnitDeconstruct</Text>
+			<Text id="T2">x</Text>
+			<LineBox id="x" placeholder="0" />
+			<Text id="T3">y</Text>
+			<LineBox id="y" placeholder="0" />
 		</Row>
 	</Block>
 </Kind>

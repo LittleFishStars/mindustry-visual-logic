@@ -137,7 +137,7 @@ assets/
   <Literal>print</Literal>                        <!-- 默认导出模板：字面量 / 取字段 / 首个生效 -->
   <Field id="content" />
   <Export when="txt=true">                        <!-- 条件化模板，第一个成立的优先 -->
-    <Literal>print</Literal><Literal>"</Literal><Field id="content" glue="true" /><Literal glue="true">"</Literal>
+    <Literal>print</Literal><Field id="content" as="string" />
   </Export>
   <Row>                                           <!-- 显式分行（取代 <Br/>） -->
     <Text id="T1">Print</Text>
@@ -197,8 +197,30 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 - `<FirstOf>` 那一格按[b]已解析出的选项值[/b]挑生效字段（与导出同一套 `is_field_active`）。
 - 允许短行，并像 `LParser` 那样把 `;` 当语句分隔符、把 `#` 当行尾注释（`split_statements()`）。
 
-校验手段（改完 XML 跑一遍）：每块导出一行，token 数应与官方表一致；再逐选项导出，
-[b]参数个数不能变[/b]（选项只换内容，不换参数个数）；最后做导出→导入→再导出的往返比对。
+[b]显示层与文本层是两回事[/b]：参数个数固定说的是[b]文本[/b]，界面上该藏的输入框照样要藏。
+官方 UI 在每个语句的 `build()` 里按当前选项决定显示哪几个输入框，那张表就是：
+
+- `ucontrol`：[b]`LUnitControl.params`[/b]，逐项声明的（`move("x","y")`、`approach("x","y","radius")`、
+  `targetp("unit","shoot")`、`payTake("takeUnits")`，而 `idle`/`stop`/`autoPathfind`/`payDrop`/
+  `payEnter`/`unbind` 没有参数）。
+- `control`：`LAccess.params`（`enabled("to")`、`shoot("x","y","shoot")`、`shootp("unit","shoot")`、`config("to")`、`color("to")`）。
+- `draw`：`DrawStatement.build()` 的 `switch(type)`。
+- `jump` / `select`：`addOp()` 里的 `if(op != always)` —— `always` 时[b]两个比较值都不显示[/b]。
+- `op`：`LogicOp.unary`（`not`/`abs`/`sign`/`log`/`log10`/`floor`/`ceil`/`round`/`sqrt`/`rand`/`sin`/
+  `cos`/`tan`/`asin`/`acos`/`atan`）只显示一个操作数。
+- `ulocate`：`switch(locate)`；其中 `building` 这个[b]输出[/b]在 `ore` 以外的三种都有（`if(locate != ore)`）。
+
+所以 XML 里 Row 的每个输入框都要带 `when`，而导出模板里的 `<Field>` 保持无条件 ——
+两者分开写：模板负责文本，元素负责显示。改完块定义要同时跑两套检查（只跑一套就会
+出现“文本对了但界面多/少一个框”或反之）。
+
+校验手段（改完 XML 跑一遍，[b]文本与显示各一条[/b]）：
+
+- 文本：每块导出一行，token 数应与官方表一致；再逐选项导出，[b]参数个数不能变[/b]
+  （选项只换内容，不换参数个数）；以及导出→导入→再导出的往返比对。
+- 显示：对每个块 × 每个选项取值，拿 [method BlockDef.is_element_active]（视图用的同一函数）
+  算出「可见的输入框」集合，与上面那张官方表逐个对比 —— 只做文本检查的话，
+  界面多一个/少一个框这类问题根本测不出来。
 
 
 ### 扩展点

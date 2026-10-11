@@ -70,7 +70,9 @@
 			<Item>acos</Item>
 			<Item>atan</Item>
 		</Option>
-			<LineBox id="b" placeholder="b" />
+			<!-- 一元运算（官方 LogicOp.unary）不显示第二个操作数：not/abs/sign/log/log10/
+			     floor/ceil/round/sqrt/rand/sin/cos/tan/asin/acos/atan -->
+			<LineBox id="b" placeholder="b" when="~(ops=not | ops=abs | ops=sign | ops=log | ops=log10 | ops=floor | ops=ceil | ops=round | ops=sqrt | ops=rand | ops=sin | ops=cos | ops=tan | ops=asin | ops=acos | ops=atan)" />
 		</Row>
 	</Block>
 	<Block name="Select">
@@ -86,7 +88,7 @@
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<Text id="T3">if</Text>
-			<LineBox id="x" placeholder="x" />
+			<LineBox id="x" placeholder="x" when="cmp!=always" />
 			<Option id="cmp">
 			<Item>equal</Item>
 			<Item>notEqual</Item>
@@ -97,7 +99,7 @@
 			<Item>strictEqual</Item>
 			<Item>always</Item>
 		</Option>
-			<LineBox id="value" placeholder="false" />
+			<LineBox id="value" placeholder="false" when="cmp!=always" />
 		</Row>
 		<Row>
 			<Text id="T4">then</Text>
