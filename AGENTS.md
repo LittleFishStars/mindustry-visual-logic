@@ -212,7 +212,8 @@ assets/
 
 - **导出段**：`<Literal>`（可以含空格）、`<Field id>`、`<Field id link="true">`（块引用，见下）、
   `<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）、
-  `<AfterSubtree/>`（本块**连巢**之后那一条指令的行号：只有导出期算得出来，`If` 靠它跳过整段巢）；
+  `<AfterSubtree/>`（本块**连巢**之后那一条指令的行号：只有导出期算得出来，`If` 靠它跳过整段巢；
+  Break / Continue 也复用这一格，由导出器换成所属循环的目标行号）；
   `glue="true"` / `space_before="false"` 表示本段紧贴上一段；
   `<Field as="string">` 表示这一格是字符串（引号与转义由导出器加），
   `<Field allow_empty="true">` 表示空值不补 `0`（注释文本这类字段）：导出侧靠
@@ -261,6 +262,10 @@ assets/
   同一个节点的第二条 entry —— 它照样占行号，但 `line_of` / `fallback` / `after` 只认头部那一条（别人 jump 到这块要落到头部）。
   [b]块定义解析器里 `export_target` 就是为它加的[/b]：`<Block>` 默认写基础模板、`<Export when>` 写变体、`<Tail>` 写尾跳
   （以前靠 `variant` 判断，加第三种目标就会写错数组）。
+- **Break / Continue**：`<Block loop_jump="break|continue">` 声明它是跳出 / 继续挡板，`<Block loop="true">`（While）声明循环块。
+  两者共用一条 `<Literal>jump</Literal><AfterSubtree/>…` 模板，导出器按 `_walk` 记下的「所属最内层循环」把那一格换成
+  Break 的「循环之后」或 Continue 的「循环尾跳行」（`_table_of` 返回的 `loop` 表就是它），不在循环里则导出 `-1` 并警告。
+  它们也带行尾标记（`#break` / `#continue`），导入据此还原；[b]标记块没有巢就不参与结构还原[/b]（`parse()` 里按 `_nest_slot` 判）。
 - **行尾标记（导入还原结构块）**：`<Block name="If" marker="if">` 声明标记后，导出时由 `MlogExporter.marker_fields`
   在行尾补一段 `#if 字段=值…`（值带空白/引号就加引号，同 mlog 字面量写法）—— 字段要写全，因为模板里的比较是
   取反导出的，从行里认不回来。标记只写在头部那一条上。导入侧 `MlogImporter` 拿它把这一行认回结构块：

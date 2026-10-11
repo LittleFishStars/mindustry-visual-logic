@@ -61,7 +61,8 @@ static func parse(
 					# 注释里的字段为准：模板里的比较是取反导出的，从行里认不回来
 					values.merge(marker["fields"], true)
 					out.append(_make_node(graph, marker["def"], values, marked["states"]))
-					ends.append(after)
+					# 没有巢的标记块（Break / Continue）不参与结构还原
+					ends.append(after if _nest_slot(marker["def"]) != &"" else -1)
 					src_lines.append(line_index)
 					continue
 				warnings.append("结构标记 %s 与这一行不符，已按普通语句导入：%s" % [marker["def"].marker, statement])

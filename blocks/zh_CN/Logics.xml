@@ -99,7 +99,7 @@
 			<Nest id="nest" />
 		</Row>
 	</Block>
-	<Block name="While" marker="while">
+	<Block name="While" marker="while" loop="true">
 		<!-- 条件循环 = 头部一条「条件不成立就跳过整段巢」的 jump + 尾部一条回跳（<Tail>，<SelfLine/> 就是头部那一行）。
 			 比较取反，行尾带 `#while 字段=值…` 供导入还原。 -->
 		<Export>
@@ -143,6 +143,24 @@
 			<LineBox id="b" placeholder="b" />
 			<Text id="T2">时循环</Text>
 			<Nest id="nest" />
+		</Row>
+	</Block>
+	<Block name="Break" marker="break" loop_jump="break">
+		<!-- 跳出最内层循环 = 一条无条件 jump；目标行号由导出器换成循环之后的第一条指令。 -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
+		</Export>
+		<Row>
+			<Text id="T">跳出</Text>
+		</Row>
+	</Block>
+	<Block name="Continue" marker="continue" loop_jump="continue">
+		<!-- 回到循环的条件判断 = 一条无条件 jump，目标行号由导出器换成循环的回跳那一行。 -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
+		</Export>
+		<Row>
+			<Text id="T">继续</Text>
 		</Row>
 	</Block>
 </Kind>

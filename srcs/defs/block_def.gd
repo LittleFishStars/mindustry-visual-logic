@@ -40,6 +40,10 @@ var color: Color = Color.WHITE
 var entry: bool = false
 ## 结构块标记（XML `<Block marker="if">`）：导出时在指令行尾写 `#if 字段=值…`，导入靠它把这一行还原成结构块。
 var marker: String = ""
+## 循环块（XML `<Block loop="true">`，While）：巢里的 Break / Continue 以它为目标。
+var loop: bool = false
+## 跳出 / 继续（XML `<Block loop_jump="break|continue">`）：导出时把 `<AfterSubtree/>` 那一格换成所属循环的行号。
+var loop_jump: StringName = &""
 
 var elements: Array[ElementDef] = []
 

@@ -12,4 +12,10 @@ The exported line also ends with a marker ([code]#if a=1 cmp=equal b=2[/code]); 
 does not hold, plus a tail jump back to the head ([code]jump 1 always 0 0[/code]) — the exit is after the tail.
 It also carries a marker ([code]#while a=1 cmp=lessThan b=2[/code]), so it comes back as a While with its nest.
 
+[b]Break[/b] / [b]Continue[/b] only make sense inside a loop nest: Break is one unconditional jump straight to just after the loop
+([code]jump 5 always 0 0[/code]); Continue jumps to the loop's tail jump ([code]jump 3 always 0 0[/code]), i.e. back to the condition.
+Both line numbers are computed at export time; outside a loop they export [code]-1[/code] with a console warning. The line ends with a
+[code]#break[/code] / [code]#continue[/code] marker, so it comes back as the same block.
+
+
 Use [b]Jump[/b] to jump somewhere else.

@@ -100,7 +100,7 @@
 			<Nest id="nest" />
 		</Row>
 	</Block>
-	<Block name="While" marker="while">
+	<Block name="While" marker="while" loop="true">
 		<!-- A conditional loop = a head `jump` that skips the whole nest when the condition does NOT hold,
 			 plus a tail jump back to the head (<Tail>, where <SelfLine/> is the head line).
 			 The comparison is negated and the line ends with a `#while field=value…` marker for import. -->
@@ -145,6 +145,24 @@
 			<LineBox id="b" placeholder="b" />
 			<Text id="T2">do</Text>
 			<Nest id="nest" />
+		</Row>
+	</Block>
+	<Block name="Break" marker="break" loop_jump="break">
+		<!-- Leaving the innermost loop = one unconditional jump; the exporter replaces AfterSubtree with the line just after that loop. -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
+		</Export>
+		<Row>
+			<Text id="T">Break</Text>
+		</Row>
+	</Block>
+	<Block name="Continue" marker="continue" loop_jump="continue">
+		<!-- Back to the loop condition = one unconditional jump to the loop's tail jump (same exporter-computed line). -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
+		</Export>
+		<Row>
+			<Text id="T">Continue</Text>
 		</Row>
 	</Block>
 </Kind>

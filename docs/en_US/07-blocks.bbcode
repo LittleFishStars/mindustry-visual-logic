@@ -18,6 +18,8 @@ What a block looks like and how it exports are all written in [code]blocks/{lang
 [*][code]<Field allow_empty="true"/>[/code]: allow an empty value (comment text);
 [*][code]<AfterSubtree/>[/code]: the line number of the first instruction [b]after this block including its nest[/b] (only the exporter can compute it) — this is how If skips its whole nest;
 [*][code]<Block name="If" marker="if">[/code]: a structural-block marker — the exporter appends `#if field=value…` to the line so the importer can turn it back into this block (nest included);
+[*][code]<Block name="While" loop="true">[/code]: marks a loop block — Break / Continue inside its nest target it;
+[*][code]<Block name="Break" marker="break" loop_jump="break">[/code]: a break/continue block — [code]loop_jump[/code] makes the exporter replace [code]<AfterSubtree/>[/code] with the owning loop's line (the tail jump for Continue);
 [*][code]<Tail>…</Tail>[/code]: the tail template (one extra line after the whole nest); [code]<SelfLine/>[/code] in it is the head line of this block — that is While's jump back;
 [*][code]<Item alias="atan2">angle</Item>[/code]: recognize the old name (import automatically converts it to the current spelling);
 [*][code]<Place when="…" after="another element id"/>[/code] (or [code]before=[/code]): written inside an element, it moves that element before/after another element when the condition holds — blocks whose order changes with the option (such as a unary operation needing [code]result = not a[/code]) rely on it, so you do not have to write the field twice;

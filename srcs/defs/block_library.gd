@@ -328,6 +328,14 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	block.order = order
 	block.entry = _as_bool(attrs.get("entry", "false"))
 	block.marker = String(attrs.get("marker", "")).strip_edges()
+	block.loop = _as_bool(attrs.get("loop", "false"))
+	var loop_jump := String(attrs.get("loop_jump", "")).strip_edges()
+	if loop_jump != "" and loop_jump != "break" and loop_jump != "continue":
+		warnings.append("%s：loop_jump 只能是 break 或 continue（实际 `%s`）" % [block.id, loop_jump])
+	elif loop_jump != "" and block.marker == "":
+		# 行尾没有标记就认不回来，导出会变成一条普通 jump
+		warnings.append("%s：loop_jump 要配套 marker，否则导回来只是普通 Jump" % block.id)
+	block.loop_jump = StringName(loop_jump)
 	if block.marker != "" and (block.marker.contains(" ") or block.marker.begins_with("#")):
 		warnings.append("%s：marker 只能是不带空格、不带 # 的一个词（实际 `%s`）" % [block.id, block.marker])
 	if block.id == &"":

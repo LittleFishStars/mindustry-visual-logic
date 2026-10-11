@@ -57,6 +57,10 @@ static func render_entry(entry: Dictionary, table: Dictionary = {}, warnings: Ar
 	if table.is_empty():
 		return render_node(def, node)
 	var after: int = int(table.get("after", {}).get(node.id, -1))
+	if def.loop_jump != &"":
+		after = int(table.get("loop", {}).get(node.id, -1))
+		if after < 0:
+			warnings.append("%s 不在循环里：跳转目标按 -1 导出" % def.id)
 	return render_node(def, node, _resolver(node, table, warnings), after)
 
 
@@ -107,7 +111,7 @@ static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[Stri
 	var siblings := graph.slot_items(int(where["owner_id"]), StringName(where["slot"]))
 	var tail: Array[int] = []
 	tail.assign(siblings.slice(int(where["index"])))
-	_walk_chain(graph, library, tail, out, warnings)
+	_walk_chain(graph, library, tail, out, warnings, 0)
 	return out
 
 
@@ -129,7 +133,8 @@ static func _walk_chain(
 	library: BlockLibrary,
 	ids: Array[int],
 	out: Array[Dictionary],
-	warnings: Array[String]
+	warnings: Array[String],
+	loop_id: int
 ) -> void:
 	for id in ids:
 		var node := graph.get_node_by_id(id)
@@ -139,12 +144,14 @@ static func _walk_chain(
 		if def == null:
 			warnings.append("未知块类型：%s" % node.type_id)
 			continue
-		out.append({"node": node, "def": def})
+		# 记下所属的最内层循环：Break / Continue 的跳转目标由它决定
+		out.append({"node": node, "def": def, "loop": loop_id})
 		var at := out.size() - 1
+		var inner := id if def.loop else loop_id
 		for slot_id in def.slot_ids():
-			_walk_chain(graph, library, graph.slot_items(id, slot_id), out, warnings)
+			_walk_chain(graph, library, graph.slot_items(id, slot_id), out, warnings, inner)
 		if not def.tail_parts.is_empty():
-			out.append({"node": node, "def": def, "tail": true})
+			out.append({"node": node, "def": def, "tail": true, "loop": loop_id})
 		# 子树（连尾跳）在 walk 里是连续的：递归完它，out 的长度就是「本块之后」那个 entry 的下标
 		out[at]["end"] = out.size()
 
@@ -170,12 +177,33 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 		if is_instruction(text):
 			count += 1
 	lines_at.append(count)
+	var loop_tail: Dictionary = {}
 	for entry in walk:
 		var node: LogicNode = entry["node"]
 		if bool(entry.get("tail", false)):
 			continue
-		after[node.id] = lines_at[int(entry.get("end", walk.size()))]
-	return {"line_of": line_of, "fallback": fallback, "after": after, "count": count}
+		var def: BlockDef = entry["def"]
+		var end := int(entry.get("end", walk.size()))
+		after[node.id] = lines_at[end]
+		# 循环的回跳 / 条件判断点：Continue 要落到它上面才能重新判断条件
+		if def.loop and end > 0 and bool(walk[end - 1].get("tail", false)):
+			loop_tail[node.id] = lines_at[end - 1]
+	# Break / Continue 的跳转目标：Break 去循环之后，Continue 回循环的回跳点
+	var loop: Dictionary = {}
+	for entry in walk:
+		var def: BlockDef = entry["def"]
+		if def.loop_jump == &"":
+			continue
+		var node: LogicNode = entry["node"]
+		var owner := int(entry.get("loop", 0))
+		var target := -1
+		if owner > 0:
+			if def.loop_jump == &"continue":
+				target = int(loop_tail.get(owner, line_of.get(owner, -1)))
+			else:
+				target = int(after.get(owner, -1))
+		loop[node.id] = target
+	return {"line_of": line_of, "fallback": fallback, "after": after, "loop": loop, "count": count}
 
 
 ## 这一行会不会成为一条指令（导入侧数指令序号用的是同一套规则）。
