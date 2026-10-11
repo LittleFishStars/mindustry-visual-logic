@@ -7,7 +7,7 @@ extends RefCounted
 
 const ROOT: int = 0
 
-## 块引用（Jump 目标）的文本形式 `#<节点 id>`；纯数字（旧存档行号）视为未锁定。
+## 块引用（Jump 目标）的文本形式 `#<节点 id>`；不是这个形式的都视为未锁定。
 const LINK_PREFIX: String = "#"
 
 

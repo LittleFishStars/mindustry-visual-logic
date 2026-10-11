@@ -95,13 +95,11 @@ static func _marker_value(value: String) -> String:
 	return value if simple else "\"" + MlogText.escape(value) + "\""
 
 
-## 遍历顺序表。不输出行的块也在表里（不占行号，但跳转落到它之后的第一条指令）；导出只走入口块那条链、从它开始。
+## 遍历顺序表。不输出行的块也在表里（不占行号，但跳转落到它之后的第一条指令）；只导出入口块那条链，没有入口块就什么都不导出。
 static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[String]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var entry := _entry_node(graph, library)
 	if entry == null:
-		for chain_id in graph.chain_ids():
-			_walk_chain(graph, library, graph.slot_items(LogicGraph.ROOT, chain_id), out, warnings)
 		return out
 	var where := graph.locate(entry.id)
 	if where.is_empty():

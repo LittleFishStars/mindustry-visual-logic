@@ -34,8 +34,8 @@ static func from_dict(data: Dictionary) -> LogicGraph:
 		_last_error = "不是 MVL 逻辑图文件（format = %s）" % (format if format != "" else "缺失")
 		return null
 	var version := int(data.get("version", 0))
-	if version > FORMAT_VERSION:
-		_last_error = "文件版本 %d 高于当前支持的 %d" % [version, FORMAT_VERSION]
+	if version != FORMAT_VERSION:
+		_last_error = "文件版本不匹配（%d，需要 %d）" % [version, FORMAT_VERSION]
 		return null
 	var raw: Dictionary = data.get("graph", {})
 	return LogicGraph.from_dict(raw)

@@ -6,8 +6,6 @@ extends RefCounted
 ## 存盘路径（测试可以改成临时目录，避免写真实用户目录）。
 static var path: String = "user://settings.json"
 
-## 设置文件格式版本：读旧文件时靠它做一次性迁移（见 [method from_json]）。
-const VERSION: int = 2
 
 const DEFAULT_MAX_FPS: int = 60
 const DEFAULT_UI_SCALE: float = 1.0
@@ -59,7 +57,6 @@ func to_json() -> String:
 
 func to_dict() -> Dictionary:
 	return {
-		"version": VERSION,
 		"max_fps": max_fps,
 		"ui_scale": ui_scale,
 		"language": language,
@@ -80,9 +77,6 @@ static func from_json(text: String) -> AppSettings:
 	settings.export_on_focus_lost = bool(data.get("export_on_focus_lost", true))
 	var language := String(data.get("language", LANGUAGE_SYSTEM))
 	settings.language = language if LANGUAGES.has(language) else LANGUAGE_SYSTEM
-	# 迁移：v1 里这项默认是关的，把旧的“关”当成“没选过”升成开（之后仍可关掉）
-	if int(data.get("version", 1)) < VERSION:
-		settings.export_on_focus_lost = true
 	return settings
 
 
