@@ -181,6 +181,7 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 
 
 ## 这一行会不会成为一条指令（导入侧数指令序号用的是同一套规则）。
+## 标签行 `label:` 已经造不出来了（跳转目标改成块引用），但别人手写的 mlog 里还有，仍按 LParser 的数法不占行号。
 static func is_instruction(text: String) -> bool:
 	if text == "" or text.begins_with("#"):
 		return false

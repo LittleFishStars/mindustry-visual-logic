@@ -21,7 +21,6 @@ static func parse(
 	if text == "" or library == null or graph == null:
 		return out
 	var index := _build_index(library)
-	var fallback := _fallback_candidates(library)
 	var markers := _marker_index(library)
 	## 与 out 平行：结构块的巢结束指令序号（-1 = 不是结构块）
 	var ends: Array[int] = []
@@ -45,6 +44,10 @@ static func parse(
 			var tokens := tokenize(statement)
 			if tokens.is_empty():
 				continue
+			# 标签行没有对应的块了：出声说明，不静默丢掉这一行
+			if tokens.size() == 1 and String(tokens[0]).ends_with(":"):
+				warnings.append("mlog 的标签行（%s）不再支持：跳转目标改为在 Jump 上拖块锁定" % statement)
+				continue
 			# 带标记的行：按结构块自己的模板认，`<AfterSubtree/>` 那一格就是巢结束的行号
 			if not marker.is_empty():
 				var marked: Variant = _match_marked(marker["def"], tokens)
@@ -64,8 +67,6 @@ static func parse(
 				warnings.append("结构标记 %s 与这一行不符，已按普通语句导入：%s" % [marker["def"].marker, statement])
 			var candidates: Array = index.get(StringName(tokens[0]), [])
 			var hit: Variant = _try_defs(candidates, tokens)
-			if hit == null:
-				hit = _try_defs(fallback, tokens)
 			if hit == null:
 				warnings.append("无法识别的 mlog 行：%s" % statement)
 				continue
@@ -161,7 +162,13 @@ static func bind_links(
 			continue
 		for field_id in def.reference_fields():
 			var raw := String(node.get_field(field_id, "")).strip_edges()
-			if raw == "" or not raw.is_valid_int():
+			if raw == "":
+				continue
+			if not raw.is_valid_int():
+				# `jump label always 0 0` 这种标签引用：标签已不支持，按未锁定处理
+				warnings.append("mlog 第 %d 行的跳转目标是标签 `%s`：标签已不支持，已按未锁定处理"
+					% [int(src_lines[i]) + 1 if i < src_lines.size() else 0, raw])
+				graph.set_field(node.id, field_id, "")
 				continue
 			var want := int(raw)
 			if want < 0:
@@ -226,19 +233,6 @@ static func _build_index(library: BlockLibrary) -> Dictionary:
 				bucket.append(def)
 			index[StringName(head)] = bucket
 	return index
-
-
-## 行首没有字面量的块（如 JumpLabel 的 `label:`）无法进索引，单独兜底。
-static func _fallback_candidates(library: BlockLibrary) -> Array:
-	var out: Array = []
-	for block_id in library.block_ids():
-		var def := library.by_id(block_id)
-		for shape in _shapes(def):
-			var tokens: Array = shape["tokens"]
-			if tokens.size() == 1 and String(tokens[0].get("literal", "")) == "" and tokens[0].get("field", &"") != &"":
-				out.append(def)
-				break
-	return out
 
 
 static func _shapes(def: BlockDef) -> Array[Dictionary]:

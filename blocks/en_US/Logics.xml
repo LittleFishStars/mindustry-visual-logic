@@ -20,14 +20,6 @@
 			<Text id="T">End</Text>
 		</Row>
 	</Block>
-	<Block name="JumpLabel">
-		<Field id="label" glue="true" />
-		<Literal glue="true">:</Literal>
-		<Row>
-			<Text id="T1">Label</Text>
-			<LineBox id="label" placeholder="label1" />
-		</Row>
-	</Block>
 	<Block name="Expression">
 		<Literal>#</Literal>
 		<!-- 注释就是 `#` 加文本：空文本时不要被补成 `# 0`（那样导回来内容就变了） -->

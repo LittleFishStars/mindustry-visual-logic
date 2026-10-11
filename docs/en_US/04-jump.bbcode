@@ -11,5 +11,6 @@ Once locked, a [b]link line[/b] appears on the canvas: it runs out of the left s
 and overlapping lines are automatically staggered into layers. While dragging, the candidate block under the cursor gets an outline.
 
 On export the target is converted into an [b]instruction line number[/b], so you never have to count lines yourself: comment lines ([code]#[/code]) and label lines
-([code]label:[/code]) do not take up line numbers, which matches how the Mindustry assembler counts.
+someone else wrote ([code]label:[/code]) do not take up line numbers, which matches how the Mindustry assembler counts — but this editor has [b]no label block[/b]:
+importing mlog with labels reports those lines as unrecognized, and [code]jump label[/code] is treated as unlocked.
 When the target block is deleted, references pointing at it are cleared in the same undo entry, so no dead references are left behind.

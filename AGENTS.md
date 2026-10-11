@@ -250,7 +250,8 @@ assets/
   `UnitLocate.ore`(items)、`Sensor.prop`(sensors) —— 其它要挂的字段把 `<LineBox>` 换成 `<Selector>` 即可。
 - **块引用**：`<Field id="target" link="true"/>` 声明该字段存的是**另一块的引用**（`#<节点 id>`），
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
-  （注释行 `#…` 与标签行 `label:` 不占行号），导入时 `MlogImporter.bind_links` 再把行号绑回块。
+  （注释行 `#…` 与别人手写的标签行 `label:` 不占行号 —— **[b]标签块已经移除**[/b]：跳转目标只能用块引用，
+  导入时标签行会出声跳过、`jump 标签` 按未锁定处理），导入时 `MlogImporter.bind_links` 再把行号绑回块。
   「哪些字段是引用」的唯一真相在导出模板上（`BlockDef.reference_fields()`），元素种类只管怎么编辑它。
 - **结构块（`If` / `While`）的导出与还原**：它们没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
   取反逐项写在 `<Export when="cmp=…">` 里（`equal`→`notEqual`、`lessThan`→`greaterThanEq`…），
