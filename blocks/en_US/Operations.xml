@@ -20,7 +20,11 @@
 			<Text id="T1">Operation</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
-			<LineBox id="a" placeholder="a" />
+			<!-- 显示顺序跟官方 OperationStatement.rebuild 一致：
+			     一元（not/abs/…）与函数型（max/len/…）是 `result = op a [b]`，其余是 `result = a op b`。
+			     所以 `a` 在下面出现两次（同一个字段、两个位置、条件互补）——
+			     视图按元素建控件，同一字段的多个控件写的是同一份数据。 -->
+			<LineBox id="a" placeholder="a" when="~(ops=not|abs|sign|log|log10|floor|ceil|round|sqrt|rand|sin|cos|tan|asin|acos|atan|max|min|angle|angleDiff|len|noise)" />
 			<Option id="ops">
 			<Item>add</Item>
 			<Item>sub</Item>
@@ -71,7 +75,9 @@
 			<Item>atan</Item>
 		</Option>
 			<!-- 一元运算（官方 LogicOp.unary）不显示第二个操作数：not/abs/sign/log/log10/
-			     floor/ceil/round/sqrt/rand/sin/cos/tan/asin/acos/atan -->
+				 floor/ceil/round/sqrt/rand/sin/cos/tan/asin/acos/atan -->
+			<!-- 一元与函数型：a 挪到运算符[b]后面[/b]（与上面那个 a 条件互补） -->
+			<LineBox id="a" placeholder="a" when="ops=not|abs|sign|log|log10|floor|ceil|round|sqrt|rand|sin|cos|tan|asin|acos|atan|max|min|angle|angleDiff|len|noise" />
 			<LineBox id="b" placeholder="b" when="~(ops=not | ops=abs | ops=sign | ops=log | ops=log10 | ops=floor | ops=ceil | ops=round | ops=sqrt | ops=rand | ops=sin | ops=cos | ops=tan | ops=asin | ops=acos | ops=atan)" />
 		</Row>
 	</Block>

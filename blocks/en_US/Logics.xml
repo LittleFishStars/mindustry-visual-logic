@@ -48,7 +48,7 @@
 			<JumpTarget id="target" />
 			<Text id="T2">if</Text>
 			<!-- cmp=always 时官方隐藏两个比较值（`addOp` 里的 `if(op != always)`）：
-			     文本上依旧占位（写 0），但界面上不给两个没用的输入框 -->
+				 文本上依旧占位（写 0），但界面上不给两个没用的输入框 -->
 			<LineBox id="value1" placeholder="x" when="cmp!=always" />
 			<Option id="cmp">
 			<Item>equal</Item>

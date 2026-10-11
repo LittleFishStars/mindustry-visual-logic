@@ -67,7 +67,12 @@ var _row_def: Array[BlockDef.RowDef] = []
 ## 该行本轮是否整行不参与布局（条件不成立）
 var _row_skip: Array[bool] = []
 var _nest_controls: Dictionary[StringName, Control] = {}
-var _elements: Dictionary[StringName, Control] = {}
+## 建好的输入控件，逐个元素一条：`{"element": ElementDef, "control": Control}`。
+##
+## [b]同样是按元素记、不是按字段 id 记[/b]：同一个字段可以在不同条件下出现在不同位置
+## （`op` 的一元运算要 `result = not a`、二元要 `result = a add b`，两行的控件都写同一个字段）。
+## 按 id 存字典的话，重复的那一个会被覆盖 —— 它的可见性再也没人管，会一直显示。
+var _element_entries: Array[Dictionary] = []
 var _bg_rects: Array[Rect2] = []
 var _styles: Array[StyleBoxFlat] = []
 
@@ -208,7 +213,7 @@ func _build() -> void:
 	_row_kind.clear()
 	_row_slot.clear()
 	_nest_controls.clear()
-	_elements.clear()
+	_element_entries.clear()
 	_bg_rects.clear()
 	_styles.clear()
 	_row_def.clear()
@@ -229,7 +234,7 @@ func _build() -> void:
 			var control := _build_element(cell)
 			if control != null:
 				row.add_child(control)
-				_elements[cell.id] = control
+				_element_entries.append({"element": cell, "control": control})
 	# 没有任何元素的块（如 None）也要有一行，否则它在画布上是不可见也不可点的
 	if _rows.is_empty():
 		_make_row(ROW_NORMAL, &"", null)
@@ -443,8 +448,13 @@ func _apply_visibility() -> void:
 	if def == null:
 		return
 	var value_of := _value_reader()
-	for id in _elements:
-		_elements[id].visible = def.is_element_active(def.element(id), value_of)
+	# 每个控件按[b]它自己那个元素[/b]的条件判可见性：同一个字段的多个控件条件不同，
+	# 所以不能拿 `def.element(id)`（只认第一个）去判。
+	for entry in _element_entries:
+		var element: ElementDef = entry["element"]
+		var control: Control = entry["control"]
+		if control != null and is_instance_valid(control):
+			control.visible = def.is_element_active(element, value_of)
 
 
 ## 条件求值用的小闭包：取值一律以数据层为准。
@@ -459,13 +469,15 @@ func _value_reader() -> Callable:
 func _sync_control(field_id: StringName) -> void:
 	if def == null or node == null:
 		return
-	var element := def.element(field_id)
-	var control: Control = _elements.get(field_id)
-	if element == null or control == null:
-		return
-	var builder: Variant = ElementRegistry.builder(element.type)
-	if builder != null:
-		builder.apply_value(element, control, String(field_value(field_id, element.default_value)))
+	# 同一个字段的每个控件都要同步（它们可能在不同的行、带不同的元素条件）
+	for entry in _element_entries:
+		var element: ElementDef = entry["element"]
+		var control: Control = entry["control"]
+		if element == null or element.id != field_id or control == null or not is_instance_valid(control):
+			continue
+		var builder: Variant = ElementRegistry.builder(element.type)
+		if builder != null:
+			builder.apply_value(element, control, String(field_value(field_id, element.default_value)))
 
 
 ## 由画布把控件状态同步回数据层（撤销/重做后会整体重建，一般不需要）。
@@ -484,10 +496,10 @@ func set_elements_enabled(enabled: bool) -> void:
 	if def == null:
 		return
 	var want := enabled and not preview
-	for id in _elements:
-		var element := def.element(id)
-		var control: Control = _elements[id]
-		if element == null or control == null:
+	for entry in _element_entries:
+		var element: ElementDef = entry["element"]
+		var control: Control = entry["control"]
+		if element == null or control == null or not is_instance_valid(control):
 			continue
 		var builder: Variant = ElementRegistry.builder(element.type)
 		if builder != null:

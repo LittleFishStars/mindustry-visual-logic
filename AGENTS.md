@@ -207,12 +207,21 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 - `draw`：`DrawStatement.build()` 的 `switch(type)`。
 - `jump` / `select`：`addOp()` 里的 `if(op != always)` —— `always` 时[b]两个比较值都不显示[/b]。
 - `op`：`LogicOp.unary`（`not`/`abs`/`sign`/`log`/`log10`/`floor`/`ceil`/`round`/`sqrt`/`rand`/`sin`/
-  `cos`/`tan`/`asin`/`acos`/`atan`）只显示一个操作数。
+  `cos`/`tan`/`asin`/`acos`/`atan`）只显示一个操作数；[b]连顺序也变[/b] ——
+  `OperationStatement.rebuild`：一元与函数型（`max`/`min`/`angle`/`angleDiff`/`len`/`noise`）
+  是 `result = op a [b]`（运算符在前），其余是 `result = a op b`（旧实现用 `move_child` 挪的那个）。
 - `ulocate`：`switch(locate)`；其中 `building` 这个[b]输出[/b]在 `ore` 以外的三种都有（`if(locate != ore)`）。
 
 所以 XML 里 Row 的每个输入框都要带 `when`，而导出模板里的 `<Field>` 保持无条件 ——
 两者分开写：模板负责文本，元素负责显示。改完块定义要同时跑两套检查（只跑一套就会
 出现“文本对了但界面多/少一个框”或反之）。
+
+[b]同一个字段可以出现在多个元素上[/b]（条件不同、位置不同）—— 这是表达“顺序随选项变”的手段：
+`op` 的 `a` 就写了两次（一元/函数型的那个排在运算符后面，其它的排在前面，两边条件互补）。
+`BlockView` 按[b]元素[/b]建控件（`_element_entries`），同一字段的多个控件写的是同一份数据，
+所以切换选项时值不会丢；而 `BlockDef.element(id)` / `_by_id` 只认[b]第一个[/b]，
+所以别把不同默认值/不同候选集的元素放在同一个 id 上（列表类的元素只能写一份，要复用就
+像 `op` 这样只重复简单的 LineBox）。
 
 校验手段（改完 XML 跑一遍，[b]文本与显示各一条[/b]）：
 
