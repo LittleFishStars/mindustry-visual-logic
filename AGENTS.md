@@ -42,7 +42,7 @@ srcs/
 │   ├── drag_controller.gd      ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
 │   ├── link_controller.gd      ← 锁定会话（Jump 的目标按钮：拖到某块上松手 = 锁定）
 │   ├── link_layer.gd           ← 跳线层（Jump → 目标块的彩色折线 + 箭头）
-│   ├── selector_panel.gd       ← 单位/传感器选择器浮层
+│   ├── selector_panel.gd       ← 内容选择弹窗（单位/建筑/物品/液体/传感器属性）
 │   └── elements/
 │       └── element_builders.gd ← 内置元素构建器（ElementBuilder 子类 + 注册）
 ├── mlog/                       ← 与 mlog 文本互转（纯函数，不碰控件）
@@ -65,7 +65,7 @@ srcs/
     └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 锁定 + 选择器
 
 blocks/{locale}/*.xml           ← 块定义
-blocks/selectors/*.json         ← 选择器候选（units / sensors）
+blocks/selectors/*.json         ← 选择器候选（units / blocks / items / liquids / sensors）
 assets/
 ├── fonts/
 ├── sprites/cursors/           ← custom mouse cursors
@@ -162,7 +162,16 @@ assets/
 - **排位**：`<Place when="…" after="元素 id"/>`（或 `before=`）写在元素内部，满足 `when` 时
   这个元素挪到另一个元素的后面/前面（与可见性同一次条件求值，一起重算）。不写就是书写顺序，
   与以前行为一致。`op` 的一元运算把运算符提到前面就是这么声明的（见下节）。
-- **选择器**：`<Selector id="unit" kind="units" />`，候选取自 `blocks/selectors/{kind}.json`。
+- **选择器（`<Selector>`）**：`<Selector id="type" kind="units" placeholder="@unit" />` —— 一个输入框
+  加一个 ▾ 按钮，按下弹出图标选择弹窗（[SelectorPanel]），选中的 `@xxx` 回填进这个字段。
+  它是普通字段元素（`is_field`），所以导出模板、`when` 条件、校验都跟 `<LineBox>` 一样，
+  互换只影响显示。候选来自 `blocks/selectors/{kind}.json`：`units`(58) / `blocks`(259) /
+  `items`(22) / `liquids`(11) / `sensors`(411，带 Item/Liquid/Payload/More 分组)。
+  [b]弹窗有搜索框[/b]：边打边筛（`c`、`copper`、`@copper` 都行；开头命中排最前，
+  所以打 `router` 第一个就是 `@router` 而不是 `@duct-router`），回车选第一个，Esc 关掉。
+  注意 `placeholder` 兼作默认值：只想改提示就同时写 `default=`（否则新块的默认值会被改掉）。
+  目前已挂：`UnitBind.type`(units)、`UnitItem.item`(items)、`UnitBuild.block`(blocks)、
+  `UnitLocate.ore`(items)、`Sensor.prop`(sensors) —— 其它要挂的字段把 `<LineBox>` 换成 `<Selector>` 即可。
 - **块引用**：`<Field id="target" link="true"/>` 声明该字段存的是**另一块的引用**（`#<节点 id>`），
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
   （注释行 `#…` 与标签行 `label:` 不占行号），导入时 `MlogImporter.bind_links` 再把行号绑回块。

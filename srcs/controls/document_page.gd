@@ -43,7 +43,12 @@ Start 不能复制、也不能删除（一个文档就一个起点）。
 [b]标签页[/b]：单击已选中的那个标签就地改名；双击任意标签关闭它（关掉最后一个会自动补一个空白页）；
 右键任意标签也是改名。
 
-[b]画布[/b]：滚轮缩放；在空白处按住左键拖动平移。"""
+[b]画布[/b]：滚轮缩放；在空白处按住左键拖动平移。
+
+[b]选择器[/b]：带 [code]▾[/code] 的输入框（单位绑定、建筑、物品、传感器属性等）点一下会弹出图标选择弹窗：
+上面是搜索框（打 [code]c[/code] / [code]copper[/code] / [code]@copper[/code] 都能筛，开头命中的排最前），
+回车选第一个、[code]Esc[/code] 关掉；有分组的（如传感器属性）上面还有分页按钮。
+也可以不点弹窗、直接在输入框里敲值。"""
 	},
 	{
 		"title": "嵌套与分支",
@@ -106,8 +111,8 @@ Start 不能复制、也不能删除（一个文档就一个起点）。
   <Literal>print</Literal>
   <Field id="content" />
   <Row>
-    <Text>Print</Text>
-    <LineBox id="content" placeholder="frog" />
+	<Text>Print</Text>
+	<LineBox id="content" placeholder="frog" />
   </Row>
 </Block>[/code]
 

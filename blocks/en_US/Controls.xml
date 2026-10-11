@@ -129,7 +129,7 @@
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<Text id="T3">@</Text>
-			<LineBox id="prop" placeholder="@copper" />
+			<Selector id="prop" kind="sensors" placeholder="@copper" />
 			<Text id="T4">in</Text>
 			<LineBox id="block" placeholder="block1" />
 		</Row>

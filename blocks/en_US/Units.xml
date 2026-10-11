@@ -4,7 +4,7 @@
 		<Field id="type" />
 		<Row>
 			<Text id="T1">UnitBind</Text>
-			<LineBox id="type" placeholder="@unit" />
+			<Selector id="type" kind="units" placeholder="@unit" />
 		</Row>
 	</Block>
 	<Block name="UnitIdle">
@@ -119,7 +119,7 @@
 			<Text id="T3" when="mode=itemDrop">amount</Text>
 			<LineBox id="amount" placeholder="999" when="mode=itemDrop" />
 			<Text id="Ti" when="mode=itemTake">item</Text>
-			<LineBox id="item" placeholder="@copper" when="mode=itemTake" />
+			<Selector id="item" kind="items" placeholder="@copper" when="mode=itemTake" />
 			<Text id="Te" when="mode=itemTake">amount</Text>
 			<LineBox id="ext" placeholder="999" when="mode=itemTake" />
 		</Row>
@@ -190,7 +190,8 @@
 		</Row>
 		<Row>
 			<Text id="T4">block</Text>
-			<LineBox id="block" placeholder="0" />
+			<!-- placeholder 只是提示，default 保留官方的默认值 0（placeholder 兼作默认值，所以必须显式写） -->
+			<Selector id="block" kind="blocks" placeholder="@router" default="0" />
 			<Text id="T5">rotation</Text>
 			<LineBox id="rot" placeholder="0" />
 			<Text id="T6">config</Text>
@@ -329,7 +330,7 @@
 			<Item>damaged</Item>
 		</Option>
 			<Text id="Tore" when="find=ore">ore</Text>
-			<LineBox id="ore" placeholder="@copper" when="find=ore" />
+			<Selector id="ore" kind="items" placeholder="@copper" when="find=ore" />
 			<Text id="T2" when="find=building">group</Text>
 			<Option id="group" when="find=building">
 			<Item>core</Item>
