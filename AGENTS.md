@@ -413,9 +413,9 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 
 ## Conventions and gotchas
 
-- **`old/` 是 gitignored 的旧版实现**：只作行为对照（块清单、导出顺序、默认值、选择器候选都从它提取过），
-  不要修改。它的内部资源路径（`res://Blocks/…`）已失效，不能就地运行。
-- **`build/` 与 `export_presets.cfg` 是 gitignored**。
+- **`build/`（临时脚本、导出的发行包）与 `export_presets.cfg` 是 gitignored**。
+- **`old/`（旧版实现）已于 2026-10-11 删除**：重构早已定稿，它又不曾在 git 里 —— 再要对照旧行为
+  只能看 git 历史或 GitHub 上 0.2.3 的发行版。
 - **只用 GDScript**。
 - **XML 块文件是块定义的唯一来源** —— 改块就是改 XML，不要改 GDScript。
 - **注释只写「代码里看不出来的东西」**：不变量、顺序/耦合约束、外部格式依赖、会踩坑的行为，
