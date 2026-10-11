@@ -59,7 +59,7 @@ srcs/
 │   ├── settings_window.gd
 │   ├── tab_rename.gd           ← 标签条就地重命名（手势 + 输入框；外壳只接"改完写到哪"）
 │   ├── document_page.tscn      ← 文档页（标签页形态：左边章节 / 右边富文本）
-│   ├── document_page.gd        ← 文档正文就在这个文件的 SECTIONS 常量里
+│   ├── document_page.gd        ← 文档页脚本（正文读 docs/*.bbcode，不在代码里）
 │   ├── about_window.tscn       ← 关于窗（版本 / 作者 / 反馈与仓库链接）
 │   └── about_window.gd
 ├── scenes/
@@ -71,6 +71,7 @@ srcs/
 
 blocks/{locale}/*.xml           ← 块定义
 blocks/selectors/*.json         ← 选择器候选（units / blocks / items / liquids / sensors）
+docs/{NN}-{slug}.bbcode         ← 应用内文档（帮助 → Document）：每页一个文件，首行章节名、其余 BBCode
 assets/
 ├── fonts/
 ├── sprites/cursors/           ← custom mouse cursors
@@ -317,6 +318,11 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。
   文档页[b]不是[/b] [LogicEditorTab]，所以在它上面「存 / 导出 / 撤销」都是空操作
   （`_current_editor()` 返回 null，编辑菜单据此置灰）—— 这不是 bug，别把菜单项接死。
+- **应用内文档（帮助 → Document）**：正文是 [code]docs/{NN}-{slug}.bbcode[/code]，[b]每页一个文件[/b] ——
+  文件名排序就是章节顺序，首行是章节名、其余是 BBCode 正文；加一页 = 往 [code]docs/[/code] 丢一个文件，
+  代码不用动（[DocumentPage] 在 `_ready` 里读一次）。
+  [b]导出时必须把 [code]docs/[/code] 加进 export preset 的「Filters to export non-resource files/folders」[/b]：
+  `.bbcode` 不是 Godot 资源，漏了它打包出来的应用里文档是空的（此时页面会显示提示文字）。
 - **F5 快捷导出**：等价于 `File → 导出到剪贴板`。键位在 [code]project.godot[/code] 的 `[input]` 里，
   action 名沿用旧版的 `compile`（旧版把「导出 mlog」叫 compile），代码里只认
   `Main.QUICK_EXPORT_ACTION` 常量 —— 要换键就改 project.godot，不用碰代码。
