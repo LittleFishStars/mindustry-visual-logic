@@ -262,11 +262,15 @@ func export_mlog(warnings: Array[String] = []) -> String:
 
 
 ## 导出到系统剪贴板，返回写进去的文本。
-func copy_mlog_to_clipboard() -> String:
+## [param skip_empty] 为真时，程序为空就不动剪贴板 —— 自动导出（切走窗口）用得上：
+## 空程序也照写的话，会把用户刚复制的东西清成空字符串。
+func copy_mlog_to_clipboard(skip_empty: bool = false) -> String:
 	var warnings: Array[String] = []
 	var text := export_mlog(warnings)
 	for message in warnings:
 		push_warning(message)
+	if skip_empty and text.strip_edges() == "":
+		return text
 	DisplayServer.clipboard_set(text)
 	return text
 

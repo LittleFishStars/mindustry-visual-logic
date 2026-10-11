@@ -12,6 +12,9 @@ extends RefCounted
 ## 存盘路径。默认落用户目录；调用方可以改它（测试就靠这个避免写到真实用户目录）。
 static var path: String = "user://settings.json"
 
+## 设置文件格式版本：读旧文件时靠它做一次性迁移（见 [method from_json]）。
+const VERSION: int = 2
+
 const DEFAULT_MAX_FPS: int = 60
 const DEFAULT_UI_SCALE: float = 1.0
 const MIN_MAX_FPS: int = 10
@@ -23,8 +26,10 @@ const MAX_UI_SCALE: float = 2.0
 var max_fps: int = DEFAULT_MAX_FPS
 ## 整个 UI 的缩放系数（对应 [member Window.content_scale_factor]）。
 var ui_scale: float = DEFAULT_UI_SCALE
-## 窗口失焦时把当前标签页的 mlog 导出到剪贴板（旧实现叫 compile_when_close）。
-var export_on_focus_lost: bool = false
+## 窗口失焦（切到别的应用）时，把当前标签页的 mlog 自动导出到剪贴板 —— 丢进游戏前先切窗口抓逻辑
+## 是主要用法，所以[b]默认开着[/b]，不想要就在设置里关掉。空程序不会被写进剪贴板（见 [Main]）。
+## （旧实现叫 compile_when_close，且默认关。）
+var export_on_focus_lost: bool = true
 
 
 ## 从磁盘读设置；文件不存在或读不动时返回一份默认值（不会失败）。
@@ -56,6 +61,7 @@ func to_json() -> String:
 
 func to_dict() -> Dictionary:
 	return {
+		"version": VERSION,
 		"max_fps": max_fps,
 		"ui_scale": ui_scale,
 		"export_on_focus_lost": export_on_focus_lost,
@@ -73,11 +79,15 @@ static func from_json(text: String) -> AppSettings:
 	var data: Dictionary = json.data
 	settings.max_fps = clampi(int(data.get("max_fps", DEFAULT_MAX_FPS)), MIN_MAX_FPS, MAX_MAX_FPS)
 	settings.ui_scale = clampf(float(data.get("ui_scale", DEFAULT_UI_SCALE)), MIN_UI_SCALE, MAX_UI_SCALE)
-	settings.export_on_focus_lost = bool(data.get("export_on_focus_lost", false))
+	settings.export_on_focus_lost = bool(data.get("export_on_focus_lost", true))
+	# 迁移：v1（没有 version 字段）里这项默认是关的，没改过设置文件的人会一直是关的 ——
+	# 既然这个行为默认就该开，就把旧的“关”当成“没选过”升上来；用户之后仍可在设置里关掉。
+	if int(data.get("version", 1)) < VERSION:
+		settings.export_on_focus_lost = true
 	return settings
 
 
 func reset_to_defaults() -> void:
 	max_fps = DEFAULT_MAX_FPS
 	ui_scale = DEFAULT_UI_SCALE
-	export_on_focus_lost = false
+	export_on_focus_lost = true

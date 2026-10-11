@@ -350,7 +350,12 @@ func _on_settings_closed() -> void:
 		push_warning("设置没能写进 %s（错误码 %d）" % [AppSettings.path, error])
 
 
-## 窗口失焦：按设置把当前标签页的 mlog 丢进剪贴板（旧实现叫 compile_when_close）。
+## 切走窗口（切到别的应用）：按设置把当前标签页的 mlog 自动丢进剪贴板。
+##
+## 只认 APPLICATION_FOCUS_OUT：它在桌面与移动端都实现，语义正好是「焦点离开本程序」——
+## 而 WM_WINDOW_FOCUS_OUT 在本程序的两个窗口之间切换时也会发，那时并不该导出
+## （所以两个都监听会重复导出）。
+## 空程序不写剪贴板（别把用户刚复制的东西清空），当前页不是编辑器（如文档页）也不动。
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_APPLICATION_FOCUS_OUT or _settings == null:
 		return
@@ -359,7 +364,10 @@ func _notification(what: int) -> void:
 	var editor := self._current_editor()
 	if editor == null:
 		return
-	var text := editor.copy_mlog_to_clipboard()
+	var text := editor.copy_mlog_to_clipboard(true)
+	if text.strip_edges() == "":
+		print("[MVL] 失焦自动导出：当前页没有 mlog，剪贴板保持不变")
+		return
 	print("[MVL] 失焦自动导出 %d 行 mlog 到剪贴板" % text.count("\n"))
 
 

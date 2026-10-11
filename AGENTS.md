@@ -318,7 +318,12 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   `SettingsWindow` 只管「值 ↔ 控件」，[b]应用[/b]（`Engine.max_fps` / `root.content_scale_factor`）在 `main.gd`。
   改动即时生效、关闭窗口时才写盘；`@tool` 下 `_apply_settings()` 直接 return，
   免得在编辑器里顺手改掉 Godot 编辑器自己的帧率与界面缩放。
-  「失焦自动导出」走 `main.gd._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)`（旧实现叫 compile_when_close）。
+  「失焦自动导出」走 `main.gd._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)`（旧实现叫 compile_when_close）：
+  这个通知在桌面与移动端都实现，语义正是「焦点离开本程序」；[b]不要[/b]连 `NOTIFICATION_WM_WINDOW_FOCUS_OUT`
+  一起监听 —— 切到本程序自己的另一个窗口时它也会发，那会重复导出。默认[b]开[/b]（切窗口丢进游戏是主要用法），
+  空程序 / 当前页不是编辑器时不动剪贴板（不能把用户刚复制的东西清掉）。
+  设置文件带 `version`：v1（没有 version）里这项默认是关的，加载时按迁移升成开 —— 不然老用户升级后
+  这项会一直是关的（他们没改过，只是吃了旧默认值）；之后仍可在设置里关掉。
   窗口[b]自带 StyleBoxFlat[/b]（与公告窗同一套配色）：主主题只覆盖了 Button/Label/MenuBar/
   PopupMenu/TabContainer/Tree/ScrollBar，`CheckButton`/`LineEdit`/`HSlider` 会顶引擎默认皮肤。
   数值用 `LineEdit` 而不是 `SpinBox`——SpinBox 的样式长在它内部的 LineEdit 与箭头按钮上，
