@@ -19,10 +19,6 @@ static func register(type: StringName, builder: Variant) -> void:
 	_builders[type] = builder
 
 
-static func unregister(type: StringName) -> void:
-	_builders.erase(type)
-
-
 static func has(type: StringName) -> bool:
 	ensure_defaults()
 	return _builders.has(type)

@@ -20,13 +20,3 @@ var slot_offsets: Dictionary[StringName, Vector2] = {}
 ## 子槽位：槽位 id → 吸附线宽度。
 var slot_widths: Dictionary[StringName, float] = {}
 
-
-## 槽位是否参与布局。
-func has_slot(slot_id: StringName) -> bool:
-	return slot_offsets.has(slot_id)
-
-
-func slot_ids() -> Array[StringName]:
-	var out: Array[StringName] = []
-	out.assign(slot_offsets.keys())
-	return out

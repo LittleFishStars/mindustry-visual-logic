@@ -80,23 +80,7 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 			_exclude[id] = true
 			_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
 	# 原块先隐藏，改用覆盖层里的副本跟手 —— 否则拖到左侧块列表上方时会被裁掉
-	_floats.clear()
-	_float_offsets.clear()
-	_hidden.clear()
-	if _overlay != null:
-		var head: Vector2 = _subtree_positions.get(_source_node.id, Vector2.ZERO)
-		for id in _subtree_positions:
-			var carried_node := canvas.graph.get_node_by_id(id)
-			if carried_node == null:
-				continue
-			var carried_view := canvas.view_of(id)
-			if carried_view != null and is_instance_valid(carried_view):
-				_hidden[id] = carried_view.visible
-				carried_view.visible = false
-			var float_view := canvas.make_ghost(carried_node.type_id, _overlay, carried_node)
-			if float_view != null:
-				_floats.append(float_view)
-				_float_offsets.append((_subtree_positions[id] as Vector2) - head)
+	_spawn_floats(_subtree_positions.keys(), _subtree_positions.get(_source_node.id, Vector2.ZERO), true)
 	_begin_session()
 
 
@@ -127,19 +111,7 @@ func start_copy_from_view(view: BlockView, offset: Vector2) -> void:
 	_subtree_positions.clear()
 	for id in _copy_ids:
 		_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
-	_floats.clear()
-	_float_offsets.clear()
-	_hidden.clear()
-	if _overlay != null:
-		var head: Vector2 = _subtree_positions.get(_copy_source_id, Vector2.ZERO)
-		for id in _copy_ids:
-			var node := canvas.graph.get_node_by_id(id)
-			if node == null:
-				continue
-			var float_view := canvas.make_ghost(node.type_id, _overlay, node)
-			if float_view != null:
-				_floats.append(float_view)
-				_float_offsets.append((_subtree_positions[id] as Vector2) - head)
+	_spawn_floats(_copy_ids, _subtree_positions.get(_copy_source_id, Vector2.ZERO), false)
 	_begin_session()
 
 
@@ -170,6 +142,28 @@ func _on_session_started() -> void:
 	_target = {}
 	drag_started.emit()
 
+
+## 生成跟手的副本：把 [param ids] 各自做成覆盖层里的幽灵视图，
+## 位置按它们相对「头块」的布局偏移。搬移时顺带把原块藏起来，复制时原块留在原地。
+func _spawn_floats(ids: Array, head: Vector2, hide_sources: bool) -> void:
+	_floats.clear()
+	_float_offsets.clear()
+	_hidden.clear()
+	if _overlay == null:
+		return
+	for id in ids:
+		var node := canvas.graph.get_node_by_id(id)
+		if node == null:
+			continue
+		if hide_sources:
+			var source_view := canvas.view_of(id)
+			if source_view != null and is_instance_valid(source_view):
+				_hidden[id] = source_view.visible
+				source_view.visible = false
+		var float_view := canvas.make_ghost(node.type_id, _overlay, node)
+		if float_view != null:
+			_floats.append(float_view)
+			_float_offsets.append((_subtree_positions[id] as Vector2) - head)
 
 #endregion
 
@@ -383,7 +377,6 @@ func _zoom() -> float:
 	if _overlay != null and canvas != null and canvas.nCamera != null:
 		return canvas.nCamera.zoom.x
 	return 1.0
-
 
 
 

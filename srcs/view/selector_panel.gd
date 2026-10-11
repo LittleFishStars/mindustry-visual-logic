@@ -151,64 +151,49 @@ func _ready() -> void:
 	_panel.resized.connect(_recenter)
 
 
+## StyleBoxFlat 的统一起手：底色 + 可选描边 + 可选圆角（主主题里没有 PanelContainer /
+## LineEdit 的条目，这些样式必须自带）。内容留白各调用点自己写 —— 它们的四边往往不一样。
+static func _box(bg: Color, border: Color = Color(0, 0, 0, 0), border_width: int = 0,
+		radius: int = 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	if border_width > 0:
+		style.set_border_width_all(border_width)
+		style.border_color = border
+	if radius > 0:
+		style.set_corner_radius_all(radius)
+	return style
+
+
 ## 面板底：深色底板 + 一圈描边（主主题里没有 PanelContainer 的样式）。
 func _make_panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_PANEL
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = COLOR_BORDER
+	var style := _box(COLOR_PANEL, COLOR_BORDER, 2)
 	style.shadow_color = Color(0, 0, 0, 0.35)
 	style.shadow_size = 6
 	# 子控件要紧贴边框：内容留白交给里面的 MarginContainer，否则标题条两端会缩进去
-	style.content_margin_left = 0.0
-	style.content_margin_top = 0.0
-	style.content_margin_right = 0.0
-	style.content_margin_bottom = 0.0
+	style.set_content_margin_all(0.0)
 	return style
 
 
 ## 格子的紧凑样式：主题里 Button 的 content margin 高达 30，会把 40px 的格子撑成 115px。
 func _make_cell_style(state: StringName) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = CELL_COLORS[state][0]
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = CELL_COLORS[state][1]
-	style.content_margin_left = 4.0
-	style.content_margin_top = 4.0
-	style.content_margin_right = 4.0
-	style.content_margin_bottom = 4.0
+	var style := _box(CELL_COLORS[state][0], CELL_COLORS[state][1], 2)
+	style.set_content_margin_all(4.0)
 	return style
 
 
 ## 搜索框：与设置窗的输入框同一套（深底 + 2px 描边，聚焦时描边变亮紫）。
 func _make_edit_style(focused: bool) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_EDIT
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = COLOR_EDIT_FOCUS if focused else COLOR_BORDER
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
+	var style := _box(COLOR_EDIT, COLOR_EDIT_FOCUS if focused else COLOR_BORDER, 2, 2)
 	style.content_margin_left = 8.0
-	style.content_margin_top = 4.0
 	style.content_margin_right = 8.0
+	style.content_margin_top = 4.0
 	style.content_margin_bottom = 4.0
 	return style
 
 
 func _make_bar_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_BAR
+	var style := _box(COLOR_BAR)
 	style.border_width_top = 5
 	style.border_color = Color(0, 0, 0, 0.419608)
 	style.content_margin_left = 10.0
@@ -219,7 +204,7 @@ func _make_bar_style() -> StyleBoxFlat:
 
 
 ## 在编辑器区域[b]居中[/b]打开弹窗。
-func open(element: ElementDef, control: Control) -> void:
+func open(element: ElementDef) -> void:
 	if element == null or not SelectorData.exists(element.selector_kind):
 		push_warning("没有选择器数据：%s（kind=%s）" % [
 			element.id if element != null else "?",
@@ -377,6 +362,8 @@ func _refill() -> void:
 
 
 ## 关键词匹配：`@copper` 用 `c`、`copper`、`@copper` 都能搜到。
+## 两个分支都不能省：`trim_prefix("@")` 后的 needle 为空串时 [method String.contains] 恒为假，
+## 而只打一个 `@` 时用户要的是「列出所有引用名」—— 那正是第一个分支在管的。
 func _matches(value: String, keyword: String) -> bool:
 	var haystack := value.to_lower()
 	return haystack.contains(keyword) or haystack.trim_prefix("@").contains(keyword.trim_prefix("@"))

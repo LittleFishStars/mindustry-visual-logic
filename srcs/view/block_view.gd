@@ -245,7 +245,8 @@ func _build() -> void:
 		for cell in row_def.cells:
 			if cell.type == &"Nest":
 				# Nest 独占一行（槽里的块是画布的直接子级，这里只作占位）
-				cells = _flush_row(row, cells)
+				_flush_row(row, cells)
+				cells = []
 				row = null
 				_make_nest_row(cell, row_def)
 				continue
@@ -284,13 +285,12 @@ func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> 
 
 
 ## 收齐一行的控件：按排位规则定顺序后入行，并把这一行的单元格记下来（条件变化时要重排）。
-func _flush_row(row: HBoxContainer, cells: Array[Dictionary]) -> Array[Dictionary]:
+func _flush_row(row: HBoxContainer, cells: Array[Dictionary]) -> void:
 	if row == null or cells.is_empty():
-		return []
+		return
 	for cell in _ordered_cells(cells, _value_reader()):
 		row.add_child(cell["control"])
 	_row_cells.append(cells)
-	return []
 
 
 ## 一行内控件的最终顺序：从书写顺序出发，把带排位规则的单元格挪到目标元素的前/后。
@@ -558,21 +558,27 @@ func _sync_control(field_id: StringName) -> void:
 		return
 	# 同一个字段的每个控件都要同步（它们可能在不同的行、带不同的元素条件）
 	for entry in _element_entries:
-		var element: ElementDef = entry["element"]
-		var control: Control = entry["control"]
-		if element == null or element.id != field_id or control == null or not is_instance_valid(control):
-			continue
-		var builder: Variant = ElementRegistry.builder(element.type)
-		if builder != null:
-			builder.apply_value(element, control, String(field_value(field_id, element.default_value)))
+		if (entry["element"] as ElementDef).id == field_id:
+			_sync_entry(entry)
+
+
+## 把数据层里的当前值灌回某个元素的控件。
+func _sync_entry(entry: Dictionary) -> void:
+	var element: ElementDef = entry["element"]
+	var control: Control = entry["control"]
+	if element == null or control == null or not is_instance_valid(control):
+		return
+	var builder: Variant = ElementRegistry.builder(element.type)
+	if builder != null:
+		builder.apply_value(element, control, String(field_value(element.id, element.default_value)))
 
 
 ## 由画布把控件状态同步回数据层（撤销/重做后会整体重建，一般不需要）。
 func sync_from_data() -> void:
 	if def == null or node == null:
 		return
-	for element in def.elements:
-		_sync_control(element.id)
+	for entry in _element_entries:
+		_sync_entry(entry)
 	_apply_row_orders(_value_reader())
 	_apply_visibility()
 

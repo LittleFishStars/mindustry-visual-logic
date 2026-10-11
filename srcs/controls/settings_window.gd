@@ -57,48 +57,47 @@ func _show_values(data: AppSettings) -> void:
 #region 控件回调
 
 func _on_max_fps_changed(value: float) -> void:
-	if _loading or settings == null:
-		return
-	settings.max_fps = clampi(int(roundf(value)), AppSettings.MIN_MAX_FPS, AppSettings.MAX_MAX_FPS)
-	_show_values(settings)
-	changed.emit()
+	_apply_number(value, AppSettings.MIN_MAX_FPS, AppSettings.MAX_MAX_FPS, _set_max_fps)
 
 
 func _on_ui_scale_changed(value: float) -> void:
-	if _loading or settings == null:
-		return
-	settings.ui_scale = clampf(value, AppSettings.MIN_UI_SCALE, AppSettings.MAX_UI_SCALE)
-	_show_values(settings)
-	changed.emit()
+	_apply_number(value, AppSettings.MIN_UI_SCALE, AppSettings.MAX_UI_SCALE, _set_ui_scale)
 
 
 ## 输入框提交（回车或失焦）：认不出的值就退回当前值，不做“猜你想要”。
 func _on_max_fps_submitted(_text: String = "") -> void:
-	if _loading or settings == null:
-		return
-	settings.max_fps = clampi(_as_int(nMaxFpsEdit.text, settings.max_fps),
-		AppSettings.MIN_MAX_FPS, AppSettings.MAX_MAX_FPS)
-	_show_values(settings)
-	changed.emit()
+	if settings != null:
+		_apply_number(_number_in(nMaxFpsEdit, settings.max_fps),
+			AppSettings.MIN_MAX_FPS, AppSettings.MAX_MAX_FPS, _set_max_fps)
 
 
 func _on_ui_scale_submitted(_text: String = "") -> void:
+	if settings != null:
+		_apply_number(_number_in(nUiScaleEdit, settings.ui_scale),
+			AppSettings.MIN_UI_SCALE, AppSettings.MAX_UI_SCALE, _set_ui_scale)
+
+
+## 数值改动的统一出口：钳进范围 → 写回数据 → 回填控件 → 通知外壳。
+func _apply_number(value: float, minimum: float, maximum: float, setter: Callable) -> void:
 	if _loading or settings == null:
 		return
-	settings.ui_scale = clampf(_as_float(nUiScaleEdit.text, settings.ui_scale),
-		AppSettings.MIN_UI_SCALE, AppSettings.MAX_UI_SCALE)
+	setter.call(clampf(value, minimum, maximum))
 	_show_values(settings)
 	changed.emit()
 
 
-static func _as_int(text: String, fallback: int) -> int:
-	var trimmed := text.strip_edges()
-	return int(trimmed) if trimmed.is_valid_int() else fallback
+## 读输入框里的数字；认不出来就用 [param fallback]（= 当前值）。
+static func _number_in(edit: LineEdit, fallback: float) -> float:
+	var text := edit.text.strip_edges()
+	return text.to_float() if text.is_valid_float() else fallback
 
 
-static func _as_float(text: String, fallback: float) -> float:
-	var trimmed := text.strip_edges()
-	return float(trimmed) if trimmed.is_valid_float() else fallback
+func _set_max_fps(value: float) -> void:
+	settings.max_fps = int(roundf(value))
+
+
+func _set_ui_scale(value: float) -> void:
+	settings.ui_scale = value
 
 
 func _on_export_toggled(pressed: bool) -> void:

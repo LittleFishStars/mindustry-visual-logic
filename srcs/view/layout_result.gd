@@ -16,9 +16,6 @@ var metrics: Dictionary[int, BlockMetrics] = {}
 var anchors: Array[Dictionary] = []
 
 
-func has(id: int) -> bool:
-	return rects.has(id)
-
 
 func rect_of(id: int) -> Rect2:
 	return rects.get(id, Rect2())

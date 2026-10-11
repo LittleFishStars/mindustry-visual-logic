@@ -22,6 +22,8 @@ const PASTE_GAP := 56.0
 var library: BlockLibrary
 
 var _current_kind: StringName = &""
+## 类别 id → 它的块列表（展开/收起直接查表，不拿名字去节点树里找）。
+var _kind_lists: Dictionary[StringName, Control] = {}
 var _picker: SelectorPanel = null
 ## 谁请求的选择器：选中后由这个块视图刷控件 + 提交数据层（见 [method BlockView.apply_picker_value]）。
 var _picker_view: BlockView = null
@@ -56,6 +58,7 @@ func _setup_pointer_sessions() -> void:
 #region 调色板
 
 func _build_palette() -> void:
+	var first_visible: StringName = &""
 	for kind in library.kinds:
 		# hidden 的类别不进列表（Special：里面只有自动放的入口块这种内部块）
 		if kind.hidden:
@@ -73,11 +76,11 @@ func _build_palette() -> void:
 		for block in kind.blocks:
 			kind_list.add_child(_make_sample(block))
 		nBlockArea.add_child(kind_list)
-	# 默认展开第一个[b]可见[/b]的类别（hidden 的类别没有按钮，不能选它）
-	for kind in library.kinds:
-		if not kind.hidden:
-			_show_kind(kind.id)
-			break
+		_kind_lists[kind.id] = kind_list
+		# 默认展开第一个[b]可见[/b]的类别（hidden 的类别连按钮都没有，不能选它）
+		if first_visible == &"":
+			first_visible = kind.id
+	_show_kind(first_visible)
 
 
 
@@ -110,13 +113,12 @@ func _make_sample(block: BlockDef) -> BlockView:
 
 
 func _show_kind(kind: StringName) -> void:
-	if kind == _current_kind:
+	if kind == _current_kind or not _kind_lists.has(kind):
 		return
-	if _current_kind != &"" and nBlockArea.has_node(String(_current_kind)):
-		nBlockArea.get_node(String(_current_kind)).hide()
+	if _kind_lists.has(_current_kind):
+		_kind_lists[_current_kind].hide()
 	_current_kind = kind
-	if nBlockArea.has_node(String(kind)):
-		nBlockArea.get_node(String(kind)).show()
+	_kind_lists[kind].show()
 
 #endregion
 
@@ -147,8 +149,8 @@ func _on_picker_requested(view: BlockView, element: ElementDef, control: Control
 	_picker_view = view
 	_picker_target = control
 	_picker_element = element
-	# 居中弹窗：不再贴在那颗 ▾ 按钮旁边（传 control 只是为了让回填知道写给谁）
-	_picker.open(element, control)
+	# 居中弹窗：不再贴在那颗 ▾ 按钮旁边（回填要写给谁记在 _picker_view / _picker_target 里）
+	_picker.open(element)
 
 
 func _on_picker_picked(value: String) -> void:

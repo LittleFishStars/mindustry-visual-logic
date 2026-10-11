@@ -100,12 +100,6 @@ func block_ids() -> Array[StringName]:
 	return out
 
 
-func kind(kind_id: StringName) -> Kind:
-	for item in kinds:
-		if item.id == kind_id:
-			return item
-	return null
-
 
 #region 解析
 

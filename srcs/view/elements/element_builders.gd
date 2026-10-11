@@ -89,6 +89,20 @@ static func _set_buttons_disabled(node: Node, disabled: bool) -> void:
 		_set_buttons_disabled(child, disabled)
 
 
+## 承载字段值的元素：默认按「输入框」处理 —— 回填走 [method ElementBuilders.apply_edit_value]、
+## 拖拽期间禁用走 [method ElementBuilders.set_control_enabled]；
+## 按钮形态的字段（Option / Button / JumpTarget）只覆写 apply_value。
+class FieldBuilder extends ElementBuilder:
+	func is_field() -> bool:
+		return true
+
+	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
+		ElementBuilders.apply_edit_value(control, value, force)
+
+	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
+		ElementBuilders.set_control_enabled(control, enabled)
+
+
 ## 静态文本：不吃鼠标，保证从标签上按下也能拖动整块。
 class TextBuilder extends ElementBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
@@ -100,22 +114,13 @@ class TextBuilder extends ElementBuilder:
 
 
 ## 文本输入框。连续输入会按 merge_key 合并成一条撤销记录。
-class InputBuilder extends ElementBuilder:
+class InputBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		return ElementBuilders.make_edit(element, host, 64.0)
 
-	func is_field() -> bool:
-		return true
-
-	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
-		ElementBuilders.apply_edit_value(control, value, force)
-
-	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
-		ElementBuilders.set_control_enabled(control, enabled)
-
 
 ## 下拉选项：显示文本与导出值可以不同（<Item value="33">!</Item>）。
-class OptionBuilder extends ElementBuilder:
+class OptionBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var option := OptionButton.new()
 		for item in element.items:
@@ -131,22 +136,15 @@ class OptionBuilder extends ElementBuilder:
 				host.refresh_visibility())
 		return option
 
-	func is_field() -> bool:
-		return true
-
 	func apply_value(element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if control is OptionButton and not element.items.is_empty():
 			(control as OptionButton).select(index_of(element, value))
 
-	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
-		ElementBuilders.set_control_enabled(control, enabled)
 
 	func validate_value(element: ElementDef, value: String) -> String:
 		if element.items.is_empty():
 			return ""
-		var legal := PackedStringArray()
-		for item in element.items:
-			legal.append(item.value_or_text())
+		var legal := element.option_values()
 		if legal.has(value):
 			return ""
 		return "字段 %s 没有取值 `%s`（合法值：%s）" % [element.id, value, ", ".join(legal)]
@@ -168,7 +166,7 @@ class OptionBuilder extends ElementBuilder:
 
 
 ## 开关按钮：按下/松开各有一套可见性规则，导出模板也可以按状态切换。
-class ToggleBuilder extends ElementBuilder:
+class ToggleBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var button := Button.new()
 		button.text = element.text
@@ -183,15 +181,10 @@ class ToggleBuilder extends ElementBuilder:
 				host.refresh_visibility())
 		return button
 
-	func is_field() -> bool:
-		return true
-
 	func apply_value(_element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if control is BaseButton:
 			(control as BaseButton).set_pressed_no_signal(value == "true")
 
-	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
-		ElementBuilders.set_control_enabled(control, enabled)
 
 	func validate_value(element: ElementDef, value: String) -> String:
 		if value == "true" or value == "false":
@@ -204,7 +197,7 @@ class ToggleBuilder extends ElementBuilder:
 
 ## 选择器：文本框 + 弹出候选（单位 / 传感器 …）。
 ## 候选取自 blocks/selectors/*.json，浮层由编辑器标签页提供（不依赖 Window）。
-class SelectorBuilder extends ElementBuilder:
+class SelectorBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var box := HBoxContainer.new()
 		box.add_theme_constant_override("separation", 4)
@@ -223,15 +216,6 @@ class SelectorBuilder extends ElementBuilder:
 				host.request_picker(element, box))
 		return box
 
-	func is_field() -> bool:
-		return true
-
-	func apply_value(_element: ElementDef, control: Control, value: String, force: bool = false) -> void:
-		ElementBuilders.apply_edit_value(control, value, force)
-
-	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
-		ElementBuilders.set_control_enabled(control, enabled)
-
 
 ## 子槽位：本类只建一个占位控件（槽里的块是画布的直接子级）；占位尺寸由布局求解灌进来。
 class NestBuilder extends ElementBuilder:
@@ -249,7 +233,7 @@ class NestBuilder extends ElementBuilder:
 ## 在按钮上按下并拖到画布上的某一块松手 = 把跳转锁定到那块（见 [LinkController]）；
 ## 拖到自己或左侧块列表 = 解除锁定。字段里存的是块引用（`#<节点 id>`），
 ## 具体是谁由画布告诉它（[method BlockView.reference_label]）—— 元素自己看不到图。
-class JumpTargetBuilder extends ElementBuilder:
+class JumpTargetBuilder extends FieldBuilder:
 	const MIN_WIDTH: float = 84.0
 
 	func build(element: ElementDef, host: Object) -> Control:
@@ -267,9 +251,6 @@ class JumpTargetBuilder extends ElementBuilder:
 				host.request_link(element, button))
 		return button
 
-	func is_field() -> bool:
-		return true
-
 	func apply_value(element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if not (control is Button):
 			return
@@ -278,6 +259,3 @@ class JumpTargetBuilder extends ElementBuilder:
 		if host != null:
 			label = String(host.reference_label(element.id))
 		(control as Button).text = label
-
-	func set_enabled(_element: ElementDef, control: Control, enabled: bool) -> void:
-		ElementBuilders.set_control_enabled(control, enabled)

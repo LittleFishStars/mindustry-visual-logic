@@ -40,7 +40,6 @@ static func parse_link_ref(value: Variant) -> int:
 
 signal structure_changed()
 signal field_changed(id: int, field_id: StringName, value: Variant)
-signal chain_position_changed(chain_id: StringName, pos: Vector2)
 ## 整体被替换（读档 / 撤销 / 重做），视图层应重建。
 signal reset()
 
@@ -54,10 +53,6 @@ var _next_chain: int = 1
 
 
 #region 查询
-
-func count() -> int:
-	return _nodes.size()
-
 
 func has(id: int) -> bool:
 	return _nodes.has(id)
@@ -82,9 +77,7 @@ func chain_position(chain_id: StringName) -> Vector2:
 func all_ids() -> Array[int]:
 	var out: Array[int] = []
 	for chain_id in _chains:
-		var ids: Array[int] = []
-		ids.assign(_chains[chain_id])
-		for id in ids:
+		for id in slot_items(ROOT, chain_id):
 			_collect_subtree(id, out)
 	return out
 
@@ -109,9 +102,7 @@ func locate(id: int) -> Dictionary:
 	if not _nodes.has(id):
 		return {}
 	for chain_id in _chains:
-		var ids: Array[int] = []
-		ids.assign(_chains[chain_id])
-		var index := ids.find(id)
+		var index := slot_items(ROOT, chain_id).find(id)
 		if index >= 0:
 			return {"owner_id": ROOT, "slot": chain_id, "index": index}
 	for owner_id in _nodes:
@@ -144,17 +135,6 @@ func primary_chain(fallback_pos: Vector2 = Vector2.ZERO) -> StringName:
 	for chain_id in _chains:
 		return chain_id
 	return create_chain(fallback_pos)
-
-
-## 设置链的画布落点。
-func set_chain_position(chain_id: StringName, pos: Vector2) -> bool:
-	if not _chains.has(chain_id):
-		return false
-	if _chain_positions.get(chain_id, Vector2.ZERO).is_equal_approx(pos):
-		return true
-	_chain_positions[chain_id] = pos
-	chain_position_changed.emit(chain_id, pos)
-	return true
 
 
 #endregion

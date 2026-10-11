@@ -13,6 +13,8 @@ signal picker_requested(view: BlockView, element: ElementDef, control: Control)
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
 ## 右键在块上按下：要拖出一份副本（见 [method duplicate_subtree]）。
 signal copy_requested(view: BlockView, offset: Vector2)
+## 左键在块上按下：要开始搬移（由 [DragController] 接管）。
+signal drag_requested(view: BlockView, offset: Vector2)
 
 @onready var nBlocks: Node2D = $Blocks
 ## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
@@ -159,30 +161,22 @@ func _create_view(id: int) -> BlockView:
 		return null
 	var view := BlockView.new()
 	view.name = "Block%d" % id
-	view.drag_requested.connect(_on_view_drag_requested)
-	view.copy_requested.connect(func(v: BlockView, offset: Vector2) -> void:
-		copy_requested.emit(v, offset))
-	view.link_labeler = _link_label
-	view.link_requested.connect(func(v: BlockView, element: ElementDef, control: Control) -> void:
-		link_requested.emit(v, element, control))
+	view.drag_requested.connect(drag_requested.emit)
+	view.copy_requested.connect(copy_requested.emit)
+	view.link_requested.connect(link_requested.emit)
+	view.picker_requested.connect(picker_requested.emit)
+	view.history_group_closed.connect(history.flush_merge)
 	view.field_committed.connect(_on_view_field_committed)
 	view.layout_dirty.connect(_on_view_layout_dirty)
-	view.picker_requested.connect(func(v: BlockView, element: ElementDef, control: Control) -> void:
-		picker_requested.emit(v, element, control))
-	view.history_group_closed.connect(func() -> void:
-		history.flush_merge())
+	# 跳转目标按钮上的文字由画布注入（只有它知道图）
+	view.link_labeler = _link_label
 	nBlocks.add_child(view)
 	view.setup(def, node, false)
 	_views[id] = view
 	return view
 
 
-func _on_view_drag_requested(view: BlockView, offset: Vector2) -> void:
-	drag_requested.emit(view, offset)
 
-
-## 由拖拽控制器接管的开始拖动请求。
-signal drag_requested(view: BlockView, offset: Vector2)
 func _on_view_layout_dirty() -> void:
 	relayout()
 

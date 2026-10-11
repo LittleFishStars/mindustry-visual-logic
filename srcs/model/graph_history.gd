@@ -59,13 +59,6 @@ func can_redo() -> bool:
 	return not _redo_stack.is_empty()
 
 
-func undo_label() -> String:
-	return _undo_stack.back()["label"] if can_undo() else ""
-
-
-func redo_label() -> String:
-	return _redo_stack.back()["label"] if can_redo() else ""
-
 
 func undo() -> bool:
 	if _undo_stack.is_empty():

@@ -176,7 +176,9 @@ assets/
   `<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）；
   `glue="true"` / `space_before="false"` 表示本段紧贴上一段；
   `<Field as="string">` 表示这一格是字符串（引号与转义由导出器加），
-  `<Field allow_empty="true">` 表示空值不补 `0`（注释文本这类字段）；
+  `<Field allow_empty="true">` 表示空值不补 `0`（注释文本这类字段）：导出侧靠
+  `_render_part` 把 [member ExportPart.allow_empty] 传进 `_field_text` —— 漏传的话注释块的空文本
+  会被补成 `# 0`，导回来内容就变了（曾经就是这个死参数）。
   `<Item alias="…">` 让导入认出这个选项的旧名字。细节见下节。
 - **行**：`<Row [when]>` 显式分行；条件不成立的行**整行不参与布局**（不占位置、不绘制）。
   `<Group when="…">` 给一串连续元素共享条件（不换行，解析时并入元素条件）。
@@ -202,6 +204,8 @@ assets/
   `items`(22) / `liquids`(11) / `sensors`(411，带 Item/Liquid/Payload/More 分组)。
   [b]弹窗有搜索框[/b]：边打边筛（`c`、`copper`、`@copper` 都行；开头命中排最前，
   所以打 `router` 第一个就是 `@router` 而不是 `@duct-router`），回车选第一个，Esc 关掉。
+  [b]只打一个 `@` 会列出全部候选[/b]：`_matches` 的第一个分支专管这件事，别当冗余删掉 ——
+  `trim_prefix("@")` 之后的 needle 是空串，而 [method String.contains] 对空串恒为假。
   注意 `placeholder` 兼作默认值：只想改提示就同时写 `default=`（否则新块的默认值会被改掉）。
   目前已挂：`UnitBind.type`(units)、`UnitItem.item`(items)、`UnitBuild.block`(blocks)、
   `UnitLocate.ore`(items)、`Sensor.prop`(sensors) —— 其它要挂的字段把 `<LineBox>` 换成 `<Selector>` 即可。

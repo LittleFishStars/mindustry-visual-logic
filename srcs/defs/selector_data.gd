@@ -36,10 +36,6 @@ static func exists(kind: StringName) -> bool:
 	return not _load(kind).is_empty()
 
 
-static func clear_cache() -> void:
-	_cache.clear()
-
-
 static func _load(kind: StringName) -> Dictionary:
 	if _cache.has(kind):
 		return _cache[kind]
