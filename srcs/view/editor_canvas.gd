@@ -8,7 +8,7 @@ extends SubViewport
 ## 画布外松手 queue_free 连带删掉下游」的结构性风险在这里不存在。
 
 ## 需要编辑器标签页打开选择器浮层。
-signal picker_requested(element: ElementDef, control: Control)
+signal picker_requested(view: BlockView, element: ElementDef, control: Control)
 ## 需要编辑器标签页接管「拖拽锁定跳转目标」（见 [LinkController]）。
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
 ## 右键在块上按下：要拖出一份副本（见 [method duplicate_subtree]）。
@@ -173,8 +173,8 @@ func _create_view(id: int) -> BlockView:
 		link_requested.emit(v, element, control))
 	view.field_committed.connect(_on_view_field_committed)
 	view.layout_dirty.connect(_on_view_layout_dirty)
-	view.picker_requested.connect(func(element: ElementDef, control: Control) -> void:
-		picker_requested.emit(element, control))
+	view.picker_requested.connect(func(v: BlockView, element: ElementDef, control: Control) -> void:
+		picker_requested.emit(v, element, control))
 	view.history_group_closed.connect(func() -> void:
 		history.flush_merge())
 	nBlocks.add_child(view)

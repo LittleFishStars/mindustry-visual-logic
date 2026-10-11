@@ -23,6 +23,8 @@ var library: BlockLibrary
 
 var _current_kind: StringName = &""
 var _picker: SelectorPanel = null
+## 谁请求的选择器：选中后由这个块视图刷控件 + 提交数据层（见 [method BlockView.apply_picker_value]）。
+var _picker_view: BlockView = null
 var _picker_target: Control = null
 var _picker_element: ElementDef = null
 
@@ -137,9 +139,10 @@ func _on_canvas_link_requested(view: BlockView, element: ElementDef, control: Co
 	nLink.start(view, element, control)
 
 
-func _on_picker_requested(element: ElementDef, control: Control) -> void:
+func _on_picker_requested(view: BlockView, element: ElementDef, control: Control) -> void:
 	if element == null or control == null or not is_instance_valid(control):
 		return
+	_picker_view = view
 	_picker_target = control
 	_picker_element = element
 	# 居中弹窗：不再贴在那颗 ▾ 按钮旁边（传 control 只是为了让回填知道写给谁）
@@ -147,17 +150,14 @@ func _on_picker_requested(element: ElementDef, control: Control) -> void:
 
 
 func _on_picker_picked(value: String) -> void:
-	if _picker_target != null and is_instance_valid(_picker_target) and _picker_element != null:
-		# 回填走元素构建器：编辑器不需要知道"值存在组合控件里的哪个子控件"
-		# force = true：这是明确的用户动作，即使输入框还拿着焦点也要写进去
-		var builder: Variant = ElementRegistry.builder(_picker_element.type)
-		if builder != null:
-			builder.apply_value(_picker_element, _picker_target, value, true)
-		# 输入框的 text_changed 会带着新值走一遍 commit_field
+	# 交给块视图：它先刷控件、再提交数据层（程序化赋值不会触发 text_changed，必须显式提交）
+	if _picker_view != null and is_instance_valid(_picker_view):
+		_picker_view.apply_picker_value(_picker_element, _picker_target, value)
 	_close_picker()
 
 
 func _close_picker() -> void:
+	_picker_view = null
 	_picker_target = null
 	_picker_element = null
 	if _picker != null:

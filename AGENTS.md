@@ -170,7 +170,12 @@ assets/
   尺寸跟着内容走（[method SelectorPanel._fit_and_center]，注意 Control 只会跟最小尺寸变大、
   不会自己缩回，所以要从宽的种类切回窄的必须显式 reset_size）。
   它是普通字段元素（`is_field`），所以导出模板、`when` 条件、校验都跟 `<LineBox>` 一样，
-  互换只影响显示。候选来自 `blocks/selectors/{kind}.json`：`units`(58) / `blocks`(259) /
+  互换只影响显示。
+  [b]选中后必须显式提交数据层[/b]（[method BlockView.apply_picker_value]）：程序化设置
+  `LineEdit.text` / `OptionButton.select()` [b]不会[/b]发 text_changed / item_selected ——
+  只有用户输入才发。曾经这里指望「回填 → text_changed → commit_field」顺带提交，结果
+  控件显示了新值、数据层还是旧值，导出自然还是默认值（选中单位/建筑/物品后导出没变就是这个原因）。
+  候选来自 `blocks/selectors/{kind}.json`：`units`(58) / `blocks`(259) /
   `items`(22) / `liquids`(11) / `sensors`(411，带 Item/Liquid/Payload/More 分组)。
   [b]弹窗有搜索框[/b]：边打边筛（`c`、`copper`、`@copper` 都行；开头命中排最前，
   所以打 `router` 第一个就是 `@router` 而不是 `@duct-router`），回车选第一个，Esc 关掉。

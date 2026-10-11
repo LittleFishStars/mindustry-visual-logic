@@ -20,7 +20,8 @@ signal field_committed(node: LogicNode, field_id: StringName, value: Variant, me
 ## 可见性/尺寸变了，需要重新布局。
 signal layout_dirty()
 ## 请求打开选择器（由编辑器标签页提供浮层，避免依赖 Window/Popup）。
-signal picker_requested(element: ElementDef, control: Control)
+## 带上 view：选中后要由它把值写进数据层（见 [method apply_picker_value]）。
+signal picker_requested(view: BlockView, element: ElementDef, control: Control)
 ## 请求把某个块引用字段（Jump 的跳转目标）锁定到画布上的某一块 ——
 ## 块视图看不到图，锁定会话由编辑器标签页里的 [LinkController] 接管。
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
@@ -148,7 +149,21 @@ func commit_field(field_id: StringName, value: Variant, grouped: bool = false) -
 
 
 func request_picker(element: ElementDef, control: Control) -> void:
-	picker_requested.emit(element, control)
+	picker_requested.emit(self, element, control)
+
+
+## 选择器选中一个值：先把控件刷成新值（不然用户还看着旧的），[b]再显式写进数据层[/b]。
+##
+## 为什么必须显式 commit：程序化设置 `LineEdit.text`（以及 `OptionButton.select()`）
+## [b]不会[/b]发 text_changed —— 只有用户输入才发。以前这里就指望那条信号顺带提交，
+## 结果控件显示了新值、数据层还是旧值，导出自然还是默认值。
+func apply_picker_value(element: ElementDef, control: Control, value: String) -> void:
+	if element == null:
+		return
+	var builder: Variant = ElementRegistry.builder(element.type)
+	if builder != null and control != null and is_instance_valid(control):
+		builder.apply_value(element, control, value, true)
+	commit_field(element.id, value)
 
 
 ## 引用字段现在指着哪一块（元素构建器用它显示按钮文字）。
