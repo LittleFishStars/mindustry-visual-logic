@@ -148,15 +148,10 @@
 		</Row>
 	</Block>
 	<Block name="Break" marker="break" loop_jump="break">
-		<!-- Leaving the innermost loop = one unconditional jump; the exporter replaces AfterSubtree with the line just after that loop.
-			 When nothing follows the loop that jump would point past the end, so <Halt> (stop) is used instead; the line keeps
-			 the #break marker, so import still restores a Break. -->
+		<!-- Leaving the innermost loop = one unconditional jump; the exporter replaces AfterSubtree with the line just after that loop. -->
 		<Export>
 			<Literal>jump</Literal><AfterSubtree/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
 		</Export>
-		<Halt>
-			<Literal>stop</Literal>
-		</Halt>
 		<Row>
 			<Text id="T">Break</Text>
 		</Row>

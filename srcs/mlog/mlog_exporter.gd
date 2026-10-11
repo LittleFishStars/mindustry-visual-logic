@@ -19,7 +19,21 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 			lines.append(line)
 	if lines.is_empty():
 		return ""
+	# 末尾默认补一条停止：跑出程序末尾本来就等于停住，写明它之后指向程序外的 jump（after == count）也有了落点
+	if not _ends_with_halt(lines):
+		lines.append("stop")
 	return "\n".join(lines) + "\n"
+
+
+## 末尾那条指令是不是 `stop` / `end`（后面只跟注释也算）：是就不再补。
+static func _ends_with_halt(lines: PackedStringArray) -> bool:
+	for i in range(lines.size() - 1, -1, -1):
+		var line := String(lines[i])
+		if not is_instruction(line):
+			continue
+		var head := line.split(" ", false)
+		return not head.is_empty() and (head[0] == "stop" or head[0] == "end")
+	return false
 
 
 ## [param after_line] 是本块子树之后的第一条指令行号（`<AfterSubtree/>` 用它；算不出来时传 -1）。
@@ -37,17 +51,6 @@ static func render_tail(def: BlockDef, node: LogicNode, self_line: int) -> Strin
 	return _render_parts(def, node, def.tail_parts, Callable(), -1, self_line)
 
 
-## 跳出块的备用形式（XML `<Halt>`）：所属循环之后没有代码时改用它（否则那一格会 jump 到不存在的行）。
-## 行尾照样带本块自己的标记，导入据此仍认回本块而不是停止块。
-static func render_halt(def: BlockDef, node: LogicNode) -> String:
-	if def.halt_parts.is_empty():
-		return ""
-	var out := _render_parts(def, node, def.halt_parts, Callable(), -1, -1)
-	if out != "" and def.marker != "":
-		out += " #%s%s" % [def.marker, marker_fields(def, node)]
-	return out
-
-
 ## 渲染一条 entry（导入侧数指令序号时只关心它会不会成为指令，行号给 -1 即可）。
 static func render_entry(entry: Dictionary, table: Dictionary = {}, warnings: Array[String] = []) -> String:
 	var def: BlockDef = entry["def"]
@@ -61,11 +64,6 @@ static func render_entry(entry: Dictionary, table: Dictionary = {}, warnings: Ar
 		after = int(table.get("loop", {}).get(node.id, -1))
 		if after < 0:
 			warnings.append("%s 不在循环里：跳转目标按 -1 导出" % def.id)
-		elif after >= int(table.get("count", 0)):
-			# 循环之后没有代码：改用备用形式（停止），别导出指向不存在行的 jump
-			var halt := render_halt(def, node)
-			if halt != "":
-				return halt
 	return render_node(def, node, _resolver(node, table, warnings), after)
 
 

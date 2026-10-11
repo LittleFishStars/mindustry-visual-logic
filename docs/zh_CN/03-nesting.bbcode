@@ -14,6 +14,6 @@
 [b]跳出[/b]（Break）/ [b]继续[/b]（Continue）只能放在循环的巢里：跳出就是一条无条件 jump 直接到循环之后
 （[code]jump 5 always 0 0[/code]）；继续则跳到循环的回跳那一行（[code]jump 3 always 0 0[/code]），也就是重新判断条件。
 两个行号都由导出时算好，放在循环外会导出 [code]-1[/code] 并在控制台警告；行尾带 [code]#break[/code] / [code]#continue[/code] 标记，导回来还是这两个块。
-循环之后没有代码时，跳出的目标会指向程序外，于是改导出 [code]stop #break[/code]（停止，与跑出程序末尾等价）。
+跳出把目标放在循环之后 —— 循环正好在程序末尾时，落点就是末尾补的那条 [code]stop[/code]。
 
 要跳到别处，用 [b]Jump[/b]。

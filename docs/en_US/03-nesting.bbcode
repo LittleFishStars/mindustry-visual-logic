@@ -16,8 +16,7 @@ It also carries a marker ([code]#while a=1 cmp=lessThan b=2[/code]), so it comes
 ([code]jump 5 always 0 0[/code]); Continue jumps to the loop's tail jump ([code]jump 3 always 0 0[/code]), i.e. back to the condition.
 Both line numbers are computed at export time; outside a loop they export [code]-1[/code] with a console warning. The line ends with a
 [code]#break[/code] / [code]#continue[/code] marker, so it comes back as the same block.
-When nothing follows the loop, Break's jump would point past the end, so it exports as [code]stop #break[/code] instead
-(halting, which is what running off the end does anyway).
+Break targets just after the loop — when the loop sits at the very end of the program, that is the trailing [code]stop[/code].
 
 
 Use [b]Jump[/b] to jump somewhere else.

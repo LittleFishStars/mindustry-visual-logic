@@ -60,8 +60,6 @@ var export_parts: Array[ExportPart] = []
 var export_variants: Array[ExportVariant] = []
 ## 尾跳模板（XML `<Tail>`）：整段巢之后额外补的那一行，结构块用它跳回自己的头部（`<SelfLine/>`）。
 var tail_parts: Array[ExportPart] = []
-## 跳出 / 继续块的备用形式（XML `<Halt>`）：所属循环之后没有代码时改用它 —— 否则那一格会 jump 到不存在的行。
-var halt_parts: Array[ExportPart] = []
 ## 解析期收集的条件（整块解析完再统一校验字段与取值）
 var pending_conditions: Array[Dictionary] = []
 var order: int = 0
