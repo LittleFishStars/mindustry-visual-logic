@@ -19,6 +19,7 @@ srcs/
 ├── model/                      ← 纯数据层（无 Node、无控件，可序列化、可撤销）
 │   ├── logic_node.gd           ← LogicNode：类型 + 字段值 + 各槽位的有序子节点 id
 │   ├── logic_graph.gd          ← LogicGraph：画布上的若干条链；容器 = (owner_id, slot_id)
+│   ├── graph_cloner.gd         ← 子树深拷贝（复制块用；引用字段表由调用方传入）
 │   ├── graph_history.gd        ← 快照式撤销/重做
 │   ├── graph_serializer.gd     ← JSON 存盘/读盘
 │   └── app_settings.gd         ← 应用设置（帧率/UI 缩放/失焦导出）+ user://settings.json
@@ -34,12 +35,15 @@ srcs/
 │   └── selector_data.gd        ← 选择器候选（读 blocks/selectors/*.json）
 ├── view/                       ← 视图层（只渲染与交互，不持有拓扑真相）
 │   ├── block_view.gd           ← BlockView：一个块的控件、几何度量、背景绘制
-│   ├── editor_canvas.gd        ← EditorCanvas：图 + 撤销栈 + 视图集合 + 布局求解
+│   ├── editor_canvas.gd        ← EditorCanvas：图 + 撤销栈 + 视图集合（布局/跳线/占位预览各自外置）
 │   ├── layout_solver.gd        ← 纯函数布局求解（自底向上量、自顶向下摆、产出吸附锚点）
 │   ├── block_metrics.gd        ← 块几何契约（尺寸/尾锚点/槽位锚点）
 │   ├── layout_result.gd        ← 求解结果（矩形表 + 锚点表）
 │   ├── editor_camera.gd        ← 相机：滚轮缩放 + 空白处左键平移
+│   ├── canvas_pointer_session.gd ← 指针会话骨架（搬块与锁定跳转目标共用）
 │   ├── drag_controller.gd      ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
+│   ├── link_router.gd          ← 跳线路由（纯函数：谁引用了谁 → 可直接画的折线）
+│   ├── placement_preview.gd    ← 落点占位块（拖拽时"现在放下会怎么样"）
 │   ├── link_controller.gd      ← 锁定会话（Jump 的目标按钮：拖到某块上松手 = 锁定）
 │   ├── link_layer.gd           ← 跳线层（Jump → 目标块的彩色折线 + 箭头）
 │   ├── selector_panel.gd       ← 内容选择弹窗（单位/建筑/物品/液体/传感器属性）
@@ -53,6 +57,7 @@ srcs/
 │   ├── notice_item.tscn
 │   ├── settings_window.tscn    ← 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）
 │   ├── settings_window.gd
+│   ├── tab_rename.gd           ← 标签条就地重命名（手势 + 输入框；外壳只接"改完写到哪"）
 │   ├── document_page.tscn      ← 文档页（标签页形态：左边章节 / 右边富文本）
 │   ├── document_page.gd        ← 文档正文就在这个文件的 SECTIONS 常量里
 │   ├── about_window.tscn       ← 关于窗（版本 / 作者 / 反馈与仓库链接）
@@ -61,7 +66,7 @@ srcs/
 │   ├── editor.tscn             ← 编辑器标签页（脚本已外置，不再内嵌 GDScript）
 │   └── main.tscn               ← 应用入口
 └── scripts/
-    ├── main.gd                 ← @tool，顶层 UI + 菜单 + 标签页重命名 + 光标
+    ├── main.gd                 ← @tool，顶层 UI + 菜单 + 光标（标签重命名见 controls/tab_rename.gd）
     └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 锁定 + 选择器
 
 blocks/{locale}/*.xml           ← 块定义
@@ -87,6 +92,24 @@ assets/
 - **view 从数据推导**：`BlockView` 是 `Control`（不是 `Container`），行位置自己给；
   尺寸由 `measure(slot_extents) -> BlockMetrics` 主动算出，位置由 `LayoutSolver.solve()` 统一求解。
   **位置绝不从绘制缓存反读**；块与块之间也没有父子关系，嵌套只体现在位置上。
+
+### 画布是一层门面（本轮整理新增）
+
+`EditorCanvas` 自己不写几何、预览、克隆的实现 —— 它们各有归属，画布只转发与缓存：
+
+| 职责 | 归属 | 形状 |
+|---|---|---|
+| 布局求解 | [LayoutSolver] | 纯函数（图 + 度量 → 矩形/锚点） |
+| 跳线几何 | [LinkRouter] | 纯函数（图 + 库 + 布局 → 折线） |
+| 落点占位块 | [PlacementPreview] | 有状态，但只认识画布的两个方法 |
+| 子树深拷贝 | [GraphCloner] | 纯数据（defs 层面的事靠 Callable 注入） |
+
+搬块与锁定跳转目标是同一个交互的两个变体，共用 [CanvasPointerSession]（开始 / 每帧 /
+落地 / 取消 / 失焦收尾 + 世界坐标、删除区、位置动没动）；子类只回答三个钩子：
+哪个键落地、哪个键取消、松开事件要不要消费。**新加一个「在画布上按住并拖」的交互，继承它**。
+
+同理，标签条的「就地重命名」手势+输入框全在 [TabRename] 里，外壳只接
+「改完的名字写到哪」—— `main.gd` 不再自己管延时、双击与焦点。
 
 ### 一次改动的数据流
 
@@ -342,6 +365,8 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   会取消这次改名。回车/失焦提交、Esc 取消、空名字回落文件名，切页时也会自动提交。
   实现上用 TabBar 的 `gui_input` 而不是 `tab_clicked` 信号：后者是在[b]内建处理之后[/b]才发的，
   那时当前页已经切过去了（分不出「切页」与「点已选中的页」），也拿不到 `double_click`。
+  这一整套（延时、双击、输入框、提交/取消）都在 [TabRename]（`controls/tab_rename.gd`）里，
+  `main.gd` 只接「改完的名字写到哪」（[method Main._on_tab_renamed]）与「关掉哪一页」。
 
 ## Conventions and gotchas
 
@@ -357,7 +382,15 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 - **拖拽控制器不要消费 mouse-up**：画布是 SubViewport，而 `SubViewportContainer` 靠
   `is_input_handled()` 决定要不要把事件转发进去 —— 一口吞掉 mouse-up，画布里那层 GUI 的
   鼠标焦点与按键掩码就清不掉，之后的左键按下会被发到残留的那个块上（鼠标不在它身上时
-  `_has_point` 为假 → 表现为“拖不动任何块”，要点一下别处才恢复）。所以拖拽结束只调 `_finish()`，
-  不要 `set_input_as_handled()`；“另一个键按下 = 取消”可以继续消费，因为它不会留下掩码。
-  收尾事件真丢了（切窗口 / 在窗口外松手）时，由 `_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)` 收尾。
+  `_has_point` 为假 → 表现为“拖不动任何块”，要点一下别处才恢复）。所以搬块结束只调
+  `_finish_session()`，**不要**消费松开事件 —— 这条规矩现在写在
+  [method CanvasPointerSession._consumes_release] 上（默认 false；锁定跳转目标确实需要消费，
+  它覆写为 true 并因此要手动复位按钮的按下态）。“另一个键按下 = 取消”可以继续消费，
+  因为它不会留下掩码。
+  收尾事件真丢了（切窗口 / 在窗口外松手）时，由会话骨架的
+  `_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)` 统一收尾（搬块与锁定目标都有）。
   也不要拿 `Input.is_mouse_button_pressed` 做守时兜底：触屏（项目有 Android 导出）不反映鼠标键。
+- **UI 配色暂时没有单一来源**：设置窗/公告窗/文档页各自的 `StyleBoxFlat` 与
+  `SelectorPanel` 里那几个 `COLOR_*` 常量是同一套深色值抄了四份（主主题
+  `assets/styles/main_theme.tres` 只覆盖了 Button/Label/MenuBar/PopupMenu/TabContainer/Tree/ScrollBar）。
+  要统一就把它们移进主题再删掉场景里的 override —— 那需要逐个窗口目测，本轮没动，改色时四处一起改。

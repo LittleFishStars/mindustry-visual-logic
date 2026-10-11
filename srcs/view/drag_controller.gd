@@ -1,8 +1,10 @@
 class_name DragController
-extends Node
+extends CanvasPointerSession
 
 ## 拖拽会话：调色板出块、画布内搬移、吸附提示与落地。
 ##
+## 会话骨架（开始 / 每帧 / 落地 / 取消 / 失焦收尾）在 [CanvasPointerSession] 里，
+## 与 [LinkController] 共用；本类只管「搬的是什么块、该落到哪」。
 ## 本节点挂在编辑器标签页根下（[b]不在[/b] SubViewport 里），所以 [_input] 能收到
 ## 画布之外（包括左侧调色板）的鼠标事件 —— 这是旧实现把 Dragger 放在根节点下的原因。
 ## 根本差别是：它[b]不再 reparent 任何节点[/b]，拖拽期间图与视图树都保持原样 ——
@@ -16,13 +18,7 @@ signal drag_finished()
 ## 吸附判定半径（像素，世界坐标）。
 @export var capture_radius: float = 22.0
 
-var canvas: EditorCanvas
-var area: SubViewportContainer
-## 拖到这里松手 = 删掉搬的块（左侧块列表：分类按钮 + 块列表）。
-## 从调色板拖出的新块不算（本来就不在图上）。
-var delete_zones: Array[Control] = []
 
-var _active: bool = false
 ## 非空表示「从图上搬移」，为空表示「从调色板新建」。
 var _source_node: LogicNode = null
 var _type_id: StringName = &""
@@ -55,14 +51,10 @@ var _float_offsets: Array[Vector2] = []
 var _hidden: Dictionary[int, bool] = {}
 
 
-## 按下时的鼠标位置：用来判断"原地松手"（没有真正搬动）
-var _start_mouse: Vector2 = Vector2.ZERO
-
-
 func _ready() -> void:
 	# 顶层覆盖层：画布是 SubViewport，拖动的块要画在整个界面之上才不会被块列表挡住
 	_overlay = get_parent().get_node_or_null(^"DragLayer") as Control
-	set_process(false)
+	super._ready()
 
 
 #region 开始拖拽
@@ -105,7 +97,7 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 			if float_view != null:
 				_floats.append(float_view)
 				_float_offsets.append((_subtree_positions[id] as Vector2) - head)
-	_begin()
+	_begin_session()
 
 
 ## 右键在块上按下：拖出一份副本（含它的整棵子树），原块留在原地。
@@ -148,7 +140,7 @@ func start_copy_from_view(view: BlockView, offset: Vector2) -> void:
 			if float_view != null:
 				_floats.append(float_view)
 				_float_offsets.append((_subtree_positions[id] as Vector2) - head)
-	_begin()
+	_begin_session()
 
 
 ## 从左侧调色板开始新建（[param offset] 是点击点在块内的位置）。
@@ -169,21 +161,14 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	_ghost = canvas.make_ghost(_type_id, _overlay)
 	if _ghost != null:
 		_ghost.position = _layer_mouse() - _offset * _zoom()
-	_begin()
+	_begin_session()
 
 
-func _begin() -> void:
-	_start_mouse = _world_mouse()
-	if not _active:
-		return
-	if canvas.nCamera != null:
-		canvas.nCamera.stop_panning()
-	# 拖拽期间块里的控件一律不可操作（输入框、下拉、开关、选择器按钮）
+## 会话开始：拖拽期间块里的控件一律不可操作（拖拽只搬位置，不该顺手改数据）。
+func _on_session_started() -> void:
 	canvas.set_elements_enabled(false)
 	_target = {}
-	set_process(true)
 	drag_started.emit()
-	_update()
 
 
 #endregion
@@ -191,45 +176,8 @@ func _begin() -> void:
 
 #region 跟踪与落地
 
-func _input(event: InputEvent) -> void:
-	if not _active:
-		return
-	# 松手落地：只认「开始这次拖拽的那个键」—— 左键搬移就左键松手，右键复制就右键松手。
-	# （旧写法只认左键松开，于是右键拖拽松手不会落地，得再点一下左键才把上一次拖拽结束掉。）
-	#
-	# 这里[b]不[/b]调 set_input_as_handled()：画布是 SubViewport，而 [SubViewportContainer]
-	# 正是靠 is_input_handled() 决定要不要把事件转发进去 —— 一口吞掉 mouse-up，
-	# 画布里那层 GUI 的鼠标焦点与按键掩码就永远清不掉，之后的左键按下会被发到
-	# 残留的那个块上（鼠标不在它身上时 _has_point 为假，于是“拖不动块”，
-	# 要点一下空白让那次 release 走完 GUI 才恢复）。
-	if event is InputEventMouseButton and not event.pressed:
-		if event.button_index == self._button:
-			self._finish()
-	elif event is InputEventMouseButton and event.pressed:
-		# 另一个键按下 = 取消（左键搬移时按右键、右键复制时按左键……）
-		if event.button_index != self._button:
-			self.cancel()
-			get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		self.cancel()
-		get_viewport().set_input_as_handled()
 
-
-## 拖拽期间窗口失焦（切窗口 / 在窗口外松手）：收尾的 mouse-up 多半收不到了，主动结束 ——
-## 否则会话一直挂着，切回来之后会“拖不动任何块”，要点一下别处才恢复。
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and _active:
-		self.cancel()
-
-
-func _process(_delta: float) -> void:
-	if _active:
-		_update()
-
-
-func _update() -> void:
-	if not _active:
-		return
+func _update_session() -> void:
 	var world := _world_mouse()
 	var layer := _layer_mouse()
 	var zoom := _zoom()
@@ -320,7 +268,7 @@ func _release_shift() -> void:
 	_pushed.clear()
 
 
-func _finish() -> void:
+func _finish_session() -> void:
 	if not _active:
 		return
 	var world := _world_mouse()
@@ -329,13 +277,13 @@ func _finish() -> void:
 	var inside := _inside_canvas()
 	var source := _source_node
 	var type_id := _type_id
-	var moved := (world - _start_mouse).length() > 4.0
-	# 拖到左侧块列表松手 = 删除（要在 _cleanup() 清掉 _source_node / _carried 之前判断）
+	var moved := _moved(world)
+	# 拖到左侧块列表松手 = 删除（要在 _close_session() 清掉 _source_node / _carried 之前判断）
 	var carried := _carried.duplicate()
 	var deleting := source != null and moved and _over_delete_zone()
-	# 复制的源块要赶在 _cleanup() 之前记下来
+	# 复制的源块要赶在 _close_session() 之前记下来
 	var copy_source := _copy_source_id
-	_cleanup()
+	_close_session()
 	if deleting and not carried.is_empty():
 		# 入口块也不能删 —— 删了文档就没起点了（导出“从 Start 开始”也就无从谈起）。
 		if self._carries_entry(carried):
@@ -378,19 +326,20 @@ func _carries_entry(ids: Array[int]) -> bool:
 	return false
 
 
-## 右键 / Esc：取消拖拽，位置复原。
+## 松手落地只认「开始这次拖拽的那个键」：左键搬移就左键松手，右键复制就右键松手。
+func _finish_button() -> MouseButton:
+	return _button
+
+
+## 右键 / Esc：取消拖拽，清掉临时效果并把布局复原（搬动期间只是临时挪了位置）。
 func cancel() -> void:
 	if not _active:
 		return
-	_cleanup()
+	super.cancel()
 	canvas.relayout()
 
 
-func is_active() -> bool:
-	return _active
-
-
-func _cleanup() -> void:
+func _close_session() -> void:
 	for float_view in _floats:
 		if is_instance_valid(float_view):
 			float_view.queue_free()
@@ -436,13 +385,6 @@ func _zoom() -> float:
 	return 1.0
 
 
-## 鼠标是否停在「拖到这里就删掉」的区域（左侧块列表）。
-func _over_delete_zone() -> bool:
-	var mouse := get_viewport().get_mouse_position()
-	for zone in delete_zones:
-		if is_instance_valid(zone) and zone.is_visible_in_tree() and zone.get_global_rect().has_point(mouse):
-			return true
-	return false
 
 
 ## 给拖动副本压一层暗红，提示「松手就删」；离开时恢复本色。
@@ -455,12 +397,5 @@ func _apply_delete_hint(on: bool) -> void:
 			float_view.modulate = tint
 
 
-func _inside_canvas() -> bool:
-	if area == null or not is_instance_valid(area):
-		return false
-	return area.get_global_rect().has_point(get_viewport().get_mouse_position())
-
-func _world_mouse() -> Vector2:
-	return canvas.world_from_screen(area.get_global_rect(), get_viewport().get_mouse_position())
 
 #endregion

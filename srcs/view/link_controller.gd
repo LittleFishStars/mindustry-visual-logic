@@ -1,5 +1,5 @@
 class_name LinkController
-extends Node
+extends CanvasPointerSession
 
 ## 「拖拽锁定跳转目标」会话：在 Jump 的目标按钮上按下，拖到画布上的某一块上松手即锁定。
 ##
@@ -12,15 +12,8 @@ extends Node
 ## [br]- 在画布空白处松手 / 右键 / Esc → 取消，保留原来的目标。
 ##
 ## 按下事件不消费（让按钮自己走到按下态），松开事件消费掉再手动复位按钮 ——
-## 否则按钮会卡在"按下"的样式里（这点在 [method _end] 里有注释说明）。
+## 否则按钮会卡在"按下"的样式里（这点在 [method _close_session] 里有注释说明）。
 
-## 拖到这里松手 = 解除锁定（左侧块列表：分类按钮 + 块列表）。
-var delete_zones: Array[Control] = []
-
-var canvas: EditorCanvas
-var area: SubViewportContainer
-
-var _active: bool = false
 ## 源块（引用字段的宿主）与它要写的字段。
 var _source_id: int = 0
 var _field: StringName = &""
@@ -28,8 +21,6 @@ var _field: StringName = &""
 var _control: Control = null
 ## 线的起点：源块左侧中点（世界坐标）。
 var _origin: Vector2 = Vector2.ZERO
-## 按下时的鼠标位置：用来区分「点一下」与「拖到某块上」。
-var _start_mouse: Vector2 = Vector2.ZERO
 ## 当前悬停在哪一块上（0 = 空白）。
 var _hover_id: int = 0
 
@@ -40,48 +31,27 @@ func start(view: BlockView, element: ElementDef, control: Control) -> void:
 		return
 	if not canvas.graph.has(view.node.id):
 		return
-	_active = true
 	_source_id = view.node.id
 	_field = element.id
 	_control = control
 	_origin = canvas.link_anchor(_source_id)
-	_start_mouse = _world_mouse()
-	set_process(true)
-	_update()
+	_begin_session()
 
 
-func is_active() -> bool:
-	return _active
+## 落地只认左键：右键按下算取消（默认钩子），窗口失焦也走 [method cancel]。
+func _finish_button() -> MouseButton:
+	return MOUSE_BUTTON_LEFT
 
 
-## 右键 / Esc：取消，保留原来的目标。
-func cancel() -> void:
-	if _active:
-		_end()
+## 右键按下 = 取消，保留原来的目标。
+func _is_cancel_button(button: MouseButton) -> bool:
+	return button == MOUSE_BUTTON_RIGHT
 
 
-func _input(event: InputEvent) -> void:
-	if not _active:
-		return
-	if event is InputEventMouseButton and not event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			_finish()
-			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			_end()
-			get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_end()
-		get_viewport().set_input_as_handled()
-
-
-func _process(_delta: float) -> void:
-	if _active:
-		_update()
-
-
-func _update() -> void:
+## 松开事件要消费掉：本控制器收不到按钮的 mouse-up，靠自己复位按钮（见 [method _close_session]）。
+func _consumes_release() -> bool:
+	return true
+func _update_session() -> void:
 	var world := _world_mouse()
 	# 自己不算候选：拖到自己身上是「解除锁定」，不是「跳到自己」
 	_hover_id = canvas.node_at_world(world, {_source_id: true})
@@ -89,16 +59,16 @@ func _update() -> void:
 
 
 ## 松开左键：落地。
-func _finish() -> void:
+func _finish_session() -> void:
 	var world := _world_mouse()
 	# 判命中时把自己算进去：拖到自己身上 = 解除锁定
 	var hit := canvas.node_at_world(world, {})
 	var over_delete := _over_delete_zone()
 	# 与拖动块同一套直觉：鼠标没真正动过 = 只是点了一下按钮，什么都不改
-	var moved := (world - _start_mouse).length() > 4.0
+	var moved := _moved(world)
 	var source_id := _source_id
 	var field := _field
-	_end()
+	_close_session()
 	if not moved:
 		return
 	if over_delete or hit == source_id:
@@ -107,7 +77,7 @@ func _finish() -> void:
 		canvas.set_link(source_id, field, hit)
 
 
-func _end() -> void:
+func _close_session() -> void:
 	_active = false
 	_source_id = 0
 	_field = &""
@@ -123,14 +93,3 @@ func _end() -> void:
 		canvas.clear_link_preview()
 
 
-## 鼠标是否停在左侧块列表上（那里松手 = 解除锁定）。
-func _over_delete_zone() -> bool:
-	var mouse := get_viewport().get_mouse_position()
-	for zone in delete_zones:
-		if is_instance_valid(zone) and zone.is_visible_in_tree() and zone.get_global_rect().has_point(mouse):
-			return true
-	return false
-
-
-func _world_mouse() -> Vector2:
-	return canvas.world_from_screen(area.get_global_rect(), get_viewport().get_mouse_position())

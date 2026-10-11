@@ -17,12 +17,8 @@ signal copy_requested(view: BlockView, offset: Vector2)
 @onready var nBlocks: Node2D = $Blocks
 ## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
 @onready var nLinks: LinkLayer = $Links
-## 落点占位块（幽灵视图）及其原始位置
-var _preview_views: Array[BlockView] = []
-var _preview_origins: Array[Vector2] = []
-var _preview_ids: Array[int] = []
-## 调色板拖出时，占位块对应的块类型（非空表示当前是"新建"预览）
-var _preview_def_id: StringName = &""
+## 落点占位块（幽灵视图）：状态全在 [PlacementPreview] 里，画布只留一层转发。
+var _placement: PlacementPreview = null
 @onready var nCamera: EditorCamera = $Camera
 
 var library: BlockLibrary
@@ -39,13 +35,11 @@ var _preview: Dictionary = {}
 ## 当前被高亮描边圈住的块（0 = 没有）。
 var _highlight_id: int = 0
 
-## 多条跳线共用一条母线时，每条往外错开的距离。
-const LANE_GAP: float = 14.0
-const LANE_STEP: float = 10.0
 
 
 func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	library = p_library
+	_placement = PlacementPreview.new(self)
 	# 跳线层要拿图与布局才画得出线（它在 scene 里是 Blocks 的第一个子节点）
 	nLinks.canvas = self
 	_attach_graph(p_graph)
@@ -285,6 +279,20 @@ func remove_tail(ids: Array[int]) -> bool:
 ## 复制以 [param source_id] 为根的整棵子树，插到 [param owner_id] 的容器里（一条撤销记录）。
 ## 返回新根的节点 id（失败返回 0）。
 func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index: int) -> int:
+	return _duplicate(source_id, func(nodes: Array[LogicNode]) -> void:
+		graph.insert_subtree(nodes, owner_id, slot_id, index))
+
+
+## 复制到画布上的一条新链（拖到空白处松手）。
+func duplicate_subtree_to_new_chain(source_id: int, world_pos: Vector2) -> int:
+	return _duplicate(source_id, func(nodes: Array[LogicNode]) -> void:
+		var chain := graph.create_chain(world_pos)
+		graph.insert_subtree(nodes, LogicGraph.ROOT, chain, -1))
+
+
+## 复制一棵子树并整体入图（一条撤销记录），返回新根的节点 id。
+## [param mutate] 拿到的是尚未入图的副本：插入的目标不同（容器里 / 新链），这一步才分道。
+func _duplicate(source_id: int, mutate: Callable) -> int:
 	# 入口块拒绝复制（右键拖拽在 [DragController] 就已经拦下了，这里再兜一道：
 	# 复制入口 = 一个文档冒出两个起点，导出“从 Start 开始”就没意义了）
 	if self.is_entry(graph.get_node_by_id(source_id)):
@@ -294,69 +302,19 @@ func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index
 		return 0
 	var nodes: Array[LogicNode] = clone["nodes"]
 	var new_root: LogicNode = clone["root"]
-	history.record("复制块", func() -> void:
-		graph.insert_subtree(nodes, owner_id, slot_id, index))
+	history.record("复制块", mutate.bind(nodes))
 	return new_root.id
 
 
-## 复制到画布上的一条新链（拖到空白处松手）。
-func duplicate_subtree_to_new_chain(source_id: int, world_pos: Vector2) -> int:
-	if self.is_entry(graph.get_node_by_id(source_id)):
-		return 0
-	var clone := _clone_subtree(source_id)
-	if clone.is_empty():
-		return 0
-	var nodes: Array[LogicNode] = clone["nodes"]
-	var new_root: LogicNode = clone["root"]
-	history.record("复制块", func() -> void:
-		var chain := graph.create_chain(world_pos)
-		graph.insert_subtree(nodes, LogicGraph.ROOT, chain, -1))
-	return new_root.id
-
-
-## 深拷贝一棵子树（含槽位结构），返回 {root: LogicNode, nodes: Array[LogicNode]}。
-##
-## 块引用字段（Jump 的跳转目标）：指向子树[b]内部[/b]的会重映射到对应的新节点 ——
-## 副本内部的跳转仍然自洽；指向子树外的不动 —— 副本向外跳的目标还是原来那一块。
+## 深拷贝一棵子树（含槽位结构）：实现全在 [GraphCloner]（纯数据、不碰控件）。
 func _clone_subtree(source_id: int) -> Dictionary:
-	if graph == null or not graph.has(source_id):
-		return {}
-	# 源 id → 副本节点（先整棵建完，映射表才是全的）
-	var copies: Dictionary = {}
-	var order: Array[LogicNode] = []
-	_clone_into(source_id, copies, order)
-	if order.is_empty():
-		return {}
-	for source_key in copies:
-		var copy: LogicNode = copies[source_key]
-		var def := library.by_id(copy.type_id) if library != null else null
-		if def == null:
-			continue
-		for field_id in def.reference_fields():
-			var target := LogicGraph.parse_link_ref(copy.get_field(field_id, ""))
-			if target > 0 and copies.has(target):
-				copy.put_field(field_id, LogicGraph.make_link_ref((copies[target] as LogicNode).id))
-	return {"root": copies.get(source_id), "nodes": order}
+	return GraphCloner.clone(graph, source_id, _reference_fields_of)
 
 
-func _clone_into(source_id: int, copies: Dictionary, order: Array[LogicNode]) -> LogicNode:
-	var source := graph.get_node_by_id(source_id)
-	if source == null or copies.has(source_id):
-		return null
-	var copy := graph.new_node(source.type_id)
-	for key in source.fields:
-		copy.fields[key] = source.fields[key]
-	copies[source_id] = copy
-	order.append(copy)
-	for slot_id in source.slots:
-		var children: Array[int] = []
-		for child_id in source.peek_slot(slot_id):
-			var child_copy := _clone_into(child_id, copies, order)
-			if child_copy != null:
-				children.append(child_copy.id)
-		if not children.is_empty():
-			copy.slots[slot_id] = children
-	return copy
+## 某节点的块引用字段（「哪些字段是引用」的真相在块定义上）。
+func _reference_fields_of(node: LogicNode) -> Array[StringName]:
+	var def := library.by_id(node.type_id) if library != null else null
+	return def.reference_fields() if def != null else [] as Array[StringName]
 
 
 ## 撤销/重做：history 内部会 load_dict，图发出 reset 信号后画布自行重建。
@@ -439,65 +397,23 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 	return ghost
 
 
-## 落点占位块：把"如果现在放下会落下哪几个块"摆成一组幽灵视图。
-##
-## 复用 [method make_ghost]（半透明、不吃鼠标），但改成显示[b]真实字段值[/b]，
-## 这样看到的就是"现在放下的样子"。视图只在目标集合变化时重建，之后每帧只更新位置。
+## 落点占位块：把"如果现在放下会落下哪几个块"摆成一组幽灵视图（见 [PlacementPreview]）。
 func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
-	if ids != _preview_ids or _preview_def_id != &"":
-		clear_placement_preview()
-		_preview_ids = ids.duplicate()
-		_preview_origins.clear()
-		for id in ids:
-			var node := graph.get_node_by_id(id)
-			if node == null:
-				continue
-			# make_ghost(source) 已经带着真实字段值、不吃鼠标，并按本体布局量过巢的尺寸
-			var ghost := make_ghost(node.type_id, null, node)
-			if ghost == null:
-				continue
-			ghost.modulate = Color(1, 1, 1, 0.5)
-			_preview_views.append(ghost)
-			_preview_origins.append(layout.rect_of(id).position if layout != null else Vector2.ZERO)
-	for i in _preview_views.size():
-		if i < _preview_origins.size():
-			_preview_views[i].position = _preview_origins[i] + offset
+	_placement.show_existing(ids, offset)
 
 
 ## 调色板拖出时的落点占位块：将要新建的那个块（默认值就是它入图时的取值）。
 func show_new_placement_preview(def: BlockDef, top_left: Vector2) -> void:
-	if def == null:
-		clear_placement_preview()
-		return
-	if _preview_def_id != def.id:
-		clear_placement_preview()
-		_preview_def_id = def.id
-		var ghost := make_ghost(def.id)
-		if ghost != null:
-			ghost.modulate = Color(1, 1, 1, 0.5)
-			_preview_views.append(ghost)
-	for view in _preview_views:
-		if is_instance_valid(view):
-			view.position = top_left
+	_placement.show_new(def, top_left)
 
 
 ## 落点占位块的总高度（"插在中间"时用它给后面的块让位）。
 func placement_preview_height() -> float:
-	var total := 0.0
-	for view in _preview_views:
-		if is_instance_valid(view):
-			total += maxf(view.metrics.size.y if view.metrics != null else view.size.y, 1.0)
-	return total
+	return _placement.height()
 
 
 func clear_placement_preview() -> void:
-	for view in _preview_views:
-		if is_instance_valid(view):
-			view.queue_free()
-	_preview_views.clear()
-	_preview_origins.clear()
-	_preview_ids.clear()
-	_preview_def_id = &""
+	_placement.clear()
 
 #endregion
 
@@ -516,10 +432,7 @@ func link_preview() -> Dictionary:
 
 ## 某块在跳线里的出发/到达锚点：块左侧中点（世界坐标）。
 func link_anchor(id: int) -> Vector2:
-	if layout == null:
-		return Vector2.ZERO
-	var rect := layout.rect_of(id)
-	return Vector2(rect.position.x, rect.position.y + rect.size.y * 0.5)
+	return LinkRouter.anchor(layout, id)
 
 
 ## 世界坐标下命中哪一块（判定与「点块开始拖动」同源，返回 0 表示空白）。
@@ -599,82 +512,13 @@ func _link_label(node_id: int, field_id: StringName) -> String:
 
 ## 重算全部跳线。布局一变（块移动、增删、字段改动）就跑一次。
 func _refresh_links() -> void:
-	if library == null or graph == null:
-		_segments.clear()
-	else:
-		_segments = _build_segments()
+	_segments = LinkRouter.segments(graph, library, layout)
 	_redraw_links()
-
 
 func _redraw_links() -> void:
 	if nLinks != null and is_instance_valid(nLinks):
 		nLinks.queue_redraw()
 
-
-## 每条跳线：起止都在块的左侧中点，向左绕到自己的那条母线上。
-## 母线层号按「竖直区间是否重叠」贪心分配 —— 重叠的错开，不重叠的复用同一条。
-func _build_segments() -> Array[Dictionary]:
-	var raw: Array[Dictionary] = []
-	for id in graph.all_ids():
-		var node := graph.get_node_by_id(id)
-		if node == null:
-			continue
-		var def := library.by_id(node.type_id)
-		if def == null:
-			continue
-		for field_id in def.reference_fields():
-			var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
-			if target <= 0 or not graph.has(target):
-				continue
-			var start := link_anchor(id)
-			var end := link_anchor(target)
-			raw.append({"start": start, "end": end, "target": target, "span": absf(end.y - start.y)})
-	# 短线占内侧道、长线往外让：与旧实现「按距离从短到长排序」同一个意图
-	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["span"]) < float(b["span"]))
-	var placed: Array[Dictionary] = []
-	for segment in raw:
-		var lane := 0
-		while _lane_taken(placed, segment, lane):
-			lane += 1
-		segment["lane"] = lane
-		placed.append(segment)
-	var out: Array[Dictionary] = []
-	for segment in placed:
-		var start: Vector2 = segment["start"]
-		var end: Vector2 = segment["end"]
-		var lane_x := minf(start.x, end.x) - LANE_GAP - float(segment["lane"]) * LANE_STEP
-		out.append({
-			"points": PackedVector2Array([
-				start,
-				Vector2(lane_x, start.y),
-				Vector2(lane_x, end.y),
-				end,
-			]),
-			"color": _link_color(int(segment["target"])),
-		})
-	return out
-
-
-## 该层号上是否已经有「竖直区间与它相交」的线（相交就得换一条道）。
-func _lane_taken(placed: Array[Dictionary], segment: Dictionary, lane: int) -> bool:
-	var start: Vector2 = segment["start"]
-	var end: Vector2 = segment["end"]
-	for other in placed:
-		if int(other["lane"]) != lane:
-			continue
-		var other_start: Vector2 = other["start"]
-		var other_end: Vector2 = other["end"]
-		if minf(start.y, end.y) < maxf(other_start.y, other_end.y) \
-				and maxf(start.y, end.y) > minf(other_start.y, other_end.y):
-			return true
-	return false
-
-
-## 同一个目标块永远同色（颜色由节点 id 派生），用户靠颜色 + 走向区分多条线。
-static func _link_color(target_id: int) -> Color:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(target_id)
-	return Color.from_hsv(rng.randf(), 0.65, 0.95)
 
 
 ## 目标块被删掉后，指向它的引用一并清掉 —— 否则会留下指向不存在节点的死引用。

@@ -320,13 +320,13 @@ func _build_cells() -> void:
 		_grid.remove_child(child)
 		child.queue_free()
 	_cells.clear()
-	var groups := SelectorData.groups(_element.selector_kind)
-	if groups.is_empty():
+	# 分组数据在 open() 里已经取过一次（_groups），这里直接用 —— 数据源只读一处
+	if _groups.is_empty():
 		for entry in SelectorData.options(_element.selector_kind):
 			_add_cell(entry, &"")
 	else:
-		for group_name in groups:
-			for entry in groups[group_name]:
+		for group_name in _groups:
+			for entry in _groups[group_name]:
 				_add_cell(entry, StringName(group_name))
 
 

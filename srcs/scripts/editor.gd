@@ -36,14 +36,7 @@ func _ready() -> void:
 	nCanvas.picker_requested.connect(_on_picker_requested)
 	nCanvas.link_requested.connect(_on_canvas_link_requested)
 	nCanvas.copy_requested.connect(_on_canvas_copy_requested)
-	nDrag.canvas = nCanvas
-	nDrag.area = nEditArea
-	# 拖到左侧块列表（分类按钮列 + 块列表）松手 = 删掉搬的块
-	nDrag.delete_zones.assign([nBlockKindList, nBlockArea])
-	nLink.canvas = nCanvas
-	nLink.area = nEditArea
-	# 拖到那里松手 = 解除跳转目标的锁定（与「拖到那里 = 删除」同一套心智）
-	nLink.delete_zones.assign([nBlockKindList, nBlockArea])
+	_setup_pointer_sessions()
 	_picker = SelectorPanel.new()
 	_picker.picked.connect(_on_picker_picked)
 	add_child(_picker)
@@ -51,6 +44,15 @@ func _ready() -> void:
 	_place_entry_block()
 
 
+## 两个指针会话（搬块 / 锁定跳转目标）用同一块画布区域、同一组「拖到这里就删」的区域。
+## 接线只写在这一处 —— 以后多一个会话也不会漏配。
+func _setup_pointer_sessions() -> void:
+	var sessions: Array[CanvasPointerSession] = [nDrag, nLink]
+	for session in sessions:
+		session.canvas = nCanvas
+		session.area = nEditArea
+		# 拖到左侧块列表（分类按钮列 + 块列表）松手 = 删掉搬的块 / 解除锁定
+		session.delete_zones.assign([nBlockKindList, nBlockArea])
 #region 调色板
 
 func _build_palette() -> void:
