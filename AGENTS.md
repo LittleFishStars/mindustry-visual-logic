@@ -6,7 +6,7 @@ Godot 4.x application (GL Compatibility renderer, not Vulkan). Visual block-base
 
 ## Key commands
 
-- **LSP**: `godot --headless --editor --lsp-server` (configured in `opencode.json`)
+- **LSP**: `godot --headless --editor --lsp-server`（用哪个编辑器接都行）
 - **Run**: `godot --path /home/ylxc/Projects/app/mindustry-visual-logic`, or F5 in the editor
 - **Export**: via editor UI only — `export_presets.cfg` is gitignored
 - **Headless 冒烟**: `godot --headless --path . --quit-after 60` —— 加载主场景跑若干帧，能捕到脚本解析/运行期错误
@@ -334,7 +334,10 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 
 ### Other
 
-- **`@tool`**：`main.gd` 在编辑器里也会跑。
+- **`@tool`**：`main.gd` 在编辑器里也会跑，但它碰的子场景（`SettingsWindow` / `LogicEditorTab`）脚本[b]不是[/b]
+  `@tool` —— 在编辑器里是占位实例，读属性、接信号、调方法都会报 `placeholder instance` 错。
+  相关几处（`wSettings.setup` / 两个信号连接 / `new_editor` 里的 `name_changed`）都用
+  `Engine.is_editor_hint()` 挡着，别删；`_apply_settings()` 也据此直接 return（免得改掉编辑器自己的帧率/缩放/语言）。
 - **`class_name`**：模型/定义/视图三层的类都全局注册。
 - **公告窗**：`notice_window.tscn` 通过 HTTPRequest 拉 `https://textdb.online/MindVisualLogic`。
 - **自定义光标**：`main.gd._ready()` 从 `assets/sprites/cursors/` 装载。

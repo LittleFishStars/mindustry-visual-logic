@@ -47,9 +47,11 @@ func _ready() -> void:
 	# 读设置并应用（帧率 / UI 缩放）；设置窗口只管改数据，应用在这里
 	self._settings = AppSettings.load_from_disk()
 	self._apply_settings()
-	self.wSettings.setup(self._settings)
-	self.wSettings.changed.connect(_on_settings_changed)
-	self.wSettings.closed.connect(_on_settings_closed)
+	# 编辑器里 SettingsWindow 的脚本不是 @tool（实例是占位的），碰它的方法与信号都会报错
+	if not Engine.is_editor_hint():
+		self.wSettings.setup(self._settings)
+		self.wSettings.changed.connect(_on_settings_changed)
+		self.wSettings.closed.connect(_on_settings_closed)
 
 	self.nFileMenu.set_item_accelerator(4, KEY_F5)
 
@@ -83,7 +85,8 @@ func new_page(title: StringName, scn: Resource) -> Node:
 
 func new_editor() -> LogicEditorTab:
 	var node := self.new_page("Editor", self.Editor) as LogicEditorTab
-	if node != null:
+	# 编辑器里 LogicEditorTab 的脚本不是 @tool（实例是占位的）：接信号、取标题都会报错
+	if node != null and not Engine.is_editor_hint():
 		node.name_changed.connect(_on_editor_name_changed.bind(node))
 		_refresh_tab_title(node)
 	return node

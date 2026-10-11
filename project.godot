@@ -44,16 +44,6 @@ project/assembly_name="MVL_可视化逻辑编辑"
 
 enabled=PackedStringArray()
 
-[file_customization]
-
-folder_colors={
-"res://Blocks/Controls/": "orange",
-"res://Blocks/Logics/": "blue",
-"res://Blocks/Operations/": "purple",
-"res://Blocks/PutInOut/": "yellow",
-"res://Blocks/Units/": "green"
-}
-
 [gui]
 
 theme/default_font_multichannel_signed_distance_field=true
