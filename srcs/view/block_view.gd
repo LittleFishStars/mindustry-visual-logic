@@ -143,10 +143,10 @@ func apply_picker_value(element: ElementDef, control: Control, value: String) ->
 
 func reference_label(field_id: StringName) -> String:
 	if node == null:
-		return "未锁定"
+		return tr("LINK_UNLOCKED")
 	if link_labeler.is_valid():
 		return String(link_labeler.call(node.id, field_id))
-	return "未锁定"
+	return tr("LINK_UNLOCKED")
 
 
 func request_link(element: ElementDef, control: Control) -> void:

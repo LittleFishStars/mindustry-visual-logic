@@ -69,11 +69,12 @@ srcs/
     ├── main.gd                 ← @tool，顶层 UI + 菜单 + 光标（标签重命名见 controls/tab_rename.gd）
     └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 锁定 + 选择器
 
-blocks/{locale}/*.xml           ← 块定义
+blocks/{locale}/*.xml           ← 块定义（en_US / zh_CN；只差显示文本，见「本地化」）
 blocks/selectors/*.json         ← 选择器候选（units / blocks / items / liquids / sensors）
-docs/{NN}-{slug}.bbcode         ← 应用内文档（帮助 → Document）：每页一个文件，首行章节名、其余 BBCode
+docs/{locale}/*.bbcode          ← 应用内文档（帮助 → Document）：每页一个文件，首行章节名、其余 BBCode
 assets/
 ├── fonts/
+├── i18n/ui.csv                ← 界面文案的翻译表（keys,en,zh_CN；导入后生成 ui.<locale>.translation）
 ├── sprites/cursors/           ← custom mouse cursors
 ├── sprites/previews/          ← block/item/unit sprite previews
 └── styles/main_theme.tres     ← main app theme
@@ -111,6 +112,35 @@ assets/
 
 同理，标签条的「就地重命名」手势+输入框全在 [TabRename] 里，外壳只接
 「改完的名字写到哪」—— `main.gd` 不再自己管延时、双击与焦点。
+
+### 本地化（i18n）
+
+界面支持 **English / 简体中文**，语言在 `Edit → Settings…` 里选（默认跟随系统）。
+
+- **UI 文案**走 Godot 翻译：键表是 [code]assets/i18n/ui.csv[/code]（`keys,en,zh_CN`），导入后生成
+  `assets/i18n/ui.<locale>.translation`（生成物，已 gitignore），路径注册在 `project.godot` 的
+  `[internationalization] locale/translations`。
+- **控件文本由 Godot 自动重译**（`auto_translate_mode`，Button / Label / PopupMenu 条目 / Window 标题 /
+  FileDialog / TabBar 都支持）：[b]场景里写的是键[/b]（`text = "MENU_FILE"`），不是英文；
+  属性读到的是原文，画出来才是译文。代码里动态拼的用 `tr("KEY") % [...]`。
+  例外：`Window.title` 虽然也会自动重译，但为保险仍在 [method Main._apply_language] 里显式写一遍。
+- **语言设置**：[member AppSettings.language]（`system` / `en` / `zh_CN`）+ [method AppSettings.active_locale]
+  把 `system` 归一化（`zh*` → `zh_CN`，其余 → `en`，只提供这两套）。改设置即时生效。
+- **切语言时要手动重取的东西**（[method Main._reload_localized_content]）：块定义、文档页、标签标题、
+  设置窗下拉框、关于窗正文。其中 [method LogicEditorTab.reload_language] 会重载 `blocks/<locale>/`、
+  重建调色板与块视图 —— [b]图与撤销栈不动[/b]，换的只是显示文本。
+- **块定义**：`blocks/{locale}/*.xml`（`en_US` / `zh_CN`），翻译只改[b]显示文本[/b]：`<Text>` 内容、
+  `<Item>` 显示文本、`<Kind name>`。两条硬规矩：
+  1. `<Item>` 没有 `value=` 时，显示文本[b]就是导出值[/b]（[method OptionItem.value_or_text]）——
+     翻译它必须同时补 `value="原文"`，否则导出会跟着变成中文；
+  2. `placeholder=` / `default=` / `<Block name>` / `<Literal>` / 各种 `id`、`when` 一律不动 ——
+     它们是默认值与标识符，改了会直接改变导出内容。
+  校验办法：两套 [BlockLibrary] 各跑一遍，比对「导出模板渲染 + 字段默认值 + 候选取值 + 条件 describe +
+  槽位/引用」必须逐字相同（显示文本除外），且两侧 `warnings` 都为空。
+- **文档**：`docs/{locale}/*.bbcode`（`zh_CN` / `en_US`），文件名排序即章节顺序、首行章节名；
+  某语言目录缺失时回落到 `en_US`。中文文档里的菜单路径写中文（`文件 → 保存`），英文写英文。
+- **加一种语言**：`assets/i18n/ui.csv` 加一列 → [constant AppSettings.LANGUAGES] 加一项并接上
+  `active_locale()` 的归一化 → `blocks/<locale>/` 与 `docs/<locale>/` 各来一套。
 
 ### 一次改动的数据流
 
@@ -318,9 +348,9 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   菜单 id 就是 `item_N/id` 的顺序编号，加删菜单项时记得同步 `_on_*_id_pressed` 里的注释。
   文档页[b]不是[/b] [LogicEditorTab]，所以在它上面「存 / 导出 / 撤销」都是空操作
   （`_current_editor()` 返回 null，编辑菜单据此置灰）—— 这不是 bug，别把菜单项接死。
-- **应用内文档（帮助 → Document）**：正文是 [code]docs/{NN}-{slug}.bbcode[/code]，[b]每页一个文件[/b] ——
-  文件名排序就是章节顺序，首行是章节名、其余是 BBCode 正文；加一页 = 往 [code]docs/[/code] 丢一个文件，
-  代码不用动（[DocumentPage] 在 `_ready` 里读一次）。
+- **应用内文档（帮助 → Document）**：正文是 [code]docs/{locale}/*.bbcode[/code]（[b]每页一个文件[/b]、每种语言一套）——
+  文件名排序就是章节顺序，首行是章节名、其余是 BBCode 正文；加一页 = 往对应语言目录丢一个文件，
+  代码不用动（[DocumentPage] 在 `_ready` 与切语言时各读一次）。
   [b]导出时必须把 [code]docs/[/code] 加进 export preset 的「Filters to export non-resource files/folders」[/b]：
   `.bbcode` 不是 Godot 资源，漏了它打包出来的应用里文档是空的（此时页面会显示提示文字）。
 - **F5 快捷导出**：等价于 `File → 导出到剪贴板`。键位在 [code]project.godot[/code] 的 `[input]` 里，

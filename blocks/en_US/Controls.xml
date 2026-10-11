@@ -128,9 +128,8 @@
 			<Text id="T1">Sensor</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
-			<Text id="T3">@</Text>
 			<Selector id="prop" kind="sensors" placeholder="@copper" />
-			<Text id="T4">in</Text>
+			<Text id="T3">in</Text>
 			<LineBox id="block" placeholder="block1" />
 		</Row>
 	</Block>

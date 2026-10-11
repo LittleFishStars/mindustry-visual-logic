@@ -25,8 +25,8 @@ script/source = "extends PanelContainer
 
 
 func init(time: String, content: String) -> void:
-	self.nTime.text = time if time != null else \"未知时间\"
-	self.nContent.text = content if content != null else \"无\"
+	self.nTime.text = time if time != null else tr(\"NOTICE_TIME_UNKNOWN\")
+	self.nContent.text = content if content != null else tr(\"NOTICE_EMPTY_ITEM\")
 "
 
 [node name="NoticeItem" type="PanelContainer" unique_id=1257117258]

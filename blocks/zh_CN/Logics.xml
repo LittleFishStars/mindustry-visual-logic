@@ -1,0 +1,84 @@
+<Kind name="逻辑" color="#4199a8">
+	<Block name="Wait">
+		<Literal>wait</Literal>
+		<Field id="time" />
+		<Row>
+			<Text id="T1">等待</Text>
+			<LineBox id="time" placeholder="0.5" />
+			<Text id="T2">秒</Text>
+		</Row>
+	</Block>
+	<Block name="Stop">
+		<Literal>stop</Literal>
+		<Row>
+			<Text id="T">停止</Text>
+		</Row>
+	</Block>
+	<Block name="End">
+		<Literal>end</Literal>
+		<Row>
+			<Text id="T">结束</Text>
+		</Row>
+	</Block>
+	<Block name="JumpLabel">
+		<Field id="label" glue="true" />
+		<Literal glue="true">:</Literal>
+		<Row>
+			<Text id="T1">标签</Text>
+			<LineBox id="label" placeholder="label1" />
+		</Row>
+	</Block>
+	<Block name="Expression">
+		<Literal>#</Literal>
+		<!-- 注释就是 `#` 加文本：空文本时不要被补成 `# 0`（那样导回来内容就变了） -->
+		<Field id="text" allow_empty="true" />
+		<Row>
+			<Text id="T1">注释</Text>
+			<LineBox id="text" />
+		</Row>
+	</Block>
+	<Block name="Jump">
+		<Literal>jump</Literal>
+		<Field id="target" link="true" />
+		<Field id="cmp" />
+		<Field id="value1" />
+		<Field id="value2" />
+		<Row>
+			<Text id="T1">跳转</Text>
+			<JumpTarget id="target" />
+			<Text id="T2">如果</Text>
+			<!-- cmp=always 时官方隐藏两个比较值（`addOp` 里的 `if(op != always)`）：
+				 文本上依旧占位（写 0），但界面上不给两个没用的输入框 -->
+			<LineBox id="value1" placeholder="x" when="cmp!=always" />
+			<Option id="cmp">
+			<Item value="equal">相等</Item>
+			<Item value="notEqual">不等于</Item>
+			<Item value="lessThan">小于</Item>
+			<Item value="lessThanEq">小于等于</Item>
+			<Item value="greaterThan">大于</Item>
+			<Item value="greaterThanEq">大于等于</Item>
+			<Item value="strictEqual">严格相等</Item>
+			<Item value="always">总是</Item>
+		</Option>
+			<LineBox id="value2" placeholder="false" when="cmp!=always" />
+		</Row>
+	</Block>
+	<Block name="If">
+		<Row>
+			<Text id="T1">如果</Text>
+			<LineBox id="a" placeholder="a" />
+			<Option id="cmp">
+			<Item value="equal">相等</Item>
+			<Item value="notEqual">不等于</Item>
+			<Item value="lessThan">小于</Item>
+			<Item value="lessThanEq">小于等于</Item>
+			<Item value="greaterThan">大于</Item>
+			<Item value="greaterThanEq">大于等于</Item>
+			<Item value="strictEqual">严格相等</Item>
+			<Item value="always">总是</Item>
+		</Option>
+			<LineBox id="b" placeholder="b" />
+			<Nest id="nest" />
+		</Row>
+	</Block>
+</Kind>

@@ -87,8 +87,7 @@ theme_override_constants/separation = 100
 
 [node name="Close" type="Button" parent="Container/BottonBox/Container" unique_id=143222187]
 layout_mode = 2
-text = "Close
-"
+text = "NOTICE_CLOSE"
 
 [node name="Request" type="HTTPRequest" parent="." unique_id=257387753]
 use_threads = true

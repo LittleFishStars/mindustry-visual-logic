@@ -81,6 +81,7 @@ paste_mlog={
 [internationalization]
 
 locale/locale_filter_mode=0
+locale/translations=PackedStringArray("res://assets/i18n/ui.en.translation", "res://assets/i18n/ui.zh_CN.translation")
 
 [rendering]
 

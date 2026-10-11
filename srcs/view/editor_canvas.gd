@@ -465,12 +465,12 @@ func set_link_highlight(id: int) -> void:
 func _link_label(node_id: int, field_id: StringName) -> String:
 	var node := graph.get_node_by_id(node_id)
 	if node == null:
-		return "未锁定"
+		return tr("LINK_UNLOCKED")
 	var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
 	if target <= 0:
-		return "未锁定"
+		return tr("LINK_UNLOCKED")
 	var target_node := graph.get_node_by_id(target)
-	return String(target_node.type_id) if target_node != null else "已失效"
+	return String(target_node.type_id) if target_node != null else tr("LINK_INVALID")
 
 
 ## 重算全部跳线（布局一变就跑）。

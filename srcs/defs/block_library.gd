@@ -27,11 +27,14 @@ var kinds: Array[Kind] = []
 var _by_id: Dictionary[StringName, BlockDef] = {}
 
 
-## 读取当前语言的定义；该语言目录不存在时回退到 [constant FALLBACK_LANG]。
+## 按 locale 读块定义（`locale` 是 Godot 的写法：en / zh_CN / zh_TW…）。
+## 该语言目录不存在时回退到 [constant FALLBACK_LANG]。
 static func load_localized(locale: String = "") -> BlockLibrary:
 	var library := BlockLibrary.new()
 	var lang := locale if locale != "" else OS.get_locale()
-	var dir := DIR.path_join(lang)
+	# 只提供 en_US / zh_CN 两套：zh* 一律用 zh_CN，其余语言交给回退目录
+	var name := "zh_CN" if lang.begins_with("zh") else lang
+	var dir := DIR.path_join(name)
 	if not DirAccess.dir_exists_absolute(dir):
 		dir = DIR.path_join(FALLBACK_LANG)
 	library.load_dir(dir)

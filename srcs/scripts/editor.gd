@@ -25,7 +25,7 @@ var _picker_element: ElementDef = null
 
 
 func _ready() -> void:
-	library = BlockLibrary.load_localized()
+	library = BlockLibrary.load_localized(TranslationServer.get_locale())
 	nCanvas.setup(library)
 	nCanvas.drag_requested.connect(_on_canvas_drag_requested)
 	nCanvas.picker_requested.connect(_on_picker_requested)
@@ -39,6 +39,24 @@ func _ready() -> void:
 	_place_entry_block()
 
 
+## 语言变了（由 [Main] 调）：按新语言重载块定义，重建调色板与画布上的块视图；
+## 图与撤销栈不动 —— 换的只是显示文本。
+func reload_language() -> void:
+	library = BlockLibrary.load_localized(TranslationServer.get_locale())
+	nCanvas.library = library
+	nCanvas.rebuild()
+	for child in nBlockKindList.get_children():
+		nBlockKindList.remove_child(child)
+		child.queue_free()
+	for child in nBlockArea.get_children():
+		nBlockArea.remove_child(child)
+		child.queue_free()
+	_kind_lists.clear()
+	_current_kind = &""
+	_build_palette()
+
+
+## 两个指针会话（搬块 / 锁定跳转目标）用同一块画布区域、同一组「拖到这里就删」的区域。
 func _setup_pointer_sessions() -> void:
 	var sessions: Array[CanvasPointerSession] = [nDrag, nLink]
 	for session in sessions:
@@ -172,7 +190,7 @@ var custom_name: String = ""
 func display_name() -> String:
 	if custom_name != "":
 		return custom_name
-	return file_path.get_file().get_basename() if file_path != "" else "未命名"
+	return file_path.get_file().get_basename() if file_path != "" else tr("TAB_UNTITLED")
 
 
 ## 手动重命名标签页（空值回落到跟随文件名）。

@@ -25,13 +25,13 @@ const CELL_COLORS: Dictionary = {
 	&"pressed": [Color(0.30980393, 0.27058825, 0.36862746, 1.0), Color(0.101961, 0.086275, 0.121569, 1.0)],
 }
 
-## kind → 弹窗标题（认不出就用 kind 本身）。
+## kind → 标题的翻译键（认不出就用 kind 本身）。
 const TITLES: Dictionary[StringName, String] = {
-	&"units": "单位",
-	&"blocks": "建筑",
-	&"items": "物品",
-	&"liquids": "液体",
-	&"sensors": "属性 / 内容",
+	&"units": "SELECTOR_TITLE_UNITS",
+	&"blocks": "SELECTOR_TITLE_BLOCKS",
+	&"items": "SELECTOR_TITLE_ITEMS",
+	&"liquids": "SELECTOR_TITLE_LIQUIDS",
+	&"sensors": "SELECTOR_TITLE_SENSORS",
 }
 
 var _backdrop: ColorRect
@@ -97,7 +97,7 @@ func _ready() -> void:
 	body_margin.add_child(body)
 
 	_search = LineEdit.new()
-	_search.placeholder_text = "搜索（回车选第一个）"
+	_search.placeholder_text = "SELECTOR_SEARCH"
 	_search.clear_button_enabled = true
 	# 主主题没有 LineEdit 条目，不自己带样式就会顶着引擎默认的浅色皮肤
 	_search.add_theme_stylebox_override("normal", _make_edit_style(false))
@@ -196,7 +196,7 @@ func open(element: ElementDef) -> void:
 	_element = element
 	_groups = SelectorData.groups(element.selector_kind)
 	_group = &""
-	_title.text = "%s · %s" % [TITLES.get(element.selector_kind, String(element.selector_kind)), element.id]
+	_title.text = "%s · %s" % [tr(TITLES.get(element.selector_kind, String(element.selector_kind))), element.id]
 	_keyword = ""
 	_search.text = ""
 	_build_groups()
@@ -259,7 +259,7 @@ func _build_groups() -> void:
 	_groups_bar.visible = not _groups.is_empty()
 	if _groups.is_empty():
 		return
-	_add_group_button("", "全部")
+	_add_group_button("", tr("SELECTOR_ALL"))
 	for group_name in _groups:
 		_add_group_button(StringName(group_name), String(group_name))
 
@@ -334,7 +334,7 @@ func _refill() -> void:
 	for cell in first + rest:
 		_grid.move_child(cell["button"], index)
 		index += 1
-	_count.text = "共 %d 项" % total if shown == total else "共 %d 项，匹配 %d 项" % [total, shown]
+	_count.text = tr("SELECTOR_COUNT") % total if shown == total else tr("SELECTOR_COUNT_FILTERED") % [total, shown]
 
 
 ## 关键词匹配：`c` / `copper` / `@copper` 都能搜到 `@copper`。

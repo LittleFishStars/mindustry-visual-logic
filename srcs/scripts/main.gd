@@ -82,7 +82,7 @@ func new_page(title: StringName, scn: Resource) -> Node:
 
 
 func new_editor() -> LogicEditorTab:
-	var node := self.new_page(tr("File", "main"), self.Editor) as LogicEditorTab
+	var node := self.new_page("Editor", self.Editor) as LogicEditorTab
 	if node != null:
 		node.name_changed.connect(_on_editor_name_changed.bind(node))
 		_refresh_tab_title(node)
@@ -99,7 +99,7 @@ func _refresh_tab_title(editor: LogicEditorTab) -> void:
 	var index := editor.get_index()
 	if index >= 0 and index < self.nEditors.get_tab_count():
 		self.nEditors.set_tab_title(index, editor.display_name())
-		self.nEditors.set_tab_tooltip(index, "双击关闭 · 右键重命名")
+		self.nEditors.set_tab_tooltip(index, tr("TAB_TOOLTIP"))
 
 
 func _on_editor_name_changed(_display: String, editor: LogicEditorTab) -> void:
@@ -179,12 +179,38 @@ func _clear_current() -> void:
 
 
 #region 设置
-## 把设置搬到引擎上（帧率上限 / UI 缩放）；@tool 下跳过，免得改掉 Godot 编辑器自己的帧率与缩放。
+## 把设置搬到引擎上（帧率上限 / UI 缩放 / 语言）；@tool 下跳过，免得改掉 Godot 编辑器自己的帧率、缩放与语言。
 func _apply_settings() -> void:
 	if _settings == null or Engine.is_editor_hint():
 		return
 	Engine.max_fps = _settings.max_fps
 	get_tree().root.content_scale_factor = _settings.ui_scale
+	_apply_language()
+
+
+## 换语言：设置翻译服务，再让各页按新语言重取自己的文字（块定义 / 文档 / 代码写死的标题）。
+## 场景与控件里的文本由 Godot 自动重译，不用管。
+func _apply_language() -> void:
+	if TranslationServer.get_locale() != _settings.active_locale():
+		TranslationServer.set_locale(_settings.active_locale())
+		self._reload_localized_content()
+	# 窗口标题走系统 API，不跟控件一起自动重译：每次都显式写一遍
+	self.wSettings.title = tr("SETTINGS_TITLE")
+	self.wAbout.title = tr("ABOUT_TITLE")
+
+
+## 按新语言重取「不会自动重译」的内容：设置窗下拉框、关于窗正文、标签标题、块定义与文档。
+func _reload_localized_content() -> void:
+	self.wSettings.refresh_language()
+	self.wAbout.refresh_language()
+	for index in self.nEditors.get_tab_count():
+		var page := self.nEditors.get_tab_control(index)
+		if page is LogicEditorTab:
+			page.reload_language()
+			self._refresh_tab_title(page)
+		elif page is DocumentPage:
+			page.reload_language()
+			self.nEditors.set_tab_title(index, tr("TAB_MANUAL"))
 
 
 func _on_settings_changed() -> void:
@@ -248,7 +274,7 @@ func _save_current(force_dialog: bool) -> void:
 		return
 	_dialog_mode = &"save"
 	self.wProject.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	self.wProject.title = "保存项目"
+	self.wProject.title = tr("DIALOG_SAVE_PROJECT")
 	self.wProject.current_file = editor.display_name() + GraphSerializer.FILE_EXTENSION
 	self.wProject.popup_centered()
 
@@ -256,7 +282,7 @@ func _save_current(force_dialog: bool) -> void:
 func _open_project() -> void:
 	_dialog_mode = &"open"
 	self.wProject.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	self.wProject.title = "打开项目"
+	self.wProject.title = tr("DIALOG_OPEN_PROJECT")
 	self.wProject.popup_centered()
 
 
@@ -364,7 +390,7 @@ func _open_document() -> void:
 		self.nEditors.current_tab = existing.get_index()
 		return
 	var page := self.new_page("Manual", self.Document)
-	self.nEditors.set_tab_title(page.get_index(), "使用说明")
+	self.nEditors.set_tab_title(page.get_index(), tr("TAB_MANUAL"))
 
 
 func _document_page() -> DocumentPage:

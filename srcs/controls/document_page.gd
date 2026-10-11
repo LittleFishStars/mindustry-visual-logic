@@ -3,14 +3,14 @@ extends Control
 
 ## 应用内文档页（帮助 → Document）：左边章节，右边富文本。
 ##
-## 正文不在代码里：每页一个文件放在 [constant DOCS_DIR]，文件名排序决定章节顺序，
-## 首行是章节名、其余是 BBCode 正文 —— 加一页只需往那个文件夹里丢一个文件。
+## 正文不在代码里：每页一个文件放在 [constant DOCS_DIR]/<locale>/，文件名排序决定章节顺序，
+## 首行是章节名、其余是 BBCode 正文 —— 加一页（或加一种语言）只需往那个文件夹里丢文件。
 ## 它不是 [LogicEditorTab]（存盘 / 导出 / 撤销在它上面是空操作）。
 
 const DOCS_DIR: String = "res://docs"
 const EXTENSION: String = "bbcode"
-## 一个文档文件都没读到时的提示（导出时漏掉 docs/ 最容易出现）。
-const MISSING_HINT: String = "[b]找不到文档文件[/b]：%s/*.%s\n导出时请把 docs/ 加进「Filters to export non-resource files/folders」。"
+## 没有对应语言目录时回落到的那一套。
+const FALLBACK_LOCALE: String = "en_US"
 
 @onready var nChapters: VBoxContainer = %Chapters
 @onready var nTitle: Label = %Title
@@ -22,6 +22,14 @@ var _current: int = -1
 
 
 func _ready() -> void:
+	reload_language()
+
+
+## 按当前界面语言重读文档（语言切换时由 [Main] 再调一次）。
+func reload_language() -> void:
+	for child in nChapters.get_children():
+		nChapters.remove_child(child)
+		child.queue_free()
 	_sections = _load_sections()
 	for index in _sections.size():
 		var button := Button.new()
@@ -32,23 +40,31 @@ func _ready() -> void:
 		button.pressed.connect(func() -> void: _show_section(index))
 		nChapters.add_child(button)
 	if _sections.is_empty():
-		nTitle.text = "文档"
-		nBody.text = MISSING_HINT % [DOCS_DIR, EXTENSION]
+		nTitle.text = tr("DOC_TITLE")
+		nBody.text = tr("DOC_MISSING") % [_current_docs_dir(), EXTENSION]
 		return
 	_show_section(0)
 
 
-## 读 [constant DOCS_DIR] 下的文档文件：文件名排序 → 首行章节名，其余正文。
+## 当前语言对应的文档目录；该目录不存在时回落到 [constant FALLBACK_LOCALE]。
+func _current_docs_dir() -> String:
+	var name := "zh_CN" if TranslationServer.get_locale().begins_with("zh") else FALLBACK_LOCALE
+	var dir := DOCS_DIR.path_join(name)
+	return dir if DirAccess.dir_exists_absolute(dir) else DOCS_DIR.path_join(FALLBACK_LOCALE)
+
+
+## 读当前语言目录下的文档文件：文件名排序 → 首行章节名，其余正文。
 func _load_sections() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	if not DirAccess.dir_exists_absolute(DOCS_DIR):
+	var dir := _current_docs_dir()
+	if not DirAccess.dir_exists_absolute(dir):
 		return out
-	var names := DirAccess.get_files_at(DOCS_DIR)
+	var names := DirAccess.get_files_at(dir)
 	names.sort()
 	for file_name in names:
 		if file_name.get_extension().to_lower() != EXTENSION:
 			continue
-		var text := FileAccess.get_file_as_string(DOCS_DIR.path_join(file_name))
+		var text := FileAccess.get_file_as_string(dir.path_join(file_name))
 		if text == "":
 			push_warning("文档文件为空或读不出来：%s" % file_name)
 			continue

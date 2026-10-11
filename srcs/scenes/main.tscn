@@ -29,67 +29,67 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_3x73n")
 [node name="MenuBar" type="MenuBar" parent="." unique_id=521672658]
 layout_mode = 2
 
-[node name="Quit" type="Button" parent="."]
-text = "Quit"
-custom_minimum_size = Vector2(84, 0)
-
 [node name="File" type="PopupMenu" parent="MenuBar" unique_id=1509104562]
 oversampling_override = 1.0
-title = "File"
+title = "MENU_FILE"
 item_count = 7
-item_0/text = "New"
+item_0/text = "MENU_FILE_NEW"
 item_0/id = 0
-item_1/text = "Save"
+item_1/text = "MENU_FILE_SAVE"
 item_1/id = 1
-item_2/text = "Save As…"
+item_2/text = "MENU_FILE_SAVE_AS"
 item_2/id = 2
-item_3/text = "Open…"
+item_3/text = "MENU_FILE_OPEN"
 item_3/id = 3
-item_4/text = "Export to clipboard"
+item_4/text = "MENU_FILE_EXPORT"
 item_4/id = 4
-item_5/text = "Load from clipboard"
+item_5/text = "MENU_FILE_LOAD"
 item_5/id = 5
-item_6/text = "Append from clipboard"
+item_6/text = "MENU_FILE_APPEND"
 item_6/id = 6
 
-[node name="Edit" type="PopupMenu" parent="MenuBar"]
-title = "Edit"
+[node name="Edit" type="PopupMenu" parent="MenuBar" unique_id=293360796]
+title = "MENU_EDIT"
 item_count = 4
-item_0/text = "Undo"
+item_0/text = "MENU_EDIT_UNDO"
 item_0/id = 0
-item_1/text = "Redo"
+item_1/text = "MENU_EDIT_REDO"
 item_1/id = 1
-item_2/text = "Clear"
+item_2/text = "MENU_EDIT_CLEAR"
 item_2/id = 2
-item_3/text = "Settings…"
+item_3/text = "MENU_EDIT_SETTINGS"
 item_3/id = 3
 
 [node name="Help" type="PopupMenu" parent="MenuBar" unique_id=1442885816]
-title = "Help"
+title = "MENU_HELP"
 item_count = 3
-item_0/text = "Document"
+item_0/text = "MENU_HELP_DOCUMENT"
 item_0/id = 0
-item_1/text = "Notice"
+item_1/text = "MENU_HELP_NOTICE"
 item_1/id = 1
-item_2/text = "About"
+item_2/text = "MENU_HELP_ABOUT"
 item_2/id = 2
 
-[node name="SettingsWindow" parent="." instance=ExtResource("5_settings")]
+[node name="Quit" type="Button" parent="." unique_id=258929731]
+custom_minimum_size = Vector2(84, 0)
+layout_mode = 2
+text = "TOOLBAR_QUIT"
 
-[node name="AboutWindow" parent="." instance=ExtResource("6_about")]
+[node name="SettingsWindow" parent="." unique_id=793776163 instance=ExtResource("5_settings")]
+
+[node name="AboutWindow" parent="." unique_id=1620831575 instance=ExtResource("6_about")]
 
 [node name="Editors" type="TabContainer" parent="." unique_id=1245003327]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-current_tab = 0
 tabs_position = 1
 drag_to_rearrange_enabled = true
 
 [node name="ProjectDialog" type="FileDialog" parent="." unique_id=203232510]
 title = "Open a File or Directory"
 size = Vector2i(760, 520)
-ok_button_text = "确定"
+ok_button_text = "DIALOG_OK"
 file_mode = 3
 access = 2
 filters = PackedStringArray("*.json ; MVL 逻辑图")
@@ -99,9 +99,9 @@ use_native_dialog = true
 visible = false
 
 [connection signal="sort_children" from="." to="." method="_on_sort_children"]
-[connection signal="pressed" from="Quit" to="." method="_on_quit_pressed"]
 [connection signal="id_pressed" from="MenuBar/File" to="." method="_on_file_id_pressed"]
-[connection signal="id_pressed" from="MenuBar/Edit" to="." method="_on_edit_id_pressed"]
 [connection signal="about_to_popup" from="MenuBar/Edit" to="." method="_on_edit_about_to_popup"]
+[connection signal="id_pressed" from="MenuBar/Edit" to="." method="_on_edit_id_pressed"]
 [connection signal="id_pressed" from="MenuBar/Help" to="." method="_on_help_id_pressed"]
+[connection signal="pressed" from="Quit" to="." method="_on_quit_pressed"]
 [connection signal="file_selected" from="ProjectDialog" to="." method="_on_project_dialog_file_selected"]

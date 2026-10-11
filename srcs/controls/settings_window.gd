@@ -1,7 +1,7 @@
 class_name SettingsWindow
 extends Window
 
-## 设置窗口：帧率上限 / UI 缩放 / 失焦时自动导出。
+## 设置窗口：帧率上限 / UI 缩放 / 语言 / 失焦时自动导出。
 ## 只做「值 ↔ 控件」，应用是 [Main] 的事；改动即时生效，关闭窗口时才写盘。
 
 signal changed()
@@ -12,6 +12,7 @@ signal closed()
 @onready var nMaxFpsEdit: LineEdit = %MaxFpsEdit
 @onready var nUiScaleSlider: HSlider = %UiScaleSlider
 @onready var nUiScaleEdit: LineEdit = %UiScaleEdit
+@onready var nLanguageOption: OptionButton = %LanguageOption
 @onready var nExportToggle: CheckButton = %ExportOnFocusLost
 
 var settings: AppSettings = null
@@ -27,8 +28,17 @@ func open() -> void:
 	popup_centered()
 
 
+func _ready() -> void:
+	nLanguageOption.item_selected.connect(_on_language_selected)
+
+
 func setup(p_settings: AppSettings) -> void:
 	settings = p_settings
+	_show_values(settings)
+
+
+## 语言变了（应用在 [Main]）：把下拉框的选项文本也重取一遍（“跟随系统”那句要翻译）。
+func refresh_language() -> void:
 	_show_values(settings)
 
 
@@ -40,8 +50,19 @@ func _show_values(data: AppSettings) -> void:
 	nMaxFpsEdit.text = str(data.max_fps)
 	nUiScaleSlider.value = data.ui_scale
 	nUiScaleEdit.text = "%.2f" % data.ui_scale
+	_fill_language_options()
+	nLanguageOption.select(AppSettings.LANGUAGES.find(data.language))
 	nExportToggle.button_pressed = data.export_on_focus_lost
 	_loading = false
+
+
+## 语言下拉框：语言名用它自己的语言写，只有「跟随系统」要翻译。
+func _fill_language_options() -> void:
+	nLanguageOption.clear()
+	for code in AppSettings.LANGUAGES:
+		var label := tr("LANGUAGE_SYSTEM") if code == AppSettings.LANGUAGE_SYSTEM else (
+			"简体中文" if code == AppSettings.LANGUAGE_ZH else "English")
+		nLanguageOption.add_item(label)
 
 
 #region 控件回调
@@ -87,6 +108,14 @@ func _set_max_fps(value: float) -> void:
 
 func _set_ui_scale(value: float) -> void:
 	settings.ui_scale = value
+
+
+func _on_language_selected(index: int) -> void:
+	if _loading or settings == null or index < 0 or index >= AppSettings.LANGUAGES.size():
+		return
+	settings.language = AppSettings.LANGUAGES[index]
+	_show_values(settings)
+	changed.emit()
 
 
 func _on_export_toggled(pressed: bool) -> void:

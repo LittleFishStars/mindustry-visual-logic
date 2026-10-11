@@ -11,30 +11,21 @@ const DISPLAY_NAME: String = "Mindustry Visual Logic"
 
 
 func _ready() -> void:
+	refresh_language()
+
+
+## 语言变了（应用在 [Main]）：版本行与正文重取一遍。
+func refresh_language() -> void:
 	var version := String(ProjectSettings.get_setting("application/config/version", "?"))
 	var engine := String(Engine.get_version_info().get("string", "Godot"))
-	nVersion.text = "版本 %s · %s" % [version, engine]
-	nBody.text = _body_text()
+	nVersion.text = tr("ABOUT_VERSION") % [version, engine]
+	nBody.text = tr("ABOUT_BODY") % [DISPLAY_NAME, REPOSITORY]
 
 
 func open() -> void:
 	popup_centered()
 
 
-func _body_text() -> String:
-	return """[b]Mindustry 图形化逻辑编辑器[/b]
-%s（MVL）
-
-创作者：Te_泣鸣翡兀（bilibili：初来乍到TE_NasiLeyta）
-重要贡献：使针乡呀
-B 站空间：[url]https://space.bilibili.com/1738617842[/url]
-反馈群（QQ）：1038846685
-
-此软件赠给 使针乡呀，并且公开供所有人使用。
-目前应用处于测试阶段，若发现 bug，请在 QQ 群提出。非常感谢！
-
-项目仓库：[url]%s[/url]
-操作说明：帮助 → Document""" % [DISPLAY_NAME, REPOSITORY]
 
 
 func _on_meta_clicked(meta: Variant) -> void:
