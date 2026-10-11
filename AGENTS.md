@@ -164,6 +164,11 @@ assets/
   与以前行为一致。`op` 的一元运算把运算符提到前面就是这么声明的（见下节）。
 - **选择器（`<Selector>`）**：`<Selector id="type" kind="units" placeholder="@unit" />` —— 一个输入框
   加一个 ▾ 按钮，按下弹出图标选择弹窗（[SelectorPanel]），选中的 `@xxx` 回填进这个字段。
+  弹窗是[b]铺满编辑器页的浮层[/b]：半透明遮罩（点一下即关，也因此弹窗期间点不到画布）+ 居中面板；
+  Esc 也关。面板自带 StyleBoxFlat 与紧凑格子样式（主主题没有 PanelContainer/LineEdit 条目，
+  主题里 Button 的 content margin 有 30，不自己带样式会把 40px 的格子撑成 115px）。
+  尺寸跟着内容走（[method SelectorPanel._fit_and_center]，注意 Control 只会跟最小尺寸变大、
+  不会自己缩回，所以要从宽的种类切回窄的必须显式 reset_size）。
   它是普通字段元素（`is_field`），所以导出模板、`when` 条件、校验都跟 `<LineBox>` 一样，
   互换只影响显示。候选来自 `blocks/selectors/{kind}.json`：`units`(58) / `blocks`(259) /
   `items`(22) / `liquids`(11) / `sensors`(411，带 Item/Liquid/Payload/More 分组)。

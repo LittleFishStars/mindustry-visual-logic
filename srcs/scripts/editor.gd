@@ -142,7 +142,8 @@ func _on_picker_requested(element: ElementDef, control: Control) -> void:
 		return
 	_picker_target = control
 	_picker_element = element
-	_picker.open(element, control, control.get_global_rect().position + Vector2(0, control.size.y))
+	# 居中弹窗：不再贴在那颗 ▾ 按钮旁边（传 control 只是为了让回填知道写给谁）
+	_picker.open(element, control)
 
 
 func _on_picker_picked(value: String) -> void:
