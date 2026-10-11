@@ -21,8 +21,8 @@
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<!-- 显示顺序按官方 OperationStatement.rebuild：一元（not/abs/…）与函数型（max/len/…）
-			     是 `result = op a [b]`（运算符在前），其余是 `result = a op b`。
-			     元素只写一次，靠 <Place> 条件化挪位 —— 不再需要把一个字段写两遍。 -->
+				 是 `result = op a [b]`（运算符在前），其余是 `result = a op b`。
+				 元素只写一次，靠 <Place> 条件化挪位 —— 不再需要把一个字段写两遍。 -->
 			<LineBox id="a" placeholder="a">
 				<Place when="ops=not|abs|sign|log|log10|floor|ceil|round|sqrt|rand|sin|cos|tan|asin|acos|atan|max|min|angle|angleDiff|len|noise" after="ops" />
 			</LineBox>

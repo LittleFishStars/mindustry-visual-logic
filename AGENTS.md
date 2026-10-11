@@ -278,6 +278,17 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   `_unhandled_key_input` 只是焦点不在菜单栏时的兜底；两者不会双触发（前者会标 handled）。
   导出无内容（当前页是文档页等）时在 [method Main._export_to_clipboard] 里统一提示一声，
   菜单项与 F5 共用这一个出口，别再各写一份。
+- **Ctrl+C / Ctrl+V**：也是 `project.godot` 里的动作（`copy_mlog` / `paste_mlog`），
+  代码只认 `Main.QUICK_COPY_ACTION` / `QUICK_PASTE_ACTION`。
+  [b]这两个不入菜单[/b]：菜单项的 accelerator 只有一根（F5 已经占着），而且 Ctrl+C/V 得先
+  让输入框拿到（在 LineEdit 里它们就是普通的复制/粘贴文字）—— 所以它们走
+  [method Main._unhandled_key_input]：输入框有焦点时根本到不了这里，在空白处按才是整页操作。
+  Ctrl+C 就是导出（同一个出口，所以也只导出入口块那条链）；
+  Ctrl+V 走 [method LogicEditorTab.paste_mlog_new_chain]：把剪贴板转成块、[b]另起一条链[/b]
+  摆在现有内容下方（空隙 [constant LogicEditorTab.PASTE_GAP]，靠 [method EditorCanvas.content_rect]
+  算出「现有内容」），[b]不接到入口块那条链上[/b] —— 所以它不会被导出，要接上去得自己拖。
+  这与 File 菜单里那两个导入项[b]不是[/b]一回事（那两个是接进入口链的），
+  行号偏移也不一样：粘贴进来的片段自成一体，`jump` 的行号就是它自己的（偏移 0）。
 - **入口块（Start）**：XML 里 `<Block entry="true">`，它所在的类别用 `<Kind hidden="true">` 藏起来
   （Special 就是：块还在库里、`BlockLibrary.entry_def()` 找得到，只是不进调色板）。
   新页由 `LogicEditorTab._place_entry_block()` 自动放一个，[b]不进撤销栈[/b]。

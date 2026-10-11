@@ -122,6 +122,21 @@ func view_of(id: int) -> BlockView:
 	return _views.get(id)
 
 
+
+## 现有内容占的矩形（世界坐标，取所有块视图的并集；什么也没有时返回空矩形）。
+##
+## Ctrl+V 靠它把新链摆到现有内容[b]下面[/b]——不接在入口块那条链上，另起一条。
+func content_rect() -> Rect2:
+	var out := Rect2()
+	var first := true
+	for id in _views:
+		var view: BlockView = _views[id]
+		if view == null or not is_instance_valid(view):
+			continue
+		var rect := Rect2(view.position, view.size)
+		out = rect if first else out.merge(rect)
+		first = false
+	return out
 ## 这个节点是不是入口块（XML `entry="true"`，目前是 Start）。
 ## 一个文档只该有一个：不放复制、不准删，导出也从它开始。
 func is_entry(node: LogicNode) -> bool:

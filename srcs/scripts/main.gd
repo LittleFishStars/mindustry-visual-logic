@@ -54,6 +54,14 @@ const DRAG_CANCEL_PX: float = 4.0
 ## F5 快捷导出的输入动作名：沿用旧版 project.godot 里的 `compile`（旧版把「导出 mlog」
 ## 叫 compile）。键位写在 project.godot 的 [input] 段里 —— 换键改那里，代码不用动。
 const QUICK_EXPORT_ACTION: StringName = &"compile"
+## Ctrl+C 快速复制全部内容到剪贴板（就是导出那件事），## Ctrl+V 把剪贴板内容粘成新链。
+## 同样只认这里几个常量 —— 键位在 project.godot。
+##
+## 这两个不入菜单：菜单项的 accelerator 只有一根，F5 已经占着了；而且 Ctrl+C/V
+## 得先让输入框拿到（在 LineEdit 里它们就是普通的复制/粘贴文字），
+## 所以走 [method _unhandled_key_input] 兜底刚好。
+const QUICK_COPY_ACTION: StringName = &"copy_mlog"
+const QUICK_PASTE_ACTION: StringName = &"paste_mlog"
 
 ## 应用设置（[AppSettings]）：打开时读盘、改完即时应用、关窗时写盘。
 var _settings: AppSettings = null
@@ -440,6 +448,17 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed(QUICK_EXPORT_ACTION):
 		self._quick_export()
 		self.get_viewport().set_input_as_handled()
+		return
+	# Ctrl+C / Ctrl+V：只在没人接的时候才当“整页操作”。
+	# 输入框有焦点时，这两下会被 LineEdit 自己吃掉（复制/粘贴文字），根本到不了这里 ——
+	# 这正是想要的：在块里的输入框上 Ctrl+V，不该突然多出一链块。
+	if event.is_action_pressed(QUICK_COPY_ACTION):
+		self._export_to_clipboard()
+		self.get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed(QUICK_PASTE_ACTION):
+		self._paste_clipboard_as_chain()
+		self.get_viewport().set_input_as_handled()
 
 
 func _undo() -> void:
@@ -457,6 +476,24 @@ func _import_clipboard(append: bool) -> void:
 	var count := editor.import_mlog(text, append)
 	if count == 0:
 		push_warning("剪贴板里没有可识别的 mlog")
+	return
+
+
+## Ctrl+V：读剪贴板 → 转成块 → 放成一条新链（不接到现有块上，摆在它们下面）。
+##
+## 与 File 菜单里那两个导入项的区别就在“接不接上”：菜单项接进入口块那条链（能导出），
+## 这里只是摆在下方当草稿/素材，要接上去得自己拖 —— 所以提示语也分开写。
+func _paste_clipboard_as_chain() -> void:
+	var editor := self._current_editor()
+	if editor == null:
+		print("[MVL] 当前页没有逻辑可粘贴（粘贴只对编辑器页有意义）")
+		return
+	var text := DisplayServer.clipboard_get()
+	var count := editor.paste_mlog_new_chain(text)
+	if count == 0:
+		push_warning("剪贴板里没有可识别的 mlog")
+		return
+	print("[MVL] 已把剪贴板里的 %d 个块粘到下方（未连接）" % count)
 	return
 
 

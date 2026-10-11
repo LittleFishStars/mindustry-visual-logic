@@ -6,6 +6,9 @@ extends Control
 ## 视图层由 [EditorCanvas]（SubViewport）承担，拖拽由 [DragController] 统一处理，
 ## 选择器浮层由 [SelectorPanel] 提供。本脚本只做「拼装 + 接线」。
 
+## Ctrl+V 粘贴出来的新链与现有内容之间留的空隙（像素）。
+const PASTE_GAP := 56.0
+
 @export var list_separation: int = 10
 
 @onready var nBlockKindList: VBoxContainer = $Split/BlockKindList
@@ -300,6 +303,40 @@ func import_mlog(text: String, append: bool = false) -> int:
 	for message in warnings:
 		push_warning(message)
 	return nodes.size()
+
+
+## Ctrl+V：把 mlog 转成块，放进一条[b]新链[/b]摆在现有内容下方 —— 与现有块不连接，中间留一段空隙。
+##
+## 与 [method import_mlog] 的区别就在「接不接上」：那两个菜单项是接进入口块那条链（能导出）；
+## 这个是另起一条，拿去当草稿或拼装素材，要接上去自己拖。
+## 行号偏移取 0：粘贴进来的片段自成一体，jump 的行号就是它自己的行号。
+func paste_mlog_new_chain(text: String) -> int:
+	var warnings: Array[String] = []
+	var src_lines: Array[int] = []
+	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings, src_lines)
+	if nodes.is_empty():
+		for message in warnings:
+			push_warning(message)
+		return 0
+	var pos := _paste_position()
+	nCanvas.history.record("粘贴 %d 个块" % nodes.size(), func() -> void:
+		var chain := nCanvas.graph.create_chain(pos)
+		for node in nodes:
+			nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1)
+		# 块都入图了，现在才谈得上「第 N 行是哪一块」
+		MlogImporter.bind_links(nodes, src_lines, 0, nCanvas.graph, library, warnings))
+	for message in warnings:
+		push_warning(message)
+	return nodes.size()
+
+
+## 粘贴位置：现有内容正下方，留 [constant PASTE_GAP] 的空隙。
+## 没有内容（理论上不会：新页总有一个入口块）时从固定点开始。
+func _paste_position() -> Vector2:
+	var rect := nCanvas.content_rect()
+	if rect.size == Vector2.ZERO:
+		return Vector2(40, 40)
+	return Vector2(rect.position.x, rect.end.y + PASTE_GAP)
 
 
 ## 导入的块往哪里插：入口块所在的那条链（导出只走它 —— 插到别的链上等于导不出来）。
