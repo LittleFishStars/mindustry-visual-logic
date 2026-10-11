@@ -211,7 +211,8 @@ assets/
 ```
 
 - **导出段**：`<Literal>`（可以含空格）、`<Field id>`、`<Field id link="true">`（块引用，见下）、
-  `<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）；
+  `<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）、
+  `<AfterSubtree/>`（本块**连巢**之后那一条指令的行号：只有导出期算得出来，`If` 靠它跳过整段巢）；
   `glue="true"` / `space_before="false"` 表示本段紧贴上一段；
   `<Field as="string">` 表示这一格是字符串（引号与转义由导出器加），
   `<Field allow_empty="true">` 表示空值不补 `0`（注释文本这类字段）：导出侧靠
@@ -251,6 +252,11 @@ assets/
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
   （注释行 `#…` 与标签行 `label:` 不占行号），导入时 `MlogImporter.bind_links` 再把行号绑回块。
   「哪些字段是引用」的唯一真相在导出模板上（`BlockDef.reference_fields()`），元素种类只管怎么编辑它。
+- **结构块 `If` 的导出**：它没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
+  取反逐项写在 `<Export when="cmp=…">` 里（`equal`→`notEqual`、`lessThan`→`greaterThanEq`…），
+  没写 `when` 的那条按「相等」兜底；`strictEqual` / `always` 不在它的可选值里（一条 jump 取反不了严格相等）。
+  行号由 `MlogExporter` 算：`_walk` 给每个节点记下「子树结束的下标」，`_table_of` 再换算成 `after` 行号表。
+  导入侧认不出它（带 `<AfterSubtree/>` 的模板整体不可匹配），导回来的结构块会摊平成普通 `Jump` —— 文本逐字不变。
 - **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 是显示字符、导出字符码）。
 - **报错要出声**：`condition_parser.gd` 只做语法解析；「字段是否存在、取值是否合法」由 `BlockLibrary`
   在整块解析完后统一校验。语法错、未知字段、非法取值、未注册的元素标签与 `<Br>`/`<Pressed>` 旧写法

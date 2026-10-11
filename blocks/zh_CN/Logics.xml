@@ -64,6 +64,33 @@
 		</Row>
 	</Block>
 	<Block name="If">
+		<!-- 条件执行 = 一条 jump 跳过整段嵌套：条件不成立才跳，所以模板里的比较都是「反过来的」。
+			 AfterSubtree 是导出器算出的「本块（含嵌套）之后」那条指令的行号；没写 when 的那条是兜底。
+			 没有严格相等：一条 jump 取反不了它（真要就自己用 Jump 搭）。 -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>notEqual</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=notEqual">
+			<Literal>jump</Literal><AfterSubtree/><Literal>equal</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=lessThan">
+			<Literal>jump</Literal><AfterSubtree/><Literal>greaterThanEq</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=lessThanEq">
+			<Literal>jump</Literal><AfterSubtree/><Literal>greaterThan</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=greaterThan">
+			<Literal>jump</Literal><AfterSubtree/><Literal>lessThanEq</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=greaterThanEq">
+			<Literal>jump</Literal><AfterSubtree/><Literal>lessThan</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
 		<Row>
 			<Text id="T1">如果</Text>
 			<LineBox id="a" placeholder="a" />
@@ -74,8 +101,6 @@
 			<Item value="lessThanEq">小于等于</Item>
 			<Item value="greaterThan">大于</Item>
 			<Item value="greaterThanEq">大于等于</Item>
-			<Item value="strictEqual">严格相等</Item>
-			<Item value="always">总是</Item>
 		</Option>
 			<LineBox id="b" placeholder="b" />
 			<Nest id="nest" />

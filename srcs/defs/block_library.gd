@@ -163,6 +163,9 @@ func _parse_file(path: String) -> void:
 							_export_target(block, variant).append(
 								ExportPart.make_first_visible(_ids(String(attrs.get("ids", ""))))
 							)
+					"AfterSubtree":
+						if block != null:
+							_export_target(block, variant).append(ExportPart.make_after_subtree())
 					"Item":
 						if option_element != null:
 							var item := ElementDef.OptionItem.new("")

@@ -14,7 +14,8 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 	for entry in walk:
 		var def: BlockDef = entry["def"]
 		var node: LogicNode = entry["node"]
-		var line := render_node(def, node, _resolver(node, table, warnings))
+		var after: int = table["after"].get(node.id, -1)
+		var line := render_node(def, node, _resolver(node, table, warnings), after)
 		if line != "":
 			lines.append(line)
 	if lines.is_empty():
@@ -22,7 +23,7 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 	return "\n".join(lines) + "\n"
 
 
-## 行号表：`{line_of, fallback, count}`，顺序与 [method export] 的输出一致。
+## 行号表：`{line_of, fallback, after, count}`，顺序与 [method export] 的输出一致。
 static func line_table(graph: LogicGraph, library: BlockLibrary) -> Dictionary:
 	var discarded: Array[String] = []
 	return _table_of(_walk(graph, library, discarded))
@@ -33,14 +34,16 @@ static func line_count(graph: LogicGraph, library: BlockLibrary) -> int:
 	return int(line_table(graph, library).get("count", 0))
 
 
-static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Callable()) -> String:
+## [param after_line] 是本块子树之后的第一条指令行号（`<AfterSubtree/>` 用它；算不出来时传 -1）。
+static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Callable(),
+		after_line: int = -1) -> String:
 	var value_of := node.value_reader()
 	var parts := def.export_parts_for(value_of)
 	if parts.is_empty():
 		return ""
 	var out := ""
 	for part in parts:
-		var text := _render_part(def, node, part, value_of, resolver)
+		var text := _render_part(def, node, part, value_of, resolver, after_line)
 		if text == "":
 			continue
 		if part.space_before and out != "":
@@ -96,23 +99,34 @@ static func _walk_chain(
 			warnings.append("未知块类型：%s" % node.type_id)
 			continue
 		out.append({"node": node, "def": def})
+		var at := out.size() - 1
 		for slot_id in def.slot_ids():
 			_walk_chain(graph, library, graph.slot_items(id, slot_id), out, warnings)
+		# 子树在 walk 里是连续的：递归完它，out 的长度就是「本块之后」那个 entry 的下标
+		out[at]["end"] = out.size()
 
 
 ## 排行号：[b]数的是指令而不是文本行[/b] —— 注释行与标签行不占行号，只记 fallback。
 static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 	var line_of: Dictionary = {}
 	var fallback: Dictionary = {}
+	## 节点 id → 本块子树之后的第一条指令行号（结构块的条件跳转目标）
+	var after: Dictionary = {}
 	var count := 0
+	var lines_at: Array[int] = []
 	for entry in walk:
 		var def: BlockDef = entry["def"]
 		var node: LogicNode = entry["node"]
+		lines_at.append(count)
 		fallback[node.id] = count
 		if _is_instruction(render_node(def, node)):
 			line_of[node.id] = count
 			count += 1
-	return {"line_of": line_of, "fallback": fallback, "count": count}
+	lines_at.append(count)
+	for entry in walk:
+		var node: LogicNode = entry["node"]
+		after[node.id] = lines_at[int(entry.get("end", walk.size()))]
+	return {"line_of": line_of, "fallback": fallback, "after": after, "count": count}
 
 
 ## 这一行会不会成为一条指令（判定与导入侧同一套规则）。
@@ -144,7 +158,8 @@ static func _render_part(
 	node: LogicNode,
 	part: ExportPart,
 	value_of: Callable,
-	resolver: Callable
+	resolver: Callable,
+	after_line: int
 ) -> String:
 	match part.kind:
 		ExportPart.Kind.LITERAL:
@@ -153,6 +168,8 @@ static func _render_part(
 			var text := _field_text(def, node, part.field, resolver, part.allow_empty)
 			# 字符串字段：引号在这里加并转义 —— 否则用户打一个引号就会把整行写坏
 			return _quoted(text) if part.as_string else text
+		ExportPart.Kind.AFTER_SUBTREE:
+			return str(after_line)
 		_:
 			for field_id in part.fields:
 				if def.is_field_active(field_id, value_of):

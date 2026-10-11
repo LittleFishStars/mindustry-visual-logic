@@ -8,6 +8,8 @@ enum Kind {
 	FIELD,
 	## 取第一个"可见且有值"的字段的值（对应旧语法的 %a|b）。
 	FIRST_VISIBLE,
+	## 本块（含子树）之后的第一条指令行号 —— 结构块用它做「跳过整段嵌套」的条件跳转（只有导出期算得出来）。
+	AFTER_SUBTREE,
 }
 
 var kind: Kind = Kind.LITERAL
@@ -51,6 +53,12 @@ static func make_first_visible(field_ids: Array[StringName]) -> ExportPart:
 	return part
 
 
+static func make_after_subtree() -> ExportPart:
+	var part := ExportPart.new()
+	part.kind = Kind.AFTER_SUBTREE
+	return part
+
+
 func set_text(value: String) -> void:
 	literal = value
 
@@ -61,6 +69,8 @@ func describe() -> String:
 			return literal
 		Kind.FIELD:
 			return "%" + String(field)
+		Kind.AFTER_SUBTREE:
+			return "→after"
 		_:
 			var names: PackedStringArray = []
 			for field_id in fields:

@@ -3,6 +3,10 @@ extends RefCounted
 
 ## mlog 文本 → 逻辑节点（尚未入图）。反向利用导出模板：行首字面量定位块类型，其余段按模板顺序回填字段 —— 模板是唯一真相，新增块自动可导入。
 ## [param src_lines] 与返回值平行：第 i 个节点在文本里的 0 基行号（行号绑引用的唯一线索）。
+## `<AfterSubtree/>`（本块子树之后的行号）只有导出期算得出来：带它的模板导入时整体判为不可匹配，
+## 结构块导出的 jump 于是当成普通 Jump 块导进来（文本不变，结构会摊平）。
+
+
 static func parse(
 	text: String,
 	library: BlockLibrary,
@@ -189,21 +193,25 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 		var string_field := false
 		var field: StringName = &""
 		var candidates: Array[StringName] = []
+		var unmatchable := false
 		match part.kind:
 			ExportPart.Kind.LITERAL:
 				text = part.literal
 			ExportPart.Kind.FIELD:
 				field = part.field
 				string_field = part.as_string
+			ExportPart.Kind.AFTER_SUBTREE:
+				unmatchable = true
 			_:
 				candidates = part.fields
 				if not candidates.is_empty():
 					field = candidates[0]
 		if tokens.is_empty() or part.space_before:
 			tokens.append({"literal": text, "field": field, "suffix": "",
-				"string": string_field, "fields": candidates})
+				"string": string_field, "fields": candidates, "unmatchable": unmatchable})
 			continue
 		var token: Dictionary = tokens[-1]
+		token["unmatchable"] = bool(token.get("unmatchable", false)) or unmatchable
 		if token.get("field", &"") == &"" and field != &"":
 			token["field"] = field
 			token["string"] = string_field
@@ -266,6 +274,8 @@ static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: P
 	for i in tokens.size():
 		var slot: Dictionary = template[i]
 		var token := tokens[i]
+		if bool(slot.get("unmatchable", false)):
+			return null
 		var literal := String(slot.get("literal", ""))
 		var field: StringName = slot.get("field", &"")
 		var candidates: Array = slot.get("fields", [])

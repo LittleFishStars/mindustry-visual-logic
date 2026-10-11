@@ -64,6 +64,34 @@
 		</Row>
 	</Block>
 	<Block name="If">
+		<!-- Conditional run = one `jump` that skips the whole nest: it jumps when the condition does NOT hold,
+			 so every template below writes the comparison "the other way round".
+			 AfterSubtree is the line number the exporter computes for "after this block (nest included)";
+			 the Export without when= is the fallback. No strictEqual: a single jump cannot negate it. -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>notEqual</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=notEqual">
+			<Literal>jump</Literal><AfterSubtree/><Literal>equal</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=lessThan">
+			<Literal>jump</Literal><AfterSubtree/><Literal>greaterThanEq</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=lessThanEq">
+			<Literal>jump</Literal><AfterSubtree/><Literal>greaterThan</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=greaterThan">
+			<Literal>jump</Literal><AfterSubtree/><Literal>lessThanEq</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=greaterThanEq">
+			<Literal>jump</Literal><AfterSubtree/><Literal>lessThan</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
 		<Row>
 			<Text id="T1">If</Text>
 			<LineBox id="a" placeholder="a" />
@@ -74,8 +102,6 @@
 			<Item>lessThanEq</Item>
 			<Item>greaterThan</Item>
 			<Item>greaterThanEq</Item>
-			<Item>strictEqual</Item>
-			<Item>always</Item>
 		</Option>
 			<LineBox id="b" placeholder="b" />
 			<Nest id="nest" />
