@@ -14,8 +14,8 @@ extends Container
 @onready var wSettings: SettingsWindow = $SettingsWindow
 @onready var wAbout: AboutWindow = $AboutWindow
 
-var Editor = preload("res://srcs/scenes/editor.tscn")
-var Document = preload("res://srcs/controls/document_page.tscn")
+var Editor = preload("res://srcs/pages/editor.tscn")
+var Document = preload("res://srcs/pages/document_page.tscn")
 
 var custom_cursor = preload("res://assets/sprites/cursors/cursor.png")
 var ibeam_cursor = preload("res://assets/sprites/cursors/ibeam.png")

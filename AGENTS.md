@@ -15,59 +15,66 @@ Godot 4.x application (GL Compatibility renderer, not Vulkan). Visual block-base
 ## Directory layout
 
 ```
-srcs/
+srcs/                                   ← 按职责分区：app 外壳 / pages 标签页 / windows 独立窗口 / model / defs / view / mlog
+├── app/                        ← 应用外壳
+│   ├── main.tscn               ← 应用入口（project.godot 的 run/main_scene 按 uid 指向它）
+│   ├── main.gd                 ← @tool，顶层 UI + 菜单 + 光标
+│   └── tab_rename.gd           ← 标签条就地重命名（手势 + 输入框；外壳只接"改完写到哪"）
+├── pages/                      ← 标签页
+│   ├── editor.tscn             ← 编辑器页场景（脚本已外置，不再内嵌 GDScript）
+│   ├── editor.gd               ← [LogicEditorTab]：调色板 + 画布 + 拖拽 + 锁定 + 选择器
+│   ├── document_page.tscn      ← 文档页（标签页形态：左边章节 / 右边富文本）
+│   └── document_page.gd        ← 正文读 docs/{locale}/*.bbcode，不在代码里
+├── windows/                    ← 独立窗口（公告 / 设置 / 关于）
+│   ├── notice_window.tscn      ← 公告弹窗（textdb.online；脚本内嵌在场景里）
+│   ├── notice_item.tscn        ← 公告条目（脚本内嵌在场景里）
+│   ├── settings_window.tscn    ← 设置窗口（帧率上限 / UI 缩放 / 语言 / 失焦自动导出）
+│   ├── settings_window.gd
+│   ├── about_window.tscn       ← 关于窗（版本 / 作者 / 反馈与仓库链接）
+│   └── about_window.gd
 ├── model/                      ← 纯数据层（无 Node、无控件，可序列化、可撤销）
 │   ├── logic_node.gd           ← LogicNode：类型 + 字段值 + 各槽位的有序子节点 id
 │   ├── logic_graph.gd          ← LogicGraph：画布上的若干条链；容器 = (owner_id, slot_id)
 │   ├── graph_cloner.gd         ← 子树深拷贝（复制块用；引用字段表由调用方传入）
 │   ├── graph_history.gd        ← 快照式撤销/重做
 │   ├── graph_serializer.gd     ← JSON 存盘/读盘
-│   └── app_settings.gd         ← 应用设置（帧率/UI 缩放/失焦导出）+ user://settings.json
+│   └── app_settings.gd         ← 应用设置（帧率 / UI 缩放 / 语言 / 失焦导出）+ user://settings.json
 ├── defs/                       ← 定义层（块定义的类型化对象）
 │   ├── block_def.gd            ← BlockDef：行/元素、导出模板、默认值、字段与槽位索引
 │   ├── element_def.gd          ← ElementDef / OptionItem（各自带生效条件 when）
 │   ├── export_part.gd          ← ExportPart：字面量 / 取字段 / 首个可见
-│   ├── condition_def.gd        ← ConditionDef：when 的表达式树（求值 + 规范化回写）
-│   ├── condition_parser.gd     ← when="…" 的词法/语法解析（只做语法，不校验字段）
 │   ├── element_builder.gd      ← ElementBuilder：一种元素种类的行为契约
 │   ├── block_library.gd        ← XML → BlockDef（不认识具体元素种类）
 │   ├── element_registry.gd     ← 元素种类 → 构建器（defs 只问它，不枚举元素种类）
-│   └── selector_data.gd        ← 选择器候选（读 blocks/selectors/*.json）
+│   ├── selector_data.gd        ← 选择器候选（读 blocks/selectors/*.json）
+│   └── condition/              ← when 条件子系统（单独成组：只有它需要词法/语法）
+│       ├── condition_def.gd    ← ConditionDef：表达式树（求值 + 规范化回写）
+│       └── condition_parser.gd ← when="…" 的词法/语法解析（只做语法，不校验字段）
 ├── view/                       ← 视图层（只渲染与交互，不持有拓扑真相）
-│   ├── block_view.gd           ← BlockView：一个块的控件、几何度量、背景绘制
-│   ├── editor_canvas.gd        ← EditorCanvas：图 + 撤销栈 + 视图集合（布局/跳线/占位预览各自外置）
-│   ├── layout_solver.gd        ← 纯函数布局求解（自底向上量、自顶向下摆、产出吸附锚点）
-│   ├── block_metrics.gd        ← 块几何契约（尺寸/尾锚点/槽位锚点）
-│   ├── layout_result.gd        ← 求解结果（矩形表 + 锚点表）
-│   ├── editor_camera.gd        ← 相机：滚轮缩放 + 空白处左键平移
-│   ├── canvas_pointer_session.gd ← 指针会话骨架（搬块与锁定跳转目标共用）
-│   ├── drag_controller.gd      ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
-│   ├── link_router.gd          ← 跳线路由（纯函数：谁引用了谁 → 可直接画的折线）
-│   ├── placement_preview.gd    ← 落点占位块（拖拽时"现在放下会怎么样"）
-│   ├── link_controller.gd      ← 锁定会话（Jump 的目标按钮：拖到某块上松手 = 锁定）
-│   ├── link_layer.gd           ← 跳线层（Jump → 目标块的彩色折线 + 箭头）
-│   ├── selector_panel.gd       ← 内容选择弹窗（单位/建筑/物品/液体/传感器属性）
-│   └── elements/
-│       └── element_builders.gd ← 内置元素构建器（ElementBuilder 子类 + 注册）
-├── mlog/                       ← 与 mlog 文本互转（纯函数，不碰控件）
-│   ├── mlog_exporter.gd        ← LogicGraph → mlog 文本
-│   └── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型）
-├── controls/
-│   ├── notice_window.tscn      ← 公告弹窗（textdb.online）
-│   ├── notice_item.tscn
-│   ├── settings_window.tscn    ← 设置窗口（帧率上限 / UI 缩放 / 失焦自动导出）
-│   ├── settings_window.gd
-│   ├── tab_rename.gd           ← 标签条就地重命名（手势 + 输入框；外壳只接"改完写到哪"）
-│   ├── document_page.tscn      ← 文档页（标签页形态：左边章节 / 右边富文本）
-│   ├── document_page.gd        ← 文档页脚本（正文读 docs/*.bbcode，不在代码里）
-│   ├── about_window.tscn       ← 关于窗（版本 / 作者 / 反馈与仓库链接）
-│   └── about_window.gd
-├── scenes/
-│   ├── editor.tscn             ← 编辑器标签页（脚本已外置，不再内嵌 GDScript）
-│   └── main.tscn               ← 应用入口
-└── scripts/
-    ├── main.gd                 ← @tool，顶层 UI + 菜单 + 光标（标签重命名见 controls/tab_rename.gd）
-    └── editor.gd               ← 标签页拼装：调色板 + 画布 + 拖拽 + 锁定 + 选择器
+│   ├── canvas/                 ← 画布与其相机
+│   │   ├── editor_canvas.gd    ← EditorCanvas：图 + 撤销栈 + 视图集合（布局/跳线/占位预览各自外置）
+│   │   └── editor_camera.gd    ← 相机：滚轮缩放 + 空白处左键平移
+│   ├── block/                  ← 块视图与几何契约
+│   │   ├── block_view.gd       ← BlockView：一个块的控件、几何度量、背景绘制
+│   │   └── block_metrics.gd    ← 块几何契约（尺寸/尾锚点/槽位锚点）
+│   ├── elements/
+│   │   └── element_builders.gd ← 内置元素构建器（ElementBuilder 子类 + 注册）
+│   ├── layout/                 ← 布局求解
+│   │   ├── layout_solver.gd    ← 纯函数布局求解（自底向上量、自顶向下摆、产出吸附锚点）
+│   │   └── layout_result.gd    ← 求解结果（矩形表 + 锚点表）
+│   ├── link/                   ← 跳线几何与锁定会话
+│   │   ├── link_router.gd      ← 跳线路由（纯函数：谁引用了谁 → 可直接画的折线）
+│   │   ├── link_layer.gd       ← 跳线层（Jump → 目标块的彩色折线 + 箭头）
+│   │   └── link_controller.gd  ← 锁定会话（Jump 的目标按钮：拖到某块上松手 = 锁定）
+│   ├── drag/                   ← 「在画布上按住并拖」这一类交互
+│   │   ├── canvas_pointer_session.gd ← 指针会话骨架（搬块与锁定跳转目标共用）
+│   │   ├── drag_controller.gd  ← 拖拽会话（调色板出块 / 画布内搬移 / 落地）
+│   │   └── placement_preview.gd ← 落点占位块（拖拽时"现在放下会怎么样"）
+│   └── selector_panel.gd       ← 内容选择弹窗（单位/建筑/物品/液体/传感器属性）
+└── mlog/                       ← 与 mlog 文本互转（纯函数，不碰控件）
+    ├── mlog_exporter.gd        ← LogicGraph → mlog 文本
+    ├── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型）
+    └── mlog_text.gd            ← mlog 字符串字面量读写（与游戏 LParser 对齐）
 
 blocks/{locale}/*.xml           ← 块定义（en_US / zh_CN；只差显示文本，见「本地化」）
 blocks/selectors/*.json         ← 选择器候选（units / blocks / items / liquids / sensors）
@@ -331,6 +338,12 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   `set_enabled`）。
 - 新增块：往 XML 里加 `<Block>`，不需要写 GDScript。
 - 新增选择器候选：改 `blocks/selectors/*.json`。
+- **新增脚本放哪（按职责，别往兜底目录里塞）**：纯数据 → `model/`；块定义/条件/类型化对象 → `defs/`
+  （只有一个子系统需要词法/语法时才开子目录，如 `defs/condition/`）；画布上的渲染与交互 → `view/`，
+  再按机制选 `canvas` / `block` / `elements` / `layout` / `link` / `drag`；与 mlog 文本互转 → `mlog/`；
+  标签页（带 [TabContainer] 的页面）→ `pages/`；独立弹窗 → `windows/`；顶层外壳（菜单/光标/标签条）→ `app/`。
+  **成对的 `.tscn` + `.gd` 必须放在同一目录**（场景按相对路径找脚本时靠 uid，但同目录才好找）。
+
 
 ### Other
 
@@ -408,7 +421,7 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   会取消这次改名。回车/失焦提交、Esc 取消、空名字回落文件名，切页时也会自动提交。
   实现上用 TabBar 的 `gui_input` 而不是 `tab_clicked` 信号：后者是在[b]内建处理之后[/b]才发的，
   那时当前页已经切过去了（分不出「切页」与「点已选中的页」），也拿不到 `double_click`。
-  这一整套（延时、双击、输入框、提交/取消）都在 [TabRename]（`controls/tab_rename.gd`）里，
+  这一整套（延时、双击、输入框、提交/取消）都在 [TabRename]（`app/tab_rename.gd`）里，
   `main.gd` 只接「改完的名字写到哪」（[method Main._on_tab_renamed]）与「关掉哪一页」。
 
 ## Conventions and gotchas

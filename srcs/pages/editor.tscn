@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://c5aww1ajt7842"]
 
-[ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/scripts/editor.gd" id="1_x6qec"]
-[ext_resource type="Script" uid="uid://ba61nhstol3lv" path="res://srcs/view/editor_canvas.gd" id="2_canvas"]
-[ext_resource type="Script" uid="uid://b53fyu6tp4klc" path="res://srcs/view/editor_camera.gd" id="3_camera"]
-[ext_resource type="Script" uid="uid://bo00f80eayfyo" path="res://srcs/view/drag_controller.gd" id="5_drag"]
-[ext_resource type="Script" path="res://srcs/view/link_layer.gd" id="6_links"]
-[ext_resource type="Script" path="res://srcs/view/link_controller.gd" id="7_link"]
+[ext_resource type="Script" uid="uid://dppg5bxirnd23" path="res://srcs/pages/editor.gd" id="1_x6qec"]
+[ext_resource type="Script" uid="uid://ba61nhstol3lv" path="res://srcs/view/canvas/editor_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" uid="uid://b53fyu6tp4klc" path="res://srcs/view/canvas/editor_camera.gd" id="3_camera"]
+[ext_resource type="Script" uid="uid://bo00f80eayfyo" path="res://srcs/view/drag/drag_controller.gd" id="5_drag"]
+[ext_resource type="Script" path="res://srcs/view/link/link_layer.gd" id="6_links"]
+[ext_resource type="Script" path="res://srcs/view/link/link_controller.gd" id="7_link"]
 
 [node name="Editor" type="Control" unique_id=614836996]
 layout_mode = 3

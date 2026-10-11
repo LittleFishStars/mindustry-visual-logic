@@ -2,7 +2,7 @@
 
 [ext_resource type="Theme" uid="uid://11wvq82locvq" path="res://assets/styles/main_theme.tres" id="1_theme"]
 [ext_resource type="Texture2D" path="res://icon.png" id="2_icon"]
-[ext_resource type="Script" path="res://srcs/controls/about_window.gd" id="3_script"]
+[ext_resource type="Script" path="res://srcs/windows/about_window.gd" id="3_script"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.207843, 0.180392, 0.25098, 1)

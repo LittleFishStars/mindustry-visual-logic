@@ -5,7 +5,7 @@ resource_name = "notice_window"
 script/source = "extends Window
 
 
-var NoticeItem := preload(\"res://srcs/controls/notice_item.tscn\")
+var NoticeItem := preload(\"res://srcs/windows/notice_item.tscn\")
 
 @onready var Request: HTTPRequest = $Request
 @onready var nList: VBoxContainer = $Container/Scroll/Margin/NoticeList
