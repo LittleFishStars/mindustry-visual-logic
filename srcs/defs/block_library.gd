@@ -122,6 +122,8 @@ func _parse_file(path: String) -> void:
 	var variant: BlockDef.ExportVariant = null
 	# 下一个文本节点该写给谁（Text / Item / Literal）
 	var text_target: Variant = null
+	# 当前打开的（非自闭合）元素：`<Place>` 写在它内部，所以要知道自己在谁肚子里
+	var current_element: ElementDef = null
 	var order := 0
 
 	while xml.read() == OK:
@@ -194,6 +196,21 @@ func _parse_file(path: String) -> void:
 							item.alias = String(attrs.get("alias", ""))
 							option_element.items.append(item)
 							text_target = item
+					"Place":
+						# 条件化排位：满足 when 时把宿主元素挪到 before/after 指定的元素前面/后面
+						if current_element == null:
+							warnings.append("%s：<Place> 只能写在元素内部（`<LineBox id=\"a\"><Place …/></LineBox>`）"
+								% [block.id if block != null else "?"])
+						else:
+							var placement := ElementDef.Placement.new()
+							placement.when = _condition_of(block, attrs)
+							placement.before = StringName(attrs.get("before", ""))
+							placement.after = StringName(attrs.get("after", ""))
+							if (placement.before == &"") == (placement.after == &""):
+								warnings.append("%s：元素 %s 的 <Place> 要且只要写 before= 或 after= 之一"
+									% [block.id if block != null else "?", current_element.id])
+							else:
+								current_element.placements.append(placement)
 					_:
 						if block != null:
 							if not ElementRegistry.has(tag):
@@ -209,8 +226,12 @@ func _parse_file(path: String) -> void:
 									option_element = element
 								if tag == "Text":
 									text_target = element
+								current_element = element
 				if self_closing:
 					text_target = null
+					# 自闭合的元素不可能有 <Place> 子元素，关掉它
+					if current_element != null and tag == String(current_element.type):
+						current_element = null
 					if tag == "Option":
 						option_element = null
 			XMLParser.NODE_TEXT:
@@ -219,9 +240,16 @@ func _parse_file(path: String) -> void:
 					if text != "":
 						text_target.set_text(text)
 			XMLParser.NODE_ELEMENT_END:
+				# 先关掉正在打开的元素（它的 <Place> 子元素已收集完）。
+				# [b]必须放在 match 之前[/b]：写在 match 里就会被某个具名分支吃掉，
+				# 而通配分支 `_` 会把后面的 "Block"/"Kind" 分支全遮住。
+				if current_element != null and xml.get_node_name() == String(current_element.type):
+					current_element = null
 				match xml.get_node_name():
 					"Text", "Item", "Literal":
 						text_target = null
+					"Place":
+						pass
 					"Option":
 						option_element = null
 					"Row":
@@ -232,8 +260,10 @@ func _parse_file(path: String) -> void:
 						variant = null
 					"Block":
 						if block != null:
-							_validate_conditions(block)
+							# 先建索引：校验要用到 element() / row_of()
 							block.build_index()
+							_validate_conditions(block)
+							_validate_placements(block)
 						block = null
 					"Kind":
 						current_kind = null
@@ -250,6 +280,24 @@ func _validate_conditions(block: BlockDef) -> void:
 			warnings.append("%s：when=\"%s\" —— %s" % [block.id, text, message])
 		_validate_condition(block, text, entry["condition"])
 	block.pending_conditions.clear()
+
+
+## 校验 <Place>：目标元素得存在、得在同一行（否则排不了），也不能指向自己。
+func _validate_placements(block: BlockDef) -> void:
+	for element in block.elements:
+		for placement in element.placements:
+			var target: StringName = placement.after if placement.after != &"" else placement.before
+			if target == element.id:
+				warnings.append("%s：元素 %s 的 <Place> 指向了自己" % [block.id, element.id])
+				continue
+			var other := block.element(target)
+			if other == null:
+				warnings.append("%s：元素 %s 的 <Place> 指向了不存在的元素 %s"
+					% [block.id, element.id, String(target)])
+				continue
+			if block.row_of(element.id) != block.row_of(other.id):
+				warnings.append("%s：元素 %s 的 <Place> 指向了另一行的 %s —— 只能在同一行内换位"
+					% [block.id, element.id, String(target)])
 
 
 func _validate_condition(block: BlockDef, text: String, condition: ConditionDef) -> void:

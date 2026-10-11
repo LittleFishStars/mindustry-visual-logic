@@ -87,6 +87,26 @@ var selector_kind: StringName = &""
 var attrs: Dictionary = {}
 
 
+## 条件化的排位规则（XML：`<Place when="…" before|after="元素 id"/>`）。
+##
+## 默认顺序就是元素在 `<Row>` 里的书写顺序；这条规则让某个元素在条件成立时挪到另一个
+## 元素的[b]前面/后面[/b] —— 官方 UI 里 `op` 的一元运算把运算符提到操作数前面就是这么回事。
+## 以前只能把同一个元素写两遍（两边条件互补）来表达，现在一条规则就够了。
+class Placement extends RefCounted:
+	## 什么时候生效；null 表示恒成立。
+	var when: ConditionDef = null
+	## 挪到谁的前面 / 后面（同一行内的元素 id）。
+	var before: StringName = &""
+	var after: StringName = &""
+
+	func describe() -> String:
+		var where: String = "after %s" % after if after != &"" else "before %s" % before
+		return where
+
+
+## 本元素的排位规则，按书写顺序取第一条成立的。
+var placements: Array[Placement] = []
+
 func _init(p_type: StringName = &"", p_id: StringName = &"") -> void:
 	type = p_type
 	id = p_id

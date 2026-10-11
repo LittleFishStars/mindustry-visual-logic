@@ -115,6 +115,7 @@ Start 不能复制、也不能删除（一个文档就一个起点）。
 [*][code]<Field as="string"/>[/code]：字符串格（引号与转义由编辑器管，内容里打引号不会写坏）；
 [*][code]<Field allow_empty="true"/>[/code]：允许留空（注释文本）；
 [*][code]<Item alias="atan2">angle</Item>[/code]：认旧名字（导入时自动换成现在的写法）；
+[*][code]<Place when="…" after="另一个元素 id"/>[/code]（或 [code]before=[/code]）：写在元素内部，满足条件时把它挪到另一个元素的前/后面 —— 选项不同就换顺序的块（如一元运算要 [code]result = not a[/code]）靠它，不用把字段写两遍；
 [*][code]<Row when="…">[/code]：显式分行；[code]when[/code] 支持 [code]&[/code]（与）、[code]|[/code]（或）、[code]~[/code]（非）与括号；
 [*]元素有 [code]<Text>[/code] / [code]<LineBox>[/code] / [code]<Option>[/code]+[code]<Item>[/code] / [code]<Button>[/code] / [code]<Selector>[/code] / [code]<JumpTarget>[/code] / [code]<Nest>[/code]。
 [/ul]

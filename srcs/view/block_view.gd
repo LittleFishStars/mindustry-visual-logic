@@ -67,12 +67,13 @@ var _row_def: Array[BlockDef.RowDef] = []
 ## 该行本轮是否整行不参与布局（条件不成立）
 var _row_skip: Array[bool] = []
 var _nest_controls: Dictionary[StringName, Control] = {}
-## 建好的输入控件，逐个元素一条：`{"element": ElementDef, "control": Control}`。
+## 建好的输入控件，逐个元素一条：`{"element": ElementDef, "control": Control, "row": HBoxContainer}`。
 ##
-## [b]同样是按元素记、不是按字段 id 记[/b]：同一个字段可以在不同条件下出现在不同位置
-## （`op` 的一元运算要 `result = not a`、二元要 `result = a add b`，两行的控件都写同一个字段）。
-## 按 id 存字典的话，重复的那一个会被覆盖 —— 它的可见性再也没人管，会一直显示。
+## [b]按元素记、不是按字段 id 记[/b]：一个字段可以有多个控件（元素写两遍时），按 id 存字典
+## 会把重复的那个覆盖掉 —— 它的可见性与显示顺序再也没人管。
 var _element_entries: Array[Dictionary] = []
+## 各行当前的单元格（元素 + 控件），条件变化时要重排（见 [method _apply_row_orders]）。
+var _row_cells: Array[Array] = []
 var _bg_rects: Array[Rect2] = []
 var _styles: Array[StyleBoxFlat] = []
 
@@ -214,6 +215,7 @@ func _build() -> void:
 	_row_slot.clear()
 	_nest_controls.clear()
 	_element_entries.clear()
+	_row_cells.clear()
 	_bg_rects.clear()
 	_styles.clear()
 	_row_def.clear()
@@ -223,9 +225,12 @@ func _build() -> void:
 	# 控件一次性建齐并常驻，切换条件只改可见性 —— 不会重建、也不会打断正在输入的控件
 	for row_def in def.rows:
 		var row: HBoxContainer = null
+		# 本行的控件（元素 + 控件），先收齐再按排位规则定顺序（见 _ordered_cells）
+		var cells: Array[Dictionary] = []
 		for cell in row_def.cells:
 			if cell.type == &"Nest":
 				# Nest 独占一行（槽里的块是画布的直接子级，这里只作占位）
+				cells = _flush_row(row, cells)
 				row = null
 				_make_nest_row(cell, row_def)
 				continue
@@ -233,8 +238,9 @@ func _build() -> void:
 				row = _make_row(ROW_NORMAL, &"", row_def)
 			var control := _build_element(cell)
 			if control != null:
-				row.add_child(control)
-				_element_entries.append({"element": cell, "control": control})
+				cells.append({"element": cell, "control": control})
+				_element_entries.append({"element": cell, "control": control, "row": row})
+		_flush_row(row, cells)
 	# 没有任何元素的块（如 None）也要有一行，否则它在画布上是不可见也不可点的
 	if _rows.is_empty():
 		_make_row(ROW_NORMAL, &"", null)
@@ -261,6 +267,70 @@ func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> 
 	_row_def.append(row_def)
 	return row
 
+
+## 收齐一行的控件：按排位规则定顺序后入行，并把这一行的单元格记下来（条件变化时要重排）。
+func _flush_row(row: HBoxContainer, cells: Array[Dictionary]) -> Array[Dictionary]:
+	if row == null or cells.is_empty():
+		return []
+	for cell in _ordered_cells(cells, _value_reader()):
+		row.add_child(cell["control"])
+	_row_cells.append(cells)
+	return []
+
+
+## 一行内控件的最终顺序：从书写顺序出发，把带排位规则的单元格挪到目标元素的前/后。
+##
+## 规则见 [ElementDef.placements]（XML 的 `<Place when="…" before|after="…"/>`）：同一个元素
+## 只写一次，排到哪儿由条件决定 —— 不用把元素写两遍。隐藏的元素也一起排队，
+## 免得重新可见时位置不对（隐藏的不占位置，不影响观感）。
+func _ordered_cells(cells: Array[Dictionary], value_of: Callable) -> Array:
+	var order: Array = cells.duplicate()
+	for cell in cells:
+		var element: ElementDef = cell["element"]
+		if element.placements.is_empty():
+			continue
+		var target: StringName = &""
+		var after := true
+		for rule in element.placements:
+			if rule.when == null or rule.when.matches(value_of):
+				target = rule.after if rule.after != &"" else rule.before
+				after = rule.after != &""
+				break
+		if target == &"":
+			continue
+		var from := _cell_index(order, element.id)
+		if from < 0:
+			continue
+		var moved: Dictionary = order[from]
+		order.remove_at(from)
+		var to := _cell_index(order, target)
+		if to < 0:
+			# 目标不在这一行（不该发生，解析时报过警）——原样放回去
+			order.insert(from, moved)
+			continue
+		order.insert(to + (1 if after else 0), moved)
+	return order
+
+
+func _cell_index(cells: Array, id: StringName) -> int:
+	for i in cells.size():
+		if cells[i]["element"].id == id:
+			return i
+	return -1
+
+
+## 把各行的控件按当前的排位规则重新摆一遍（[method move_child]）。
+##
+## 可见性变化与顺序变化是同一次条件求值的结果，所以两者总是一起做：
+## `refresh_visibility()` / `sync_from_data()` 调到这里。
+func _apply_row_orders(value_of: Callable) -> void:
+	for cells in _row_cells:
+		var order := _ordered_cells(cells, value_of)
+		for i in order.size():
+			var control: Control = order[i]["control"]
+			if control == null or not is_instance_valid(control) or control.get_parent() == null:
+				continue
+			control.get_parent().move_child(control, i)
 
 func _make_nest_row(element: ElementDef, row_def: BlockDef.RowDef) -> void:
 	# 占位控件由构建器建（元素种类只在一处认识），尺寸由布局求解灌进来
@@ -439,6 +509,8 @@ func _has_point(point: Vector2) -> bool:
 ## 这里每个元素各出一份规则再求交，互不干扰。
 func refresh_visibility() -> void:
 	_apply_visibility()
+	# 顺带重排：排位规则跟选项走（`op` 的一元运算要把运算符提到前面）
+	_apply_row_orders(_value_reader())
 	layout_dirty.emit()
 
 
@@ -486,6 +558,7 @@ func sync_from_data() -> void:
 		return
 	for element in def.elements:
 		_sync_control(element.id)
+	_apply_row_orders(_value_reader())
 	_apply_visibility()
 
 

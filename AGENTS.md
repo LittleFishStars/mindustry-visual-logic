@@ -159,6 +159,9 @@ assets/
   `<Group when="…">` 给一串连续元素共享条件（不换行，解析时并入元素条件）。
 - **元素**：`<Text>` / `<LineBox placeholder>` / `<Option>`+`<Item [value]>` / `<Button text>` / `<Selector kind>` /
   `<JumpTarget>` / `<Nest>`；条件不成立的元素既不占位置也不显示，但控件不重建（输入焦点不会被打断）。
+- **排位**：`<Place when="…" after="元素 id"/>`（或 `before=`）写在元素内部，满足 `when` 时
+  这个元素挪到另一个元素的后面/前面（与可见性同一次条件求值，一起重算）。不写就是书写顺序，
+  与以前行为一致。`op` 的一元运算把运算符提到前面就是这么声明的（见下节）。
 - **选择器**：`<Selector id="unit" kind="units" />`，候选取自 `blocks/selectors/{kind}.json`。
 - **块引用**：`<Field id="target" link="true"/>` 声明该字段存的是**另一块的引用**（`#<节点 id>`），
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
@@ -216,12 +219,23 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 两者分开写：模板负责文本，元素负责显示。改完块定义要同时跑两套检查（只跑一套就会
 出现“文本对了但界面多/少一个框”或反之）。
 
-[b]同一个字段可以出现在多个元素上[/b]（条件不同、位置不同）—— 这是表达“顺序随选项变”的手段：
-`op` 的 `a` 就写了两次（一元/函数型的那个排在运算符后面，其它的排在前面，两边条件互补）。
-`BlockView` 按[b]元素[/b]建控件（`_element_entries`），同一字段的多个控件写的是同一份数据，
-所以切换选项时值不会丢；而 `BlockDef.element(id)` / `_by_id` 只认[b]第一个[/b]，
-所以别把不同默认值/不同候选集的元素放在同一个 id 上（列表类的元素只能写一份，要复用就
-像 `op` 这样只重复简单的 LineBox）。
+[b]顺序随选项变就用 `<Place>`[/b]：元素只写一遍，排到哪儿交给条件 ——
+以前只能把一个字段写两遍（两边条件互补）把位置“顶”出来，字段名就会在 XML 里重复，
+列表类元素（`Option`）更是得整份候选值抄一遍。现在：
+
+```xml
+<LineBox id="a" placeholder="a">
+  <Place when="ops=not|abs|…" after="ops" />   <!-- 一元：挪到运算符后面 -->
+</LineBox>
+<Option id="ops">…</Option>
+<LineBox id="b" placeholder="b" when="…" />
+```
+
+规则在整块解析后统一校验：目标得存在、得同行、不能指向自己，写错会进 `BlockLibrary.warnings`。
+[b]视图仍按元素建控件[/b]（`_element_entries`）：万一真把一个字段写了两遍（同一 id 两个元素），
+两边的控件写的是同一份数据、各按自己的条件显隐，切选项时值不会丢；
+但 `BlockDef.element(id)` / `_by_id` 只认[b]第一个[/b]，所以别把不同默认值/不同候选集的元素
+放在同一个 id 上 —— 要改顺序就用 `<Place>`。
 
 校验手段（改完 XML 跑一遍，[b]文本与显示各一条[/b]）：
 
