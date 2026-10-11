@@ -2,13 +2,9 @@ class_name BlockDef
 extends RefCounted
 
 ## 一种逻辑块的定义（对应 XML 里的一个 `<Block>`）。
-##
-## 布局的存储方式：**行是显式的**（[RowDef]），条件（[ConditionDef]）挂在行与元素上。
-## 旧格式的 `<Item show="一串元素 id">` 与 `<Pressed>/<Released>` 在解析时被
-## 翻译成同样的条件，所以内部只有一种机制 —— 不会出现"哪种写法优先"的问题。
+## 行是显式的（[RowDef]），条件（[ConditionDef]）挂在行与元素上 —— 内部只有这一种机制。
 
-## 一种「导出模板 + 生效条件」的组合。
-## 旧写法 `<Pressed>/<Released>` 会带上 button/pressed 提示，供 mlog 反向导入回填开关状态。
+## 一种「导出模板 + 生效条件」的组合；`<Pressed>`/`<Released>` 会带上 button/pressed 提示供导入回填。
 class ExportVariant extends RefCounted:
 	var condition: ConditionDef = null
 	var parts: Array[ExportPart] = []
@@ -40,22 +36,17 @@ class RowDef extends RefCounted:
 var id: StringName = &""
 var kind: StringName = &""
 var color: Color = Color.WHITE
-## 程序入口块（XML 里 `<Block entry="true">`，目前是 Start）：一个文档只应有一个，
-## 所以它不能复制、导出从它开始；新建页由编辑器自动放一个。
+## 程序入口块（XML `<Block entry="true">`，目前是 Start）：一个文档只应有一个。
 var entry: bool = false
 
-## 扁平的全部元素（按出现顺序）—— 导出与字段查询用它。
 var elements: Array[ElementDef] = []
 
 
-## 这个字段对应的 `<Option>` 元素（不是选项字段就返回 null）。
-## 导入时用它判断「这个候选块的选项取值是否合法」—— 决定把一行绑给哪个块。
 func option_element(field_id: StringName) -> ElementDef:
 	for element in elements:
 		if element.type == &"Option" and element.id == field_id:
 			return element
 	return null
-## 行的分组与行级条件 —— 布局用它。
 var rows: Array[RowDef] = []
 
 var export_parts: Array[ExportPart] = []
@@ -63,14 +54,12 @@ var export_parts: Array[ExportPart] = []
 var export_variants: Array[ExportVariant] = []
 ## 解析期收集的条件（整块解析完再统一校验字段与取值）
 var pending_conditions: Array[Dictionary] = []
-## 在所属类别里的顺序（保持 XML 中的书写顺序）。
 var order: int = 0
 
 var _by_id: Dictionary[StringName, ElementDef] = {}
 var _row_of: Dictionary[StringName, RowDef] = {}
 var _slots: Array[StringName] = []
 var _fields: Array[StringName] = []
-## 被声明为块引用的字段（`<Field id="…" link="true"/>`），见 [method reference_fields]。
 var _references: Array[StringName] = []
 var _indexed: bool = false
 
@@ -127,21 +116,18 @@ func element(element_id: StringName) -> ElementDef:
 	return _by_id.get(element_id)
 
 
-## 本块声明的子槽位 id（`<Nest>`），顺序与定义一致。
 func slot_ids() -> Array[StringName]:
 	if not _indexed:
 		build_index()
 	return _slots.duplicate()
 
 
-## 本块可承载字段值的元素 id，顺序与定义一致。
 func field_ids() -> Array[StringName]:
 	if not _indexed:
 		build_index()
 	return _fields.duplicate()
 
-## 本块声明为[b]块引用[/b]的字段 id（Jump 的跳转目标）：值存的是目标节点的引用，
-## 而不是直接进 mlog 的文本 —— 画布清理失效引用、mlog 反向绑定都问它。
+## 本块声明为块引用的字段 id（Jump 的目标）：值存节点引用，不直接进 mlog 文本。
 func reference_fields() -> Array[StringName]:
 	if not _indexed:
 		build_index()
@@ -179,10 +165,7 @@ func export_parts_for(value_of: Callable) -> Array[ExportPart]:
 	return export_parts
 
 
-## 新块入图时应当预置的字段值（字段 id → 值）。
-##
-## 旧版把默认值写在输入框里，所以 `wait` 拖出来就是 0.5 秒、`ubind` 就是某个单位；
-## 没有默认值的话会导出 `wait 0` 之类的错误指令。
+## 新块入图时预置的字段值（字段 id → 值）：不预置会导出 `wait 0` 之类的错误指令。
 func default_field_values() -> Dictionary:
 	var out: Dictionary = {}
 	for element in elements:
@@ -195,7 +178,6 @@ func default_field_values() -> Dictionary:
 	return out
 
 
-## 把一个新建（尚未入图）的节点按本块声明的默认值灌好 —— 三处建节点的地方共用它。
 func apply_defaults(node: LogicNode) -> void:
 	if node != null:
 		node.apply_fields(default_field_values())

@@ -1,38 +1,30 @@
 class_name ElementBuilder
 extends RefCounted
 
-## 一种[b]元素种类[/b]的行为契约：怎么建控件、控件怎么被回填、默认值是什么、
-## 条件里对该字段的取值合不合法。
-##
-## 契约放在定义层、实现在视图层（[code]view/elements/element_builders.gd[/code]）：
-## 于是「新增一种元素类型 = 写一个子类 + 注册」，解析、条件校验、默认值灌入、
-## 块视图都不用动 —— 它们只问注册表，不再各自枚举元素种类。
-##
-## 子类只覆盖自己关心的回调（默认实现是"什么都不做/不承载字段"）。
+## 一种元素种类的行为契约：建控件、回填、默认值、条件取值的合法性检查。
+## 契约在定义层、实现在视图层（[code]view/elements/element_builders.gd[/code]）：新增种类 = 写个子类 + 注册，其余各层不用改。
 
 ## 建控件并接线。[param host] 是块视图，见 [ElementBuilders] 里的宿主接口说明。
 func build(_element: ElementDef, _host: Object) -> Control:
 	return null
 
 
-## 该元素是否承载一个字段值（字段清单、默认值灌入都问它）。
+## 是否承载字段值（决定它进不进导出取值与条件校验）。
 func is_field() -> bool:
 	return false
 
 
-## 该元素是否是子槽位（`<Nest>`）。
+## 是否是子槽位（`<Nest>`）。
 func is_slot() -> bool:
 	return false
 
 
-## 把数据层的值写回控件 —— 控件只是数据层的显示，唯一真相在 [LogicNode]。
-## [param force] 为假时跳过"正在输入"的控件（避免光标跳位）；明确的用户动作（如候选回填）传真。
+## 把数据层的值写回控件。[param force] 为假时跳过正在输入的控件（避免光标跳位）。
 func apply_value(_element: ElementDef, _control: Control, _value: String, _force: bool = false) -> void:
 	pass
 
 
-## 开关本元素里[b]全部可交互控件[/b]（输入框 / 下拉 / 开关按钮 / 组合控件里的按钮）；
-## 拖拽期间由块视图统一禁用，不承载交互的元素什么都不做。
+## 开关本元素里全部可交互控件（输入框 / 下拉 / 开关 / 组合控件里的按钮）。
 func set_enabled(_element: ElementDef, _control: Control, _enabled: bool) -> void:
 	pass
 
@@ -42,6 +34,6 @@ func validate_value(_element: ElementDef, _value: String) -> String:
 	return ""
 
 
-## 新块入图时该字段的初始值；返回 null 表示不预置。
+## 新块的初始值；null 表示不预置。
 func default_value(element: ElementDef) -> Variant:
 	return element.default_value if element.default_value != "" else null

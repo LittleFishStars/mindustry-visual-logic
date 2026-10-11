@@ -2,12 +2,7 @@ class_name DocumentPage
 extends Control
 
 ## 应用内文档页（帮助 → Document）：左边章节，右边富文本。
-##
-## 它是多标签页系统里的一个页面，[b]不是[/b] [LogicEditorTab] —— 所以「存盘 / 导出 / 撤销」
-## 这类操作在文档页上是空操作（[Main] 的 `_current_editor()` 会返回 null，菜单项也据此置灰）。
-##
-## 正文就是下面的 [constant SECTIONS]：改文档只改这里，不用碰场景 ——
-## 场景只提供「章节按钮 + 富文本」这副骨架。
+## 它不是 [LogicEditorTab]（存盘 / 导出 / 撤销在它上面是空操作）；正文就是下面的 [constant SECTIONS]。
 
 ## 章节列表：`{"title": 章节名, "body": BBCode 正文}`。加章节只往这里加一项。
 const SECTIONS: Array = [
@@ -136,7 +131,6 @@ Start 不能复制、也不能删除（一个文档就一个起点）。
 @onready var nTitle: Label = %Title
 @onready var nBody: RichTextLabel = %Body
 
-## 当前章节下标（-1 = 还没选）。
 var _current: int = -1
 
 
@@ -153,7 +147,6 @@ func _ready() -> void:
 		_show_section(0)
 
 
-## 切到某一章：正文换成它的 BBCode，章节按钮里只有它保持按下态。
 func _show_section(index: int) -> void:
 	if index < 0 or index >= SECTIONS.size():
 		return

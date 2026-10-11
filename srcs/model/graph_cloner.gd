@@ -1,21 +1,11 @@
 class_name GraphCloner
 extends RefCounted
 
-## 子树的深拷贝：复制块时用（见 [method EditorCanvas.duplicate_subtree]）。
-##
-## 纯数据操作：源子树就地读，副本是[b]尚未入图[/b]的新节点（id 由图分配，不入容器、
-## 不发信号、不碰撤销栈）—— 由调用方决定插到哪儿、什么时候插。
-##
-## 块引用字段（Jump 的跳转目标）：指向子树[b]内部[/b]的会重映射到对应的新节点 ——
-## 副本内部的跳转仍然自洽；指向子树外的不动 —— 副本向外跳的目标还是原来那一块。
-##
-## 「哪些字段是块引用」的真相在块定义上（[method BlockDef.reference_fields]），
-## 模型层不认识定义层，所以这张表由调用方以 [param reference_fields] 传进来：
-## [code]func(node: LogicNode) -> Array[StringName][/code]。
+## 子树深拷贝（复制块用）；副本是尚未入图的新节点，由调用方决定插到哪儿。
+## 块引用指向子树内部的重映射到新节点，指向外部的不动；引用字段表由调用方传入。
 
 
-## 深拷贝一棵子树（含槽位结构），返回 `{root: LogicNode, nodes: Array[LogicNode]}`；
-## 源节点不在图上时返回空字典。
+## 深拷贝一棵子树（含槽位结构），返回 `{root, nodes}`；源节点不在图上时返回空字典。
 static func clone(graph: LogicGraph, source_id: int, reference_fields: Callable) -> Dictionary:
 	if graph == null or not graph.has(source_id):
 		return {}

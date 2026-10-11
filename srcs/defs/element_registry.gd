@@ -1,13 +1,8 @@
 class_name ElementRegistry
 extends RefCounted
 
-## 元素种类 → 构建器 的注册表。
-##
-## 构建器是 [ElementBuilder] 的子类（内置实现在 [code]view/elements/element_builders.gd[/code]）：
-## 一种元素种类的全部行为都长在它自己身上 —— 建控件、回填、默认值、取值校验。
-##
-## 因此[b]新增一种元素类型 = 写一个子类 + 注册[/b]：解析、条件校验、默认值灌入、
-## 块视图都不用改；引擎外的扩展也可以自己调 register()。
+## 元素种类 → 构建器的注册表（构建器是 [ElementBuilder] 子类，内置实现在 view/elements/）。
+## 新增一种元素类型 = 写一个子类 + 调 register()，其余各层都不用改。
 
 static var _builders: Dictionary[StringName, Variant] = {}
 static var _defaults_installed: bool = false
@@ -24,19 +19,16 @@ static func has(type: StringName) -> bool:
 	return _builders.has(type)
 
 
-## 取构建器；未注册返回 null。
 static func builder(type: StringName) -> Variant:
 	ensure_defaults()
 	return _builders.get(type)
 
 
-## 该元素种类是否承载字段值。
 static func is_field(type: StringName) -> bool:
 	var builder: Variant = ElementRegistry.builder(type)
 	return builder != null and builder.is_field()
 
 
-## 该元素种类是否是子槽位（<Nest>）。
 static func is_slot(type: StringName) -> bool:
 	var builder: Variant = ElementRegistry.builder(type)
 	return builder != null and builder.is_slot()
@@ -48,7 +40,6 @@ static func validate_value(element: ElementDef, value: String) -> String:
 	return String(builder.validate_value(element, value)) if builder != null else ""
 
 
-## 该元素种类在 [param element] 上的初始值；null 表示不预置。
 static func default_value(element: ElementDef) -> Variant:
 	var builder: Variant = ElementRegistry.builder(element.type)
 	return builder.default_value(element) if builder != null else null

@@ -1,24 +1,8 @@
 class_name ElementBuilders
 extends RefCounted
 
-## 内置元素构建器 + 注册。
-##
-## 每个构建器是 [ElementBuilder] 的子类，只覆盖自己关心的回调：
-## [codeblock]
-## func build(element: ElementDef, host: Object) -> Control   # 建控件并接线
-## func is_field() -> bool                                    # 是否承载字段值
-## func is_slot() -> bool                                     # 是否是子槽位（<Nest>）
-## func apply_value(element, control, value)                  # 数据层 → 控件（回填）
-## func validate_value(element, value) -> String              # when 里的取值是否合法
-## func default_value(element) -> Variant                     # 新块的初始值（null = 不预置）
-## func set_enabled(element, control, enabled)               # 元素内的可交互控件能否用（拖拽期间禁用）
-## [/codeblock]
-## host 是 [BlockView]，它提供 font() / apply_font() / style_button() / field_value() /
-## commit_field() / refresh_visibility() / flush_history_group() / request_picker() 等回调
-## （见 BlockView 的「元素构建器需要的宿主接口」一节）。
-##
-## [b]新增一种元素类型[/b]：在这里加一个子类并在 [method install] 里注册即可 ——
-## 解析、条件校验、默认值灌入、块视图都不用改。
+## 内置元素构建器 + 注册。每个构建器只覆盖自己关心的回调（契约见 [ElementBuilder]），host 是 [BlockView]。
+## 新增一种元素类型：在这里加个子类并注册即可 —— 解析、条件校验、默认值都不用动。
 
 static func install() -> void:
 	ElementRegistry.register(&"Text", TextBuilder.new())
@@ -30,7 +14,6 @@ static func install() -> void:
 	ElementRegistry.register(&"JumpTarget", JumpTargetBuilder.new())
 
 
-## 输入框（含 Selector 里那个文本框）的建造与回填：两个构建器共用这一份。
 static func make_edit(element: ElementDef, host: Object, min_width: float) -> LineEdit:
 	var edit := LineEdit.new()
 	edit.placeholder_text = element.placeholder
@@ -53,12 +36,11 @@ static func apply_edit_value(control: Control, value: String, force: bool = fals
 	var edit := resolve_edit(control)
 	if edit == null:
 		return
-	# 默认不打断正在输入的控件（避免光标跳位）；picker 回填这类明确动作传 force = true
 	if force or not edit.has_focus():
 		edit.text = value
 
 
-## 组合控件（Selector）里真正存值的那个输入框。
+## 组合控件（Selector）里真正存值的那个输入框：先看控件自己，再看 value_control 元数据。
 static func resolve_edit(control: Control) -> LineEdit:
 	if control is LineEdit:
 		return control
@@ -69,9 +51,7 @@ static func resolve_edit(control: Control) -> LineEdit:
 	return null
 
 
-## 开关一个元素控件：输入框改成只读并交出焦点，控件自身与其中的按钮置为 disabled。
-## 用 disabled（而不是 mouse_filter）是为了连键盘也不响应；实测它不会重置开关的按下状态，
-## 也不会发出 toggled/item_selected —— 所以拖拽期间不会顺手改数据。
+## 开关一个元素控件：用 disabled（而不是 mouse_filter）是为了连键盘也不响应，且不会发出信号改数据。
 static func set_control_enabled(control: Control, enabled: bool) -> void:
 	var edit := resolve_edit(control)
 	if edit != null:
@@ -89,9 +69,7 @@ static func _set_buttons_disabled(node: Node, disabled: bool) -> void:
 		_set_buttons_disabled(child, disabled)
 
 
-## 承载字段值的元素：默认按「输入框」处理 —— 回填走 [method ElementBuilders.apply_edit_value]、
-## 拖拽期间禁用走 [method ElementBuilders.set_control_enabled]；
-## 按钮形态的字段（Option / Button / JumpTarget）只覆写 apply_value。
+## 承载字段值的元素：默认按输入框处理（回填 / 禁用）；按钮类字段只覆写 apply_value。
 class FieldBuilder extends ElementBuilder:
 	func is_field() -> bool:
 		return true
@@ -103,7 +81,7 @@ class FieldBuilder extends ElementBuilder:
 		ElementBuilders.set_control_enabled(control, enabled)
 
 
-## 静态文本：不吃鼠标，保证从标签上按下也能拖动整块。
+## 静态文本：不吃鼠标，从标签上按下也能拖动整块。
 class TextBuilder extends ElementBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var label := Label.new()
@@ -113,13 +91,12 @@ class TextBuilder extends ElementBuilder:
 		return label
 
 
-## 文本输入框。连续输入会按 merge_key 合并成一条撤销记录。
+## 文本输入框：连续输入合并成一条撤销记录。
 class InputBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		return ElementBuilders.make_edit(element, host, 64.0)
 
 
-## 下拉选项：显示文本与导出值可以不同（<Item value="33">!</Item>）。
 class OptionBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var option := OptionButton.new()
@@ -165,7 +142,7 @@ class OptionBuilder extends FieldBuilder:
 		return fallback
 
 
-## 开关按钮：按下/松开各有一套可见性规则，导出模板也可以按状态切换。
+## 开关按钮：按下/松开各有自己的可见性规则，导出模板也可按状态切换。
 class ToggleBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var button := Button.new()
@@ -195,8 +172,6 @@ class ToggleBuilder extends FieldBuilder:
 		return element.default_value if element.default_value != "" else "false"
 
 
-## 选择器：文本框 + 弹出候选（单位 / 传感器 …）。
-## 候选取自 blocks/selectors/*.json，浮层由编辑器标签页提供（不依赖 Window）。
 class SelectorBuilder extends FieldBuilder:
 	func build(element: ElementDef, host: Object) -> Control:
 		var box := HBoxContainer.new()
@@ -217,7 +192,7 @@ class SelectorBuilder extends FieldBuilder:
 		return box
 
 
-## 子槽位：本类只建一个占位控件（槽里的块是画布的直接子级）；占位尺寸由布局求解灌进来。
+## 子槽位：只建一个占位控件；槽里的块是画布的直接子级，占位尺寸由布局求解灌入。
 class NestBuilder extends ElementBuilder:
 	func build(_element: ElementDef, _host: Object) -> Control:
 		var placeholder := Control.new()
@@ -228,11 +203,7 @@ class NestBuilder extends ElementBuilder:
 		return true
 
 
-## 块引用（Jump 的跳转目标）：不是文本框，而是一个「锁定到了哪一块」的按钮。
-##
-## 在按钮上按下并拖到画布上的某一块松手 = 把跳转锁定到那块（见 [LinkController]）；
-## 拖到自己或左侧块列表 = 解除锁定。字段里存的是块引用（`#<节点 id>`），
-## 具体是谁由画布告诉它（[method BlockView.reference_label]）—— 元素自己看不到图。
+## 块引用（Jump 的目标）：不是文本框，而是「锁定到了哪一块」的按钮；拖拽锁定见 [LinkController]。
 class JumpTargetBuilder extends FieldBuilder:
 	const MIN_WIDTH: float = 84.0
 

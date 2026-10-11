@@ -1,10 +1,7 @@
 class_name AboutWindow
 extends Window
 
-## 关于窗（帮助 → About）：版本、作者与致谢、反馈与仓库链接。
-##
-## 版本号与引擎版本都是[b]运行期[/b]读的（[ProjectSettings] / [Engine]），
-## 所以升版本时不用回来改这个窗口。正文里的链接可点：交给系统浏览器打开。
+## 关于窗（帮助 → About）。版本号与引擎版本都是运行期读的，正文链接可点。
 
 const REPOSITORY: String = "https://github.com/LittleFishStars/mindustry-visual-logic"
 const DISPLAY_NAME: String = "Mindustry Visual Logic"

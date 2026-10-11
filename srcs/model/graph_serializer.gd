@@ -1,21 +1,8 @@
 class_name GraphSerializer
 extends RefCounted
 
-## 逻辑图的存盘格式（JSON）。
-##
-## 与旧版的关键差别：[b]旧版存的是 PackedScene（.tscn 整棵节点树）[/b]，
-## 参数值靠"控件 + @export 属性"被序列化器顺带保存；新架构存的是**纯数据**，
-## 与控件、场景、引擎版本都无关，因此能被测试、能迁移、能手工查看。
-##
-## 文件结构：
-## [codeblock]
-## {
-##   "format": "mvl-graph",
-##   "version": 1,
-##   "name": "未命名",
-##   "graph": { "next_id":…, "next_chain":…, "chains":…, "chain_positions":…, "nodes":[…] }
-## }
-## [/codeblock]
+## 逻辑图的存盘格式（JSON）：纯数据，与控件、场景、引擎版本无关。
+## `{format, version, name, graph: {next_id, next_chain, chains, chain_positions, nodes}}`
 
 const FORMAT_ID: String = "mvl-graph"
 const FORMAT_VERSION: int = 1
@@ -24,7 +11,6 @@ const FILE_EXTENSION: String = ".json"
 static var _last_error: String = ""
 
 
-## 最近一次失败的原因（[method from_json] / [method load_from_file] 失败后可用）。
 static func last_error() -> String:
 	return _last_error
 

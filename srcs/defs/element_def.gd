@@ -1,23 +1,14 @@
 class_name ElementDef
 extends RefCounted
 
-## 一个块定义里的元素（对应 XML 里的一个子标签）。
-##
-## 「什么时候生效」不再靠"每个选项罗列一遍可见元素 id"，而是元素自己带一个
-## [ConditionDef] —— 条件正着存在它影响的东西上，于是不必重复、不会漏、
-## 也表达得了"多个字段共同决定"（`find=building & group=enemy`）。
-##
-## 元素的[b]种类[/b]由 [ElementRegistry] 决定"怎么建控件、怎么读值"，
-## 所以新增一种元素类型只需要写一个构建器并注册它 —— 解析器与块视图都不用改。
+## 一个块定义里的元素（XML 的一个子标签）；生效条件挂在元素自己身上（[ConditionDef]），不用罗列可见元素 id。
+## 「怎么建控件、怎么读值」由 [ElementRegistry] 决定，新增种类不必改解析器与视图。
 
 class OptionItem extends RefCounted:
-	## 选项显示文本。
 	var text: String = ""
 	## 导出进 mlog 的值。为空时等于 [member text]。
 	var value: String = ""
-	## 旧名字（`<Item alias="atan2">`）：导入时认它，但存回去的是一支规范值。
-	## 游戏自己的解析器就带这么一张改名表（`LParser.opNameChanges`），
-	## 不跟着认的话，旧代码导进来会在下拉里显示成另一个选项（字段值与显示不符）。
+	## 旧名字（`<Item alias="atan2">`）：导入时认它，存回用规范值；游戏 `LParser.opNameChanges` 也带这张表。
 	var alias: String = ""
 	func _init(p_text: String = "") -> void:
 		text = p_text
@@ -28,16 +19,11 @@ class OptionItem extends RefCounted:
 	func value_or_text() -> String:
 		return value if value != "" else text
 
-	## 这个取值是不是本项（规范值或旧名字）。
 	func accepts(candidate: String) -> bool:
 		return candidate == value_or_text() or (alias != "" and candidate == alias)
 
 
-## 元素种类（XML 标签名，或注册表里自定义的种类名）。
-##
-## [b]选项字段[/b]（`<Option>`）顺便提供「取值合法吗 / 旧名字叫什么」两件事：
-## 导入时用它挑候选块 —— 多个块的模板结构可能一模一样（`ucontrol` 的十几个变体就是），
-## 只有「选项取值是否合法」能把它们分开。
+## 全部候选取值（规范值）；导入时按取值合法性把模板结构相同的候选块分开（`ucontrol` 的各变体）。
 func option_values() -> PackedStringArray:
 	var out := PackedStringArray()
 	for item in items:
@@ -61,39 +47,28 @@ var type: StringName = &""
 ## 元素 id：既是可见性引用的名字，也是导出时取值的字段名。
 var id: StringName = &""
 
-## 静态文本（`<Text>` 的文本；`<Button>` 的按钮文字）。
 var text: String = ""
 
-## 输入框占位文本（`<LineBox placeholder>`）。
 var placeholder: String = ""
 
-## `<Option>` 的候选项。
 var items: Array[OptionItem] = []
 
-## `<Option default>` 的默认下标。
 var default_index: int = 0
 
-## 字段默认值：新块入图时写进节点，避免"没输入就导出 0"丢掉旧版默认行为。
-## 未显式声明 default 时用 [member placeholder]（旧版就是把默认值写在输入框里的）。
+## 字段默认值：新块入图时写进节点；未写 default 时用 [member placeholder]。
 var default_value: String = ""
 
 ## 生效条件（`when="…"`）；null 表示恒真。
 var condition: ConditionDef = null
 
-## `<Selector kind="units|sensors">` 的候选集名字。
 var selector_kind: StringName = &""
 
 ## 原始属性兜底：新元素类型可以自带属性，解析器不必认识它们。
 var attrs: Dictionary = {}
 
 
-## 条件化的排位规则（XML：`<Place when="…" before|after="元素 id"/>`）。
-##
-## 默认顺序就是元素在 `<Row>` 里的书写顺序；这条规则让某个元素在条件成立时挪到另一个
-## 元素的[b]前面/后面[/b] —— 官方 UI 里 `op` 的一元运算把运算符提到操作数前面就是这么回事。
-## 以前只能把同一个元素写两遍（两边条件互补）来表达，现在一条规则就够了。
+## 条件化排位（`<Place when="…" before|after="元素 id"/>`）：条件成立时把元素挪到另一个元素的前 / 后；默认顺序 = 书写顺序。
 class Placement extends RefCounted:
-	## 什么时候生效；null 表示恒成立。
 	var when: ConditionDef = null
 	## 挪到谁的前面 / 后面（同一行内的元素 id）。
 	var before: StringName = &""
@@ -117,7 +92,6 @@ func is_field() -> bool:
 	return ElementRegistry.is_field(type)
 
 
-## 这个元素是否是子槽位（<Nest>）：槽位里可以挂子块。
 func is_slot() -> bool:
 	return ElementRegistry.is_slot(type)
 

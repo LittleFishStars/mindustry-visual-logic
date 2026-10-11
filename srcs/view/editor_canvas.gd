@@ -1,25 +1,18 @@
 class_name EditorCanvas
 extends SubViewport
 
-## 画布：持有逻辑图、撤销栈与所有块视图，负责布局求解与结构变更。
-##
-## 关键点：块视图之间[b]没有父子关系[/b] —— 全部是 [member nBlocks] 的直接子级，
-## 位置一律来自 [LayoutSolver] 的求解结果。旧实现里「拖拽时 reparent 整条链、
-## 画布外松手 queue_free 连带删掉下游」的结构性风险在这里不存在。
+## 画布：持有图、撤销栈与全部块视图，负责布局求解与结构变更。
+## 块视图之间没有父子关系，位置一律来自 [LayoutSolver]。
 
-## 需要编辑器标签页打开选择器浮层。
 signal picker_requested(view: BlockView, element: ElementDef, control: Control)
-## 需要编辑器标签页接管「拖拽锁定跳转目标」（见 [LinkController]）。
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
-## 右键在块上按下：要拖出一份副本（见 [method duplicate_subtree]）。
 signal copy_requested(view: BlockView, offset: Vector2)
-## 左键在块上按下：要开始搬移（由 [DragController] 接管）。
 signal drag_requested(view: BlockView, offset: Vector2)
 
 @onready var nBlocks: Node2D = $Blocks
 ## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
 @onready var nLinks: LinkLayer = $Links
-## 落点占位块（幽灵视图）：状态全在 [PlacementPreview] 里，画布只留一层转发。
+## 落点占位块（幽灵视图）：状态在 [PlacementPreview] 里，画布只转发。
 var _placement: PlacementPreview = null
 @onready var nCamera: EditorCamera = $Camera
 
@@ -30,7 +23,7 @@ var layout: LayoutResult = null
 
 var _views: Dictionary[int, BlockView] = {}
 var _applying_field: bool = false
-## 跳线数据（线段 + 颜色），由 [method _refresh_links] 在每次布局后重算。
+## 跳线数据（线段 + 颜色），每次布局后由 [method _refresh_links] 重算。
 var _segments: Array[Dictionary] = []
 ## 锁定拖拽的预览线：{from, to, valid}；空字典 = 没在拖。
 var _preview: Dictionary = {}
@@ -42,12 +35,11 @@ var _highlight_id: int = 0
 func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	library = p_library
 	_placement = PlacementPreview.new(self)
-	# 跳线层要拿图与布局才画得出线（它在 scene 里是 Blocks 的第一个子节点）
 	nLinks.canvas = self
 	_attach_graph(p_graph)
 
 
-## 换成另一张图（打开项目用）：断开旧信号、接上新图并重建视图与撤销栈。
+## 换成另一张图：断开旧信号、接上新图并重建视图与撤销栈。
 func adopt_graph(p_graph: LogicGraph) -> void:
 	if graph == p_graph:
 		return
@@ -96,7 +88,7 @@ func relayout() -> void:
 	_refresh_links()
 
 
-## 拖拽期间统一开关所有块视图里的可交互控件（拖拽只搬位置，不该顺手改数据）。
+## 拖拽期间统一开关所有块视图的可交互控件（拖拽只搬位置，不顺手改数据）。
 func set_elements_enabled(enabled: bool) -> void:
 	for id in _views:
 		var view: BlockView = _views[id]
@@ -119,9 +111,7 @@ func view_of(id: int) -> BlockView:
 
 
 
-## 现有内容占的矩形（世界坐标，取所有块视图的并集；什么也没有时返回空矩形）。
-##
-## Ctrl+V 靠它把新链摆到现有内容[b]下面[/b]——不接在入口块那条链上，另起一条。
+## 现有内容占的矩形（Ctrl+V 用它把新链摆到下方）。
 func content_rect() -> Rect2:
 	var out := Rect2()
 	var first := true
@@ -133,14 +123,11 @@ func content_rect() -> Rect2:
 		out = rect if first else out.merge(rect)
 		first = false
 	return out
-## 这个节点是不是入口块（XML `entry="true"`，目前是 Start）。
-## 一个文档只该有一个：不放复制、不准删，导出也从它开始。
+## 这个节点是不是入口块：不放复制、不准删、导出从它开始。
 func is_entry(node: LogicNode) -> bool:
 	return node != null and library != null and library.is_entry(node.type_id)
 
-## 某节点各槽位在[b]当前布局[/b]里的尺寸（巢里子链的总尺寸）。
-## 幽灵与落点占位块拿它再量一次自己 —— 否则带巢的块（If）副本只看得见空巢，
-## 拖动时会比本体矮一截，巢里的子块也就“掉”到块外面了。
+## 某节点各槽位在当前布局里的尺寸（幽灵与占位块拿它再量一次自己）。
 func slot_extents_of(id: int) -> Dictionary[StringName, Vector2]:
 	var out: Dictionary[StringName, Vector2] = {}
 	var node := graph.get_node_by_id(id)
@@ -195,17 +182,14 @@ func _on_view_field_committed(node: LogicNode, field_id: StringName, value: Vari
 #endregion
 
 
-## 新建一个块并放到 [param owner_id] 的 [param slot_id] 容器里。
 func insert_new_node(type_id: StringName, owner_id: int, slot_id: StringName, index: int, label: String = "添加块") -> LogicNode:
-	# 先把节点建好（未入图），再放进栈里执行 —— GDScript 的 lambda 按值捕获，
-	# 不能在闭包里给外部变量赋值
+	# 节点先建好（未入图）再放进栈里执行：lambda 按值捕获，不能在闭包里给外部变量赋值
 	var node := _make_node(type_id)
 	history.record(label, func() -> void:
 		graph.insert_node(node, owner_id, slot_id, index))
 	return node
 
 
-## 在画布空白处新建一条链。
 func insert_new_chain(type_id: StringName, world_pos: Vector2, label: String = "添加块") -> LogicNode:
 	var node := _make_node(type_id)
 	history.record(label, func() -> void:
@@ -230,7 +214,6 @@ func move_tail(ids: Array[int], owner_id: int, slot_id: StringName, index: int) 
 	return true
 
 
-## 把一串块整体搬到画布上的一条新链。
 func move_tail_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
 	if ids.is_empty() or not graph.has(ids[0]):
 		return false
@@ -253,12 +236,10 @@ func remove_node(id: int) -> bool:
 	return true
 
 
-## 删除一串块（被拖走的那整串）——一次撤销记录，整串一起消失。
-## [param ids] 一般是 [method LogicGraph.tail_ids] 的结果（拿起的块 + 它后面的兄弟）。
+## 删除一串块，一次撤销记录。
 func remove_tail(ids: Array[int]) -> bool:
 	if ids.is_empty() or not graph.has(ids[0]):
 		return false
-	# lambda 按值捕获，不能在闭包里给外部变量赋值，所以先把要删的名单复制出来
 	var doomed := ids.duplicate()
 	var links: Dictionary = {}
 	for id in doomed:
@@ -270,25 +251,22 @@ func remove_tail(ids: Array[int]) -> bool:
 		_clear_links_to(links))
 	return true
 
-## 复制以 [param source_id] 为根的整棵子树，插到 [param owner_id] 的容器里（一条撤销记录）。
-## 返回新根的节点 id（失败返回 0）。
+## 复制以 [param source_id] 为根的子树插进容器，返回新根 id（失败 0）。
 func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index: int) -> int:
 	return _duplicate(source_id, func(nodes: Array[LogicNode]) -> void:
 		graph.insert_subtree(nodes, owner_id, slot_id, index))
 
 
-## 复制到画布上的一条新链（拖到空白处松手）。
+## 复制到画布上新的一条链，返回新根 id（失败 0）。
 func duplicate_subtree_to_new_chain(source_id: int, world_pos: Vector2) -> int:
 	return _duplicate(source_id, func(nodes: Array[LogicNode]) -> void:
 		var chain := graph.create_chain(world_pos)
 		graph.insert_subtree(nodes, LogicGraph.ROOT, chain, -1))
 
 
-## 复制一棵子树并整体入图（一条撤销记录），返回新根的节点 id。
-## [param mutate] 拿到的是尚未入图的副本：插入的目标不同（容器里 / 新链），这一步才分道。
+## 复制一棵子树并整体入图，返回新根 id；[param mutate] 拿到尚未入图的副本。
 func _duplicate(source_id: int, mutate: Callable) -> int:
-	# 入口块拒绝复制（右键拖拽在 [DragController] 就已经拦下了，这里再兜一道：
-	# 复制入口 = 一个文档冒出两个起点，导出“从 Start 开始”就没意义了）
+	# 入口块拒绝复制（DragController 已拦一道）：复制入口 = 一个文档两个起点
 	if self.is_entry(graph.get_node_by_id(source_id)):
 		return 0
 	var clone := _clone_subtree(source_id)
@@ -320,7 +298,7 @@ func redo() -> bool:
 	return history.redo()
 
 
-## 建节点并预置字段默认值（旧版把默认值写在输入框里，这里挪进数据层）。
+## 建节点并预置字段默认值（默认值在数据层，不在输入框里）。
 func _make_node(type_id: StringName) -> LogicNode:
 	var node := graph.new_node(type_id)
 	var def := library.by_id(type_id) if library != null else null
@@ -343,7 +321,7 @@ func anchors() -> Array[Dictionary]:
 	return layout.anchors if layout != null else []
 
 
-## 找一个可落点的锚点：优先命中鼠标附近的插入线。
+## 找可落点的锚点：优先命中鼠标附近的插入线（[param exclude] 里的块不参与），找不到返回空字典。
 func find_anchor(world_pos: Vector2, radius: float, exclude: Dictionary = {}) -> Dictionary:
 	var best: Dictionary = {}
 	var best_cost := INF
@@ -368,10 +346,8 @@ func find_anchor(world_pos: Vector2, radius: float, exclude: Dictionary = {}) ->
 	return best
 
 
-## 造一个"幽灵"块视图（半透明、不吃鼠标、绑临时节点不写历史）。
-## [param parent] 指定父节点 —— 需要画在整个界面之上时传顶层覆盖层（画布是 SubViewport，
-## 里面的块永远盖不过兄弟控件）；[param source] 传入真实节点，则显示它的字段值而不是默认值，
-## 并按本体在当前布局里的槽位尺寸再量一次（否则带巢的块副本只会量出空巢）。
+## 造一个幽灵块视图（半透明、不吃鼠标、绑临时节点不写历史）。
+## [param parent] 传顶层覆盖层就画在整个界面之上；[param source] 传真实节点则显示它的字段值。
 func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = null) -> BlockView:
 	var def := library.by_id(type_id) if library != null else null
 	if def == null:
@@ -391,7 +367,6 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 	return ghost
 
 
-## 落点占位块：把"如果现在放下会落下哪几个块"摆成一组幽灵视图（见 [PlacementPreview]）。
 func show_placement_preview(ids: Array[int], offset: Vector2) -> void:
 	_placement.show_existing(ids, offset)
 
@@ -401,7 +376,6 @@ func show_new_placement_preview(def: BlockDef, top_left: Vector2) -> void:
 	_placement.show_new(def, top_left)
 
 
-## 落点占位块的总高度（"插在中间"时用它给后面的块让位）。
 func placement_preview_height() -> float:
 	return _placement.height()
 
@@ -414,23 +388,19 @@ func clear_placement_preview() -> void:
 
 #region 跳线（Jump 的跳转目标）
 
-## 跳线数据（跳线层只负责画它）。
 func link_segments() -> Array[Dictionary]:
 	return _segments
 
 
-## 锁定拖拽的预览线；空字典表示当前没在拖。
 func link_preview() -> Dictionary:
 	return _preview
 
 
-## 某块在跳线里的出发/到达锚点：块左侧中点（世界坐标）。
 func link_anchor(id: int) -> Vector2:
 	return LinkRouter.anchor(layout, id)
 
 
-## 世界坐标下命中哪一块（判定与「点块开始拖动」同源，返回 0 表示空白）。
-## 嵌套时取面积最小的那个，于是点巢里的块不会选到外面的宿主。
+## 世界坐标命中哪一块（嵌套时取面积最小的，返回 0 = 空白）。
 func node_at_world(point: Vector2, exclude: Dictionary = {}) -> int:
 	var best := 0
 	var best_area := INF
@@ -447,8 +417,7 @@ func node_at_world(point: Vector2, exclude: Dictionary = {}) -> int:
 	return best
 
 
-## 锁定 / 解除某个引用字段（落地时调用，一次一条撤销记录）。
-## [param target_id] 为 0 表示解除锁定。
+## 锁定 / 解除某个引用字段（[param target_id] 为 0 表示解除）。
 func set_link(source_id: int, field_id: StringName, target_id: int) -> bool:
 	var node := graph.get_node_by_id(source_id)
 	if node == null:
@@ -504,7 +473,7 @@ func _link_label(node_id: int, field_id: StringName) -> String:
 	return String(target_node.type_id) if target_node != null else "已失效"
 
 
-## 重算全部跳线。布局一变（块移动、增删、字段改动）就跑一次。
+## 重算全部跳线（布局一变就跑）。
 func _refresh_links() -> void:
 	_segments = LinkRouter.segments(graph, library, layout)
 	_redraw_links()
@@ -515,8 +484,7 @@ func _redraw_links() -> void:
 
 
 
-## 目标块被删掉后，指向它的引用一并清掉 —— 否则会留下指向不存在节点的死引用。
-## 与删除同处一条撤销记录（快照式撤销，不需要额外的逆操作）。
+## 目标块被删时清掉指向它的引用（与删除同处一条撤销记录）。
 func _clear_links_to(doomed: Dictionary) -> void:
 	if library == null:
 		return

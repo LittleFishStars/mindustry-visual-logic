@@ -379,6 +379,9 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 - **`build/` 与 `export_presets.cfg` 是 gitignored**。
 - **只用 GDScript**。
 - **XML 块文件是块定义的唯一来源** —— 改块就是改 XML，不要改 GDScript。
+- **注释只写「代码里看不出来的东西」**：不变量、顺序/耦合约束、外部格式依赖、会踩坑的行为，
+  再加关键取舍的一句理由。历史叙述（「旧实现…」）、对代码的字面复述、长篇推导都别写 ——
+  它们归 [code]AGENTS.md[/code] 管；改代码时顺手把注释压到 1~3 行。
 - **改模型/视图后跑一次 headless 冒烟**：`godot --headless --path . --quit-after 60`。
 - **GDScript 的 lambda 按值捕获**：不要在闭包里给外部变量赋值再读它（撤销栈的记录就踩过这个坑）。
 - **撤销/读档会整体替换图**：`LogicGraph.load_dict()` 复用同 id 的节点对象，外部引用不会失联，

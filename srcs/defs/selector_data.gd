@@ -1,11 +1,7 @@
 class_name SelectorData
 extends RefCounted
 
-## 选择器候选集（单位 / 传感器 / …）的数据源。
-##
-## 旧实现把候选写死在两个巨大的 .tscn 里（unit_select_container 58 个按钮、
-## sensor_selector 412 个按钮），加一个候选就要改场景文件。现在候选是纯数据：
-## `blocks/selectors/*.json`，条目形如 {"value": "@dagger", "icon": "assets/…png"}。
+## 选择器候选集（单位 / 建筑 / …）：读 `blocks/selectors/*.json`，加候选只改数据。
 
 const DIR: String = "res://blocks/selectors"
 const UNITS: StringName = &"units"
@@ -26,7 +22,6 @@ static func options(kind: StringName) -> Array:
 	return out
 
 
-## 传感器的分组（Item / Liquid / Payload / More）；非分组数据返回空字典。
 static func groups(kind: StringName) -> Dictionary:
 	var data := _load(kind)
 	return data.get("groups", {})

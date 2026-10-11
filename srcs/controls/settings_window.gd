@@ -2,22 +2,13 @@ class_name SettingsWindow
 extends Window
 
 ## 设置窗口：帧率上限 / UI 缩放 / 失焦时自动导出。
-##
-## 只做一件事：把 [AppSettings] 的值铺到控件上，把控件上的改动写回数据，然后发信号。
-## 「应用」（改引擎帧率、改 UI 缩放）是 [Main] 的职责 —— 这个窗口不认识编辑器，
-## 于是它能被单独打开、单独测。
-##
-## 改动[b]即时生效[/b]（拖滑块马上能看到效果），但只有关闭窗口时才写盘：
-## 免得拖一次滑块就往磁盘上刷几十次。
+## 只做「值 ↔ 控件」，应用是 [Main] 的事；改动即时生效，关闭窗口时才写盘。
 
-## 某个设置变了：主程序据此即时应用。
 signal changed()
-## 窗口关闭（该写盘了）。
 signal closed()
 
 @onready var nMaxFpsSlider: HSlider = %MaxFpsSlider
-## 数值用 LineEdit 而不是 SpinBox：SpinBox 的样式长在它内部的 LineEdit 与按钮上，
-## 主题里没这两样，它会顶着引擎默认皮肤（亮框 + 白字），跟项目配色对不上。
+## 用 LineEdit 而不是 SpinBox：后者的样式长在内部控件上，主题覆盖不到。
 @onready var nMaxFpsEdit: LineEdit = %MaxFpsEdit
 @onready var nUiScaleSlider: HSlider = %UiScaleSlider
 @onready var nUiScaleEdit: LineEdit = %UiScaleEdit
@@ -36,7 +27,6 @@ func open() -> void:
 	popup_centered()
 
 
-## 绑定数据并铺值（[Main] 在 _ready 里调一次）。
 func setup(p_settings: AppSettings) -> void:
 	settings = p_settings
 	_show_values(settings)
@@ -86,7 +76,6 @@ func _apply_number(value: float, minimum: float, maximum: float, setter: Callabl
 	changed.emit()
 
 
-## 读输入框里的数字；认不出来就用 [param fallback]（= 当前值）。
 static func _number_in(edit: LineEdit, fallback: float) -> float:
 	var text := edit.text.strip_edges()
 	return text.to_float() if text.is_valid_float() else fallback

@@ -1,18 +1,8 @@
 class_name MlogExporter
 extends RefCounted
 
-## 逻辑图 → mlog 文本。
-##
-## 纯函数：只读 [LogicGraph] 与 [BlockLibrary]，不碰任何控件 —— 旧的 `_export()` 长在
-## 块节点上、只能把可见性等信息从控件里挖出来，导出结果依赖"控件当前长什么样"。
-##
-## 遍历顺序：按链顺序深度优先 —— 块自己那一行先输出，再输出它各槽位里的内容，
-## 然后才是下一个兄弟。Mindustry 的 mlog 没有块级作用域，嵌套在这里就是顺序展开。
-##
-## [b]块引用要两趟才导得出[/b]：Jump 的目标是"第几行"，而行号得把整段输出排完才知道。
-## 第一趟走 [method _walk] 排出行号表（见 [method line_table]），第二趟用同一个 walk 渲染，
-## 把引用字段换成目标块的行号 —— 两趟同源，表与输出必然对得上。
-## 导入侧靠同一张表把行号绑回块引用（见 [method MlogImporter.bind_links]）。
+## 逻辑图 → mlog 文本（纯函数：只读图与块库，不碰控件）。遍历按链顺序深度优先：块自己一行，再是各槽位内容，最后下一个兄弟。
+## 块引用是「第几行」，行号得排完整段才知道 —— 第一趟 [_walk] 排行号表，第二趟渲染时用同一份 walk 把引用换成行号（表与输出必然对得上）。
 
 ## 导出整张图。[param warnings] 收集无法处理的块与失效的跳转目标。
 static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[String] = []) -> String:
@@ -32,8 +22,7 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 	return "\n".join(lines) + "\n"
 
 
-## 行号表：`{line_of: 节点 id → 行号, fallback: 节点 id → 它之后的第一行, count: 总行数}`。
-## 顺序与 [method export] 的输出完全一致，导入侧用它把 mlog 的绝对行号绑回节点。
+## 行号表：`{line_of, fallback, count}`，顺序与 [method export] 的输出一致。
 static func line_table(graph: LogicGraph, library: BlockLibrary) -> Dictionary:
 	var discarded: Array[String] = []
 	return _table_of(_walk(graph, library, discarded))
@@ -44,8 +33,6 @@ static func line_count(graph: LogicGraph, library: BlockLibrary) -> int:
 	return int(line_table(graph, library).get("count", 0))
 
 
-## 渲染单行 mlog（不含换行）。模板为空（如 If 这类纯容器）时返回空串。
-## [param resolver] 用来把块引用字段换成行号；不传时引用字段按原值输出。
 static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Callable()) -> String:
 	var value_of := node.value_reader()
 	var parts := def.export_parts_for(value_of)
@@ -62,12 +49,7 @@ static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Cal
 	return out
 
 
-## 遍历顺序表的一项：`{"node": LogicNode, "def": BlockDef}`。
-## [b]不输出行的块也在表里[/b]：它虽然不占行号，但当跳转目标时要落到"它之后的第一条指令"。
-## 从[b]入口块[/b]（XML `entry="true"`，目前是 Start）开始往下走：它所在的那条链、
-## 从它自己开始（它渲染成空行、不占行号，但当跳转目标要有个落点），
-## 它前头的块与其他链[b]都不导出[/b] —— 「只导出从 Start 开始的」就是这个意思。
-## 入口块被删掉的老存档仍旧按老规矩：所有链都导出。
+## 遍历顺序表。不输出行的块也在表里（不占行号，但跳转落到它之后的第一条指令）；导出只走入口块那条链、从它开始。
 static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[String]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var entry := _entry_node(graph, library)
@@ -79,14 +61,12 @@ static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[Stri
 	if where.is_empty():
 		return out
 	var siblings := graph.slot_items(int(where["owner_id"]), StringName(where["slot"]))
-	# 从入口块开始的那一段（slice 回来是无类型数组，assign 顺便转成 Array[int]）
 	var tail: Array[int] = []
 	tail.assign(siblings.slice(int(where["index"])))
 	_walk_chain(graph, library, tail, out, warnings)
 	return out
 
 
-## 图里的入口块节点（没有就返回 null）。
 static func _entry_node(graph: LogicGraph, library: BlockLibrary) -> LogicNode:
 	if library == null:
 		return null
@@ -120,10 +100,7 @@ static func _walk_chain(
 			_walk_chain(graph, library, graph.slot_items(id, slot_id), out, warnings)
 
 
-## 排行号。
-##
-## [b]数的是指令而不是文本行[/b]：Mindustry 的汇编器会把注释行（`#…`）与标签行（`label:`）
-## 直接跳过，它们不占指令下标 —— 所以这两类块只记 fallback（= 它之后的第一条指令）。
+## 排行号：[b]数的是指令而不是文本行[/b] —— 注释行与标签行不占行号，只记 fallback。
 static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 	var line_of: Dictionary = {}
 	var fallback: Dictionary = {}
@@ -132,22 +109,20 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 		var def: BlockDef = entry["def"]
 		var node: LogicNode = entry["node"]
 		fallback[node.id] = count
-		# 这里不带 resolver：只判「这行会不会成为一条指令」，与取值无关
 		if _is_instruction(render_node(def, node)):
 			line_of[node.id] = count
 			count += 1
 	return {"line_of": line_of, "fallback": fallback, "count": count}
 
 
-## 这一行在汇编器里会不会成为一条指令（即占不占 jump 数的行号）。
-## 注释与标签行的判定与导入侧同一套规则，保证「导出→导入」对得上。
+## 这一行会不会成为一条指令（判定与导入侧同一套规则）。
 static func _is_instruction(text: String) -> bool:
 	if text == "" or text.begins_with("#"):
 		return false
 	return not (text.ends_with(":") and not text.contains(" "))
 
 
-## 引用字段 → 行号。未锁定或已失效都按 -1 导出（与旧实现一致），并记一条警告。
+## 引用字段 → 行号；未锁定或目标已失效都按 -1 导出并记一条警告。
 static func _resolver(node: LogicNode, table: Dictionary, warnings: Array[String]) -> Callable:
 	var line_of: Dictionary = table["line_of"]
 	var fallback: Dictionary = table["fallback"]
@@ -176,20 +151,16 @@ static func _render_part(
 			return part.literal
 		ExportPart.Kind.FIELD:
 			var text := _field_text(def, node, part.field, resolver, part.allow_empty)
-			# 字符串字段：引号由这里加，内容里的 `"` / `\` 必须转义 ——
-			# 否则用户在输入框里打一个引号就会把整行写坏（游戏那边整行变成无效语句）
+			# 字符串字段：引号在这里加并转义 —— 否则用户打一个引号就会把整行写坏
 			return _quoted(text) if part.as_string else text
 		_:
-			# 旧语法 %a|b：取第一个此刻生效的候选；都不生效时输出 0
 			for field_id in part.fields:
 				if def.is_field_active(field_id, value_of):
 					return _field_text(def, node, field_id, resolver)
 			return "0"
 
 
-## 取字段的 mlog 文本：块引用先换成行号，其余按原值。
-## [param allow_empty]（XML `allow_empty="true"`）表示这一格允许留空 —— 注释块的文本就是：
-## 空文本补成 `0` 的话，导回来内容就变了（`#` → `# 0`）。
+## 取字段的 mlog 文本：块引用换成行号，其余按原值；[param allow_empty] 时空值不补 0。
 static func _field_text(def: BlockDef, node: LogicNode, field_id: StringName, resolver: Callable,
 		allow_empty: bool = false) -> String:
 	if def.is_reference_field(field_id) and resolver.is_valid():
@@ -200,6 +171,5 @@ static func _field_text(def: BlockDef, node: LogicNode, field_id: StringName, re
 	return "0"
 
 
-## 字符串字段的写法：包引号 + 转义（规则见 [MlogText]）。
 static func _quoted(text: String) -> String:
 	return "\"" + MlogText.escape(text) + "\""

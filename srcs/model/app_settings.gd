@@ -1,15 +1,9 @@
 class_name AppSettings
 extends RefCounted
 
-## 应用级设置：与逻辑图无关的那点偏好（帧率上限、UI 缩放、失焦自动导出）。
-##
-## 纯数据 + 一个 JSON 存盘，不认识任何控件 —— 「谁来应用、什么时候应用」是 [Main] 的事，
-## 这样设置本身能被单独读写和断言（[member path] 可以改，测试指向别处即可）。
-##
-## 旧实现把这些塞在一个 `EditorConfig` 资源里、并且还额外做了一个「Configure 块」
-## 让用户在画布上摆设置；设置属于应用而不是程序逻辑，这里只保留前者。
+## 应用级设置（帧率上限 / UI 缩放 / 失焦自动导出）：纯数据 + 一个 JSON 存盘；「谁来应用」是 [Main] 的事。
 
-## 存盘路径。默认落用户目录；调用方可以改它（测试就靠这个避免写到真实用户目录）。
+## 存盘路径（测试可以改成临时目录，避免写真实用户目录）。
 static var path: String = "user://settings.json"
 
 ## 设置文件格式版本：读旧文件时靠它做一次性迁移（见 [method from_json]）。
@@ -22,13 +16,10 @@ const MAX_MAX_FPS: int = 400
 const MIN_UI_SCALE: float = 0.5
 const MAX_UI_SCALE: float = 2.0
 
-## 帧率上限（0 = 不限，这里不给这个选项，避免用户把编辑器拖到不可用）。
+## 帧率上限：刻意不给 0（不限）—— 那会把编辑器拖到不可用。
 var max_fps: int = DEFAULT_MAX_FPS
-## 整个 UI 的缩放系数（对应 [member Window.content_scale_factor]）。
 var ui_scale: float = DEFAULT_UI_SCALE
-## 窗口失焦（切到别的应用）时，把当前标签页的 mlog 自动导出到剪贴板 —— 丢进游戏前先切窗口抓逻辑
-## 是主要用法，所以[b]默认开着[/b]，不想要就在设置里关掉。空程序不会被写进剪贴板（见 [Main]）。
-## （旧实现叫 compile_when_close，且默认关。）
+## 窗口失焦（切到别的应用）时把当前页的 mlog 丢进剪贴板（默认开；空程序不动剪贴板）。
 var export_on_focus_lost: bool = true
 
 
@@ -45,7 +36,6 @@ static func load_from_disk() -> AppSettings:
 	return from_json(text)
 
 
-## 写回磁盘；返回错误码（[constant OK] 表示成功）。
 func save_to_disk() -> Error:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -71,8 +61,7 @@ func to_dict() -> Dictionary:
 ## 解析（容错）：认不出的字段用默认值，超范围的钳回范围内。
 static func from_json(text: String) -> AppSettings:
 	var settings := AppSettings.new()
-	# 用 JSON.parse() 而不是 JSON.parse_string()：前者失败只返回错误码，
-	# 后者会在控制台报一条引擎错误 —— 配置文件手改坏了不该看着像崩了。
+	# 用 JSON.parse() 而不是 parse_string()：后者失败会在控制台报引擎错误
 	var json := JSON.new()
 	if json.parse(text) != OK or not (json.data is Dictionary):
 		return settings
@@ -80,8 +69,7 @@ static func from_json(text: String) -> AppSettings:
 	settings.max_fps = clampi(int(data.get("max_fps", DEFAULT_MAX_FPS)), MIN_MAX_FPS, MAX_MAX_FPS)
 	settings.ui_scale = clampf(float(data.get("ui_scale", DEFAULT_UI_SCALE)), MIN_UI_SCALE, MAX_UI_SCALE)
 	settings.export_on_focus_lost = bool(data.get("export_on_focus_lost", true))
-	# 迁移：v1（没有 version 字段）里这项默认是关的，没改过设置文件的人会一直是关的 ——
-	# 既然这个行为默认就该开，就把旧的“关”当成“没选过”升上来；用户之后仍可在设置里关掉。
+	# 迁移：v1 里这项默认是关的，把旧的“关”当成“没选过”升成开（之后仍可关掉）
 	if int(data.get("version", 1)) < VERSION:
 		settings.export_on_focus_lost = true
 	return settings

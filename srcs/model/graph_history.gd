@@ -1,9 +1,7 @@
 class_name GraphHistory
 extends RefCounted
 
-## 撤销/重做栈。采用「快照式命令」：每次记录前后各拍一张 [method LogicGraph.to_dict] 快照。
-## 逻辑图规模很小（几十到几百个节点），换来的是撤销实现不可能出错 ——
-## 不需要为「删除带子树的块」「跨容器搬移」分别写逆向操作。
+## 撤销/重做栈（快照式）：每次记录前后各拍一张 [method LogicGraph.to_dict]；图很小，快照换实现不出错。
 
 signal changed()
 
@@ -22,8 +20,7 @@ func _init(p_graph: LogicGraph, p_limit: int = DEFAULT_LIMIT) -> void:
 
 
 ## 记录一次修改：拍快照 → 执行 [param mutate] → 再拍快照。
-## 内容没有变化时不入栈；[param merge_key] 非空且与上一条相同时合并为一条
-## （用于输入框连续打字这类高频小改动）。
+## 内容没变不入栈；[param merge_key] 与上一条相同时合并为一条（输入框连续打字用）。
 func record(label: String, mutate: Callable, merge_key: StringName = &"") -> void:
 	if not mutate.is_valid():
 		push_error("GraphHistory.record 收到无效的 Callable")
@@ -91,6 +88,5 @@ func clear() -> void:
 	changed.emit()
 
 
-## 栈深度（调试/状态栏用）。
 func depth() -> Vector2i:
 	return Vector2i(_undo_stack.size(), _redo_stack.size())

@@ -1,31 +1,19 @@
 class_name LinkController
 extends CanvasPointerSession
 
-## 「拖拽锁定跳转目标」会话：在 Jump 的目标按钮上按下，拖到画布上的某一块上松手即锁定。
-##
-## 与 [DragController] 同构、互不干扰：它同样挂在编辑器标签页根下（[b]不在[/b] SubViewport 里），
-## 所以鼠标拖到画布外也收得到事件；拖拽期间不改任何数据，落地时才产生一条撤销记录。
-##
-## 三个出口：
-## [br]- 在某一块上松手 → 锁定到那块；
-## [br]- 拖到自己身上、或拖到左侧块列表（与"拖到那里 = 删除"同一套心智）→ 解除锁定；
-## [br]- 在画布空白处松手 / 右键 / Esc → 取消，保留原来的目标。
-##
-## 按下事件不消费（让按钮自己走到按下态），松开事件消费掉再手动复位按钮 ——
-## 否则按钮会卡在"按下"的样式里（这点在 [method _close_session] 里有注释说明）。
+## 「拖拽锁定跳转目标」会话：在目标按钮上按下，拖到某一块上松手即锁定。
+## 三个出口：某一块上松手 → 锁定；拖到自己或左侧块列表 → 解除；空白处 / 右键 / Esc → 取消。
+## 按下事件不消费（让按钮走到按下态），松开时才手动复位它。
 
 ## 源块（引用字段的宿主）与它要写的字段。
 var _source_id: int = 0
 var _field: StringName = &""
 ## 按下时那个按钮：结束时复位它的按下态与焦点。
 var _control: Control = null
-## 线的起点：源块左侧中点（世界坐标）。
 var _origin: Vector2 = Vector2.ZERO
-## 当前悬停在哪一块上（0 = 空白）。
 var _hover_id: int = 0
 
 
-## 由编辑器标签页在块的 link_requested 上调用。
 func start(view: BlockView, element: ElementDef, control: Control) -> void:
 	if _active or canvas == null or view == null or view.node == null or element == null:
 		return
@@ -38,7 +26,7 @@ func start(view: BlockView, element: ElementDef, control: Control) -> void:
 	_begin_session()
 
 
-## 落地只认左键：右键按下算取消（默认钩子），窗口失焦也走 [method cancel]。
+## 落地只认左键。
 func _finish_button() -> MouseButton:
 	return MOUSE_BUTTON_LEFT
 
@@ -48,7 +36,7 @@ func _is_cancel_button(button: MouseButton) -> bool:
 	return button == MOUSE_BUTTON_RIGHT
 
 
-## 松开事件要消费掉：本控制器收不到按钮的 mouse-up，靠自己复位按钮（见 [method _close_session]）。
+## 松开事件要消费掉：本控制器收不到按钮的 mouse-up，靠自己复位（见 [method _close_session]）。
 func _consumes_release() -> bool:
 	return true
 func _update_session() -> void:
@@ -58,13 +46,12 @@ func _update_session() -> void:
 	canvas.set_link_preview(_origin, world, _hover_id)
 
 
-## 松开左键：落地。
 func _finish_session() -> void:
 	var world := _world_mouse()
 	# 判命中时把自己算进去：拖到自己身上 = 解除锁定
 	var hit := canvas.node_at_world(world, {})
 	var over_delete := _over_delete_zone()
-	# 与拖动块同一套直觉：鼠标没真正动过 = 只是点了一下按钮，什么都不改
+	# 与拖动块同一套直觉：鼠标没真正动过 = 只点了一下按钮，什么都不改
 	var moved := _moved(world)
 	var source_id := _source_id
 	var field := _field

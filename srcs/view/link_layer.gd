@@ -1,16 +1,7 @@
 class_name LinkLayer
 extends Node2D
 
-## 跳线层：把「哪个 Jump 跳到哪一块」画成彩色折线 + 箭头。
-##
-## 线的形状：从源块左侧出发向左绕到一条「母线」（lane）上，竖直走到目标块的高度，
-## 最后从左侧进入目标块 —— 折线的三个拐点全部来自 [method EditorCanvas.link_segments]
-## 给出的位置，本层只负责画，不做任何几何计算（位置绝不从绘制缓存反读）。
-##
-## 它是 [b]Blocks 的第一个子节点[/b]：先绘制意味着线被块盖住，于是线只在块与块之间
-## 的空隙里露出来；悬停高亮由块自己描边（见 [method BlockView.set_link_highlight]）。
-##
-## 颜色按目标块取（同一目标同色），而哪块颜色由种子决定 —— 用户靠颜色+走向区分多条线。
+## 跳线层：把 [LinkRouter] 算出的折线画出来（本层不做几何计算）；它是 Blocks 的第一个子节点，线只在块间空隙露出。
 
 const LINE_WIDTH: float = 2.0
 const ARROW_SIZE: float = 9.0
@@ -36,7 +27,7 @@ func _draw() -> void:
 		_draw_preview(preview)
 
 
-## 目标端的箭头：不画在最后一段的延长线上，而是贴着终点朝目标块内侧。
+## 目标端箭头：贴着终点朝目标块内侧（不沿最后一段延长）。
 func _draw_arrow(from: Vector2, to: Vector2, color: Color) -> void:
 	var direction := (to - from).normalized()
 	if direction == Vector2.ZERO:
@@ -49,7 +40,7 @@ func _draw_arrow(from: Vector2, to: Vector2, color: Color) -> void:
 	]), color)
 
 
-## 锁定拖拽中的预览线：命中候选时是暖色实意，悬在空白处时是灰白虚线。
+## 锁定拖拽中的预览线：命中候选时暖色实线，悬在空白处灰白虚线。
 func _draw_preview(preview: Dictionary) -> void:
 	var from: Vector2 = preview.get("from", Vector2.ZERO)
 	var to: Vector2 = preview.get("to", Vector2.ZERO)

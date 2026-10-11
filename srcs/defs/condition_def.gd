@@ -1,23 +1,10 @@
 class_name ConditionDef
 extends RefCounted
 
-## 一个「何时生效」的条件表达式（AST）。
-##
-## 布局与导出共用它：行、元素、导出模板都可以挂一个条件。
-## 存储里写的是字符串（手写友好），解析后变成这棵树 —— 于是可以静态校验、
-## 可以求值、也可以规范化回写。
-##
-## 支持：
-## [codeblock]
-## when="(mode=col || mode=clear) && !txt"      括号 / 或 / 与 / 非
-## when="find=building && group=enemy"          多个字段共同决定
-## when="mode=line|rect"                         同字段的取值列表（或）
-## when="txt=true"                              开关按下
-## when="mode!=col"                             不等
-## [/codeblock]
+## 一个「何时生效」的条件表达式（AST）：行、元素、导出模板都可以挂一个。
+## 字符串只用于手写与回写（[ConditionParser] 的 `&` `|` `~`、`字段=取值`、`mode=a|b`），解析后是这棵树。
 
 enum Kind {
-	## 恒真（没有条件）。
 	ALWAYS,
 	## 字段比较：field 的值落在 values 里（等值），或"字段为真"（values 为空）。
 	COMPARE,
@@ -28,16 +15,12 @@ enum Kind {
 
 var kind: Kind = Kind.ALWAYS
 
-## COMPARE：被比较的字段。
 var field: StringName = &""
 ## COMPARE：候选取值（或列表）；为空表示只判断"字段为真"。
 var values: Array[String] = []
-## COMPARE：取反（即 field != value）。
 var negated: bool = false
 
-## AND / OR 的子条件。
 var children: Array[ConditionDef] = []
-## NOT 的子条件。
 var child: ConditionDef = null
 
 
@@ -139,14 +122,12 @@ func is_always() -> bool:
 	return kind == Kind.ALWAYS
 
 
-## 规范化回写成字符串（加必要的括号），便于日志、比对与报错。
 func describe() -> String:
 	match kind:
 		Kind.COMPARE:
 			var plain := String(field) if field != &"" else "false"
 			if values.is_empty():
 				return ("~" + plain) if negated else plain
-			# 同一字段的多个取值写成 `mode=clear|color`
 			var alternatives := PackedStringArray()
 			for value in values:
 				alternatives.append(_quote_if_needed(value))

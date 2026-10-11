@@ -1,22 +1,16 @@
 class_name LogicNode
 extends RefCounted
 
-## 逻辑块实例的纯数据表示：只有「是什么块 / 字段值 / 子槽位顺序」。
-##
-## 坐标、控件与场景树都不在这里 —— 画布坐标属于 [LogicGraph] 的根位置，
-## 具体位置由视图层的布局求解算出（见 view/layout_solver.gd）。
+## 逻辑块实例的纯数据：类型 + 字段值 + 各槽位的有序子节点 id（不含坐标与控件）。
 
 ## 稳定 id，由 [LogicGraph] 分配，撤销/重做与存读档后保持不变。
 var id: int = 0
 
-## 指向块定义（对应 XML 的 <Block name="..."/>）。
 var type_id: StringName = &""
 
-## 字段值：字段 id → 值（字符串 / 数值 / 布尔）。
 var fields: Dictionary[StringName, Variant] = {}
 
-## 子槽位：槽位 id → 子节点 id 的有序数组（对应 XML 的 <Nest id="..."/>）。
-## 槽位不存在与槽位为空是同一件事，不要用空数组当"占位"。
+## 子槽位：槽位 id → 子节点 id 有序数组。槽位不存在与为空是同一件事。
 var slots: Dictionary[StringName, Array] = {}
 
 
@@ -25,7 +19,6 @@ func _init(p_id: int = 0, p_type_id: StringName = &"") -> void:
 	type_id = p_type_id
 
 
-## 读字段值；未设置时返回 [param fallback]。
 func get_field(field_id: StringName, fallback: Variant = "") -> Variant:
 	return fields.get(field_id, fallback)
 
@@ -36,8 +29,7 @@ func value_reader() -> Callable:
 		return String(get_field(field_id, ""))
 
 
-## 直接写字段（值为 null 表示删除该字段）。
-## 需要进撤销栈时请走 [method LogicGraph.set_field]。
+## 直接写字段（null = 删除）。需要进撤销栈时走 [method LogicGraph.set_field]。
 func put_field(field_id: StringName, value: Variant) -> void:
 	if value == null:
 		fields.erase(field_id)
@@ -45,7 +37,6 @@ func put_field(field_id: StringName, value: Variant) -> void:
 		fields[field_id] = value
 
 
-## 批量写字段（新块入图时灌默认值用）。
 func apply_fields(values: Dictionary) -> void:
 	for field_id in values:
 		put_field(field_id, values[field_id])

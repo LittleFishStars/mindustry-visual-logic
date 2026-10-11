@@ -1,35 +1,20 @@
 class_name LogicGraph
 extends RefCounted
 
-## 逻辑程序的纯数据模型。
-##
-## 结构 = 画布上的若干条[b]链[/b]，每条链是一个**有序的节点 id 数组**；
-## 节点内部的每个子槽位同样是有序数组。统一抽象：
-## [b]容器 = (owner_id, slot_id)[/b]
-## - [code]owner_id == ROOT[/code] 时，[param slot_id] 是画布上的链 id（画布相当于"有很多槽位的根节点"）；
-## - 否则 [param owner_id] 是宿主节点 id，[param slot_id] 是它的 <Nest> 槽位 id。
-##
-## 与旧实现的关键差别：
-## - 没有 `_next_block` / `_last_block` 双向指针，也没有用 `null` 占位的字典项；
-##   顺序 = 数组下标，空位 = 不存在。
-## - 不存块与块之间的绝对坐标，只存每条链的落点；块内相对位置由布局求解得出。
+## 逻辑程序的纯数据模型：画布上的若干条链，每条链是一个有序的节点 id 数组。
+## 容器 = (owner_id, slot_id)：owner_id == [constant ROOT] 时 slot_id 是链 id，否则是
+## 宿主节点的 <Nest> 槽位 id；顺序 = 数组下标，空位 = 不存在，不存绝对坐标。
 
-## 画布（根）在「容器」概念里的 owner_id。
 const ROOT: int = 0
 
-## 块引用（Jump 的跳转目标）在字段里的文本形式：`#<节点 id>`。
-##
-## 带 `#` 前缀是有意的：旧存档里这个字段存的是手填行号（纯数字），前缀让它们
-## 天然认成「未锁定」，而不会被当成节点 id 误锁到别的块上。
+## 块引用（Jump 目标）的文本形式 `#<节点 id>`；纯数字（旧存档行号）视为未锁定。
 const LINK_PREFIX: String = "#"
 
 
-## 节点 id → 引用文本；[param id] 非法（<= 0）时返回空串，即「未锁定」。
 static func make_link_ref(id: int) -> String:
 	return "%s%d" % [LINK_PREFIX, id] if id > 0 else ""
 
 
-## 引用文本 → 节点 id；不是块引用时返回 [constant ROOT]（= 无效）。
 static func parse_link_ref(value: Variant) -> int:
 	var text := String(value).strip_edges()
 	if not text.begins_with(LINK_PREFIX):
@@ -44,9 +29,7 @@ signal field_changed(id: int, field_id: StringName, value: Variant)
 signal reset()
 
 var _nodes: Dictionary[int, LogicNode] = {}
-## 链 id → 节点 id 数组。
 var _chains: Dictionary[StringName, Array] = {}
-## 链 id → 画布落点。
 var _chain_positions: Dictionary[StringName, Vector2] = {}
 var _next_id: int = 1
 var _next_chain: int = 1
@@ -62,7 +45,6 @@ func get_node_by_id(id: int) -> LogicNode:
 	return _nodes.get(id)
 
 
-## 画布上的链 id（按创建顺序，副本）。
 func chain_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	out.assign(_chains.keys())
@@ -82,15 +64,12 @@ func all_ids() -> Array[int]:
 	return out
 
 
-## 节点及其全部子孙（搬移、高亮、导出都要用）。
 func subtree_ids(id: int) -> Array[int]:
 	var out: Array[int] = []
 	_collect_subtree(id, out)
 	return out
 
 
-## 取某个容器的成员 id（副本）。
-## [param owner_id] 为 [constant ROOT] 时 [param slot_id] 必须是链 id。
 func slot_items(owner_id: int, slot_id: StringName = &"") -> Array[int]:
 	var out: Array[int] = []
 	out.assign(_container_ref(owner_id, slot_id))
@@ -119,7 +98,6 @@ func locate(id: int) -> Dictionary:
 
 #region 链管理
 
-## 新建一条空链，返回链 id。
 func create_chain(pos: Vector2 = Vector2.ZERO) -> StringName:
 	var chain_id := StringName("c%d" % _next_chain)
 	_next_chain += 1
@@ -149,8 +127,7 @@ func new_node(type_id: StringName) -> LogicNode:
 	return node
 
 
-## 把节点插入到 [param owner_id] 的 [param slot_id] 容器的 [param index] 处。
-## [param index] 为负表示追加到末尾。容器必须已存在。
+## 把节点插入到容器的 [param index] 处；[param index] 为负表示追加到末尾。
 func insert_node(node: LogicNode, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
 	if node == null or _nodes.has(node.id) or not _can_host(owner_id, slot_id):
 		return false
@@ -161,11 +138,7 @@ func insert_node(node: LogicNode, owner_id: int, slot_id: StringName = &"", inde
 	return true
 
 
-## 把一棵[b]尚未入图[/b]的子树整体放进容器。
-##
-## [param nodes] 是子树里的全部节点，[b]第一个必须是根[/b]（其余节点由根按槽位引用，
-## 它们之间的父子关系在克隆时就已建好）。与 [method insert_node] 的区别：后者只登记一个
-## 节点，子树得一个一个插；复制整棵子树时那样做会把中间状态也暴露给信号。
+## 把一棵尚未入图的子树整体放进容器（[param nodes] 第一个必须是根），中途不发信号。
 func insert_subtree(nodes: Array[LogicNode], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
 	if nodes.is_empty() or not _can_host(owner_id, slot_id):
 		return false
@@ -194,8 +167,7 @@ func remove_node(id: int) -> bool:
 	return true
 
 
-## 移动节点到 [param owner_id] 的 [param slot_id] 容器的 [param index] 处。
-## 拒绝把自己移进自己或自己的子孙（否则会形成环）。
+## 移动节点；拒绝把自己移进自己或自己的子孙（否则成环）。
 func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
 	if not _nodes.has(id) or not _can_host(owner_id, slot_id):
 		return false
@@ -218,8 +190,7 @@ func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -
 	return true
 
 
-## 写字段值。值相同则不产生任何信号。
-## 同一容器里"这个块及其后面的所有块"（拖动时它们要一起走）。
+## 同一容器里「这个块及其后面的所有块」（拖动时一起走）。
 func tail_ids(id: int) -> Array[int]:
 	var at := locate(id)
 	if at.is_empty():
@@ -231,11 +202,7 @@ func tail_ids(id: int) -> Array[int]:
 	return out
 
 
-## 把一串有先后顺序的节点整体搬到目标容器。
-##
-## 不能逐个 [method move_node]：同一容器内前一个搬完会改变后一个的下标。
-## 这里先算出"摘出这一串之后"的目标下标（同容器时扣掉排在目标之前的自己人），
-## 再一次性整段插入。
+## 把一串有先后顺序的节点整体搬到目标容器（逐个搬会因下标变化而错位）。
 func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
 	if ids.is_empty():
 		return false
@@ -284,7 +251,6 @@ func set_field(id: int, field_id: StringName, value: Variant) -> bool:
 	return true
 
 
-## 清空整张图。
 func clear() -> void:
 	_nodes.clear()
 	_chains.clear()
@@ -334,8 +300,7 @@ static func from_dict(data: Dictionary) -> LogicGraph:
 func load_dict(data: Dictionary) -> void:
 	_chains.clear()
 	_chain_positions.clear()
-	# 同 id 的节点对象要复用：撤销/读档后，视图、拖拽状态里持有的引用
-	# 仍然指着「图上的那一个」，不会变成读不到变化的陈旧对象
+	# 同 id 的节点对象要复用：撤销/读档后外部持有的引用仍指向图上的那一个
 	var incoming: Dictionary[int, LogicNode] = {}
 	for raw in data.get("nodes", []):
 		var parsed := LogicNode.from_dict(raw)
@@ -381,8 +346,7 @@ func _insert_at(arr: Array, value: int, index: int) -> void:
 		arr.insert(index, value)
 
 
-## 取容器数组本体（就地增删用）。容器不存在且 [param create] 为真时，按需给节点建出该槽位；
-## 为假时返回一个临时空数组 —— 改它不影响图，只用于读。
+## 取容器数组本体（[param create] 为真时按需建槽位；为假时返回临时空数组，改它不影响图）。
 func _container_ref(owner_id: int, slot_id: StringName, create: bool = false) -> Array:
 	if owner_id == ROOT:
 		return _chains.get(slot_id, [])
@@ -433,7 +397,6 @@ func _collect_subtree(id: int, out: Array[int]) -> void:
 			_collect_subtree(child_id, out)
 
 
-## [param candidate] 是否位于 [param ancestor] 的子树内。
 func _is_descendant(candidate: int, ancestor: int) -> bool:
 	var cursor := candidate
 	var guard := _nodes.size() + 1

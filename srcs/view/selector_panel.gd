@@ -1,21 +1,9 @@
 class_name SelectorPanel
 extends Control
 
-## 内容选择弹窗：单位 / 建筑 / 物品 / 液体 / 传感器属性等候选的图标网格。
+## 内容选择弹窗：候选项的图标网格（块定义里写 `<Selector kind="units" />`）。
 ##
-## 块定义里写 `<Selector id="unit" kind="units" />`（kind 对应 blocks/selectors/<kind>.json），
-## 元素构建器给输入框配一个 ▾ 按钮，按下就打开这里；选中的 `@xxx` 回填进那个输入框。
-##
-## 本体是一层**铺满父级的浮层**：底下是半透明遮罩（点一下 = 关闭），上面是居中的面板。
-## 遮罩自己吃鼠标，所以弹窗期间点不到画布 —— 这既是「模态」的意思，也省得外面还要再判断
-## 「点到面板外面了吗」。Esc 同样关闭。
-##
-## 候选可能很多（建筑 259 个），所以有[b]搜索框[/b]：边打边筛，回车直接选第一个。
-## 候选来自 [SelectorData]（blocks/selectors/*.json），面板只负责把候选铺成网格、
-## 按需分组、按关键词过滤。
-##
-## 面板是编辑器标签页的子级（在调色板/画布所在的 Control 树里），
-## 因此不依赖 Window/Popup —— 在 SubViewport 画布上打开弹窗不会再遇到嵌入窗口的坑。
+## 铺满父级的浮层（遮罩点击即关，弹窗期间点不到画布）+ 居中面板，Esc 也关；带搜索框，边打边筛、回车选第一个。
 
 signal picked(value: String)
 
@@ -29,10 +17,8 @@ const COLOR_PANEL: Color = Color(0.207843, 0.180392, 0.25098, 1.0)      # #35304
 const COLOR_BAR: Color = Color(0.258824, 0.22352941, 0.30980393, 1.0)   # #423956
 const COLOR_BORDER: Color = Color(0.101961, 0.086275, 0.121569, 1.0)
 const COLOR_BACKDROP: Color = Color(0.0, 0.0, 0.0, 0.45)
-## 搜索框的底与聚焦描边（照搬设置窗的输入框）
 const COLOR_EDIT: Color = Color(0.212113, 0.181757, 0.255897, 1.0)
 const COLOR_EDIT_FOCUS: Color = Color(0.398337, 0.3869, 0.73, 1.0)
-## 格子底色/描边：普通 / 悬停 / 按下（与设置窗的输入框同一套）。
 const CELL_COLORS: Dictionary = {
 	&"normal": [Color(0.212113, 0.181757, 0.255897, 1.0), Color(0.142885, 0.124547, 0.161226, 1.0)],
 	&"hover": [Color(0.258824, 0.22352941, 0.30980393, 1.0), Color(0.142885, 0.124547, 0.161226, 1.0)],
@@ -63,7 +49,7 @@ var _group: StringName = &""
 var _icon_cache: Dictionary[String, Texture2D] = {}
 ## 建好的格子：[{value, group, button}]，按数据顺序一次建齐，筛选只改 visible。
 var _cells: Array[Dictionary] = []
-## 当前搜索关键词：由 LineEdit 的 text_changed 带进来（不读控件，见 _ready 里的注释）。
+## 当前搜索关键词：由 text_changed 带进来（不读控件，原因见 _ready）。
 var _keyword: String = ""
 
 
@@ -90,7 +76,7 @@ func _ready() -> void:
 	box.add_theme_constant_override("separation", 6)
 	_panel.add_child(box)
 
-	# 顶部标题条：与设置窗/公告窗同一套（浅一档的底 + 5px 顶边）
+	# 顶部标题条（与设置窗/公告窗同一套）。
 	var bar := PanelContainer.new()
 	bar.add_theme_stylebox_override("panel", _make_bar_style())
 	box.add_child(bar)
@@ -151,8 +137,7 @@ func _ready() -> void:
 	_panel.resized.connect(_recenter)
 
 
-## StyleBoxFlat 的统一起手：底色 + 可选描边 + 可选圆角（主主题里没有 PanelContainer /
-## LineEdit 的条目，这些样式必须自带）。内容留白各调用点自己写 —— 它们的四边往往不一样。
+## StyleBoxFlat 的统一起手（主主题没有 PanelContainer / LineEdit 条目，样式得自带）。
 static func _box(bg: Color, border: Color = Color(0, 0, 0, 0), border_width: int = 0,
 		radius: int = 0) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -165,7 +150,6 @@ static func _box(bg: Color, border: Color = Color(0, 0, 0, 0), border_width: int
 	return style
 
 
-## 面板底：深色底板 + 一圈描边（主主题里没有 PanelContainer 的样式）。
 func _make_panel_style() -> StyleBoxFlat:
 	var style := _box(COLOR_PANEL, COLOR_BORDER, 2)
 	style.shadow_color = Color(0, 0, 0, 0.35)
@@ -182,7 +166,6 @@ func _make_cell_style(state: StringName) -> StyleBoxFlat:
 	return style
 
 
-## 搜索框：与设置窗的输入框同一套（深底 + 2px 描边，聚焦时描边变亮紫）。
 func _make_edit_style(focused: bool) -> StyleBoxFlat:
 	var style := _box(COLOR_EDIT, COLOR_EDIT_FOCUS if focused else COLOR_BORDER, 2, 2)
 	style.content_margin_left = 8.0
@@ -203,7 +186,7 @@ func _make_bar_style() -> StyleBoxFlat:
 	return style
 
 
-## 在编辑器区域[b]居中[/b]打开弹窗。
+## 居中打开弹窗。
 func open(element: ElementDef) -> void:
 	if element == null or not SelectorData.exists(element.selector_kind):
 		push_warning("没有选择器数据：%s（kind=%s）" % [
@@ -243,11 +226,7 @@ func _recenter() -> void:
 	_panel.position = Vector2(maxf(span.x * 0.5, 0.0), maxf(span.y * 0.5, 0.0))
 
 
-## 按内容重新定尺寸再居中。
-##
-## 必须显式做（不能在 open 里同步做）：Control 只会跟着最小尺寸变大、[b]不会自己缩回[/b] ——
-## 先开传感器（宽）再开建筑（窄）会留着上一次的宽面板。而最小尺寸要等一帧才重算完，
-## 所以 reset_size 走 deferred。
+## 按内容重新定尺寸再居中：Control 只会变大不会自己缩回，最小尺寸又要等一帧，所以 deferred。
 func _fit_and_center() -> void:
 	if _panel == null or not is_instance_valid(_panel):
 		return
@@ -296,12 +275,10 @@ func _add_group_button(id: StringName, text: String) -> void:
 	_groups_bar.add_child(button)
 
 
-## 建格子：一次建齐（建筑有 259 个），筛选只改 visible —— 每敲一个字就重建几百个按钮太贵。
-## 有分组数据时，每个格子记下自己属于哪一组（分页只切分组，不重建）。
+## 建格子：一次建齐，筛选只改 visible（每敲一个字重建几百个按钮太贵）。
 func _build_cells() -> void:
 	for child in _grid.get_children():
-		# 先摘掉再 free：queue_free 要到本帧末才真删，那一帧里它还在树上、还可见 ——
-		# 回车选第一个（以及布局）就可能挑到上一个弹窗留下的旧按钮
+		# 先摘掉再 free：queue_free 到帧末才生效，那一帧里旧按钮还可能被回车选中
 		_grid.remove_child(child)
 		child.queue_free()
 	_cells.clear()
@@ -328,12 +305,11 @@ func _add_cell(entry: Variant, group: StringName) -> void:
 func _refill() -> void:
 	if _element == null:
 		return
-	# 关键词以控件为准（信号里的那个值只是它自己报的）；程序化改 text（清空按钮之类）
-	# 不一定走 text_changed，所以这里再对一次，不会两边不一致。
+	# 关键词以控件为准：程序化改 text（清空按钮）不一定走 text_changed
 	if _keyword != _search.text:
 		_keyword = _search.text
 	var keyword := _keyword.strip_edges().to_lower()
-	# 命中往前排：打了 `router` 就得先看到 `@router`，而不是按字母序排在前面的 `@duct-router`
+	# 命中往前排（打 router 要先看到 @router）。
 	var first: Array = []
 	var rest: Array = []
 	var shown := 0
@@ -353,7 +329,7 @@ func _refill() -> void:
 			first.append(cell)
 		else:
 			rest.append(cell)
-	# 把排好序的可见格子按顺序挪到前面（隐藏的不占布局，位置无所谓）
+	# 把排好序的可见格子挪到前面（隐藏的不占布局，位置无所谓）。
 	var index := 0
 	for cell in first + rest:
 		_grid.move_child(cell["button"], index)
@@ -361,15 +337,14 @@ func _refill() -> void:
 	_count.text = "共 %d 项" % total if shown == total else "共 %d 项，匹配 %d 项" % [total, shown]
 
 
-## 关键词匹配：`@copper` 用 `c`、`copper`、`@copper` 都能搜到。
-## 两个分支都不能省：`trim_prefix("@")` 后的 needle 为空串时 [method String.contains] 恒为假，
-## 而只打一个 `@` 时用户要的是「列出所有引用名」—— 那正是第一个分支在管的。
+## 关键词匹配：`c` / `copper` / `@copper` 都能搜到 `@copper`。
+## 只打一个 `@` 要列全部候选（[b]第一个分支不能删[/b]）：trim_prefix("@") 后 needle 是空串，contains 恒假。
 func _matches(value: String, keyword: String) -> bool:
 	var haystack := value.to_lower()
 	return haystack.contains(keyword) or haystack.trim_prefix("@").contains(keyword.trim_prefix("@"))
 
 
-## 名字（去掉 @）以关键词开头 —— 这种命中排在最前。
+## 名字（去掉 @）以关键词开头 —— 这种命中排最前。
 func _starts_with(value: String, keyword: String) -> bool:
 	return value.to_lower().trim_prefix("@").begins_with(keyword.trim_prefix("@"))
 
@@ -388,8 +363,7 @@ func _make_cell(value: String, icon_path: String) -> Button:
 		button.icon = texture
 		button.expand_icon = true
 	else:
-		# 没有图标的候选（传感器的 @totalItems / @firstItem 这类）退回显示名字：
-		# 只显示短标签（全名在悬停提示里）—— 否则一个长名字就能把整排格子擑宽
+		# 没图标的候选退回显示短名字（全名在悬停提示里），免得长名字把整排格子撑宽
 		var label := value.trim_prefix("@")
 		button.text = label if label.length() <= 7 else label.substr(0, 6) + "…"
 		button.add_theme_font_size_override("font_size", 10)
@@ -397,10 +371,8 @@ func _make_cell(value: String, icon_path: String) -> Button:
 	return button
 
 
-## 回车：选第一个候选（边打边筛 + 回车 = 键盘流）。
 func _pick_first() -> void:
-	# 只在有效格子里挑（_cells 是唯一真相），取网格里最靠前的那个 —— _refill 已把命中项
-	# 按序排到前面，所以最靠前 = 排名第一
+	# 在有效格子里取网格顺序最靠前的（_refill 已把命中项排到前面）
 	var best: Button = null
 	var best_index := 1 << 30
 	for cell in _cells:

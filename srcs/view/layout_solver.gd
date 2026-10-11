@@ -1,17 +1,8 @@
 class_name LayoutSolver
 extends RefCounted
 
-## 布局求解：**纯函数**，不碰任何控件、不依赖任何"是否排过版"的状态。
-##
-## 三趟完成：
-##   1. 自底向上量尺寸 —— 子链先算出总尺寸，父块才知道槽位要留多大；
-##   2. 自顶向下摆位置 —— 从每条根链的落点出发，兄弟块按 tail_offset 依次往下推；
-##   3. 收集吸附锚点 —— 位置已知后，锚点就是位置的直接函数。
-##
-## 度量函数由 [b]定义层[/b] 提供，签名：
-## [code]func(node: LogicNode, slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics[/code]
-## 其中 [param slot_extents] 只包含 [b]图上真实存在[/b] 的槽位，
-## 度量函数对未出现的槽位应自行按 [constant Vector2.ZERO] 处理。
+## 布局求解（纯函数，不碰控件）：先自底向上量尺寸，再自顶向下摆位置，最后按位置产出吸附锚点。
+## 度量函数由调用方注入：`func(node, slot_extents) -> BlockMetrics`，slot_extents 只含图上真实存在的槽位。
 
 
 static func solve(graph: LogicGraph, measure: Callable) -> LayoutResult:
@@ -55,8 +46,7 @@ static func _measure_node(
 	result.metrics[id] = metrics if metrics != null else BlockMetrics.new()
 
 
-## 一条链的总尺寸：宽 = 最宽成员，高 = 首个成员顶到末尾成员底。
-## 求解内部用它；幽灵/占位块要按「图上真实布局」再量一次时也用它。
+## 一条链的总尺寸（宽 = 最宽成员，高 = 首成员顶到末成员底）。
 static func chain_extent(ids: Array[int], result: LayoutResult) -> Vector2:
 	var width := 0.0
 	var height := 0.0
@@ -93,7 +83,7 @@ static func _place_chain(
 			continue
 		placed[id] = true
 		result.rects[id] = Rect2(cursor, metrics.size)
-		# 尾部锚点：插在"我这个块之后"
+		# 尾部锚点：插在这个块之后。
 		result.anchors.append({
 			"owner_id": owner_id,
 			"slot": slot_id,
@@ -103,7 +93,7 @@ static func _place_chain(
 			"kind": &"tail",
 			"from_id": id,
 		})
-		# 槽位锚点：插进槽内容的最前面（与旧实现"嵌套即成为首个子块"一致）
+		# 槽位锚点：插进槽内容的最前面。
 		for slot_key in metrics.slot_offsets:
 			result.anchors.append({
 				"owner_id": id,

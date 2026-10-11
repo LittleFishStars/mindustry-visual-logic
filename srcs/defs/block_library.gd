@@ -1,26 +1,10 @@
 class_name BlockLibrary
 extends RefCounted
 
-## 块定义库：把 `blocks/{locale}/*.xml` 解析成 [BlockDef] 对象。
-##
-## 布局的存储形态：**显式的行 + 条件**。
-## [codeblock]
-## <Block name="Draw">
-##   <Row><Text>Draw</Text><Option id="mode">…</Option></Row>
-##   <Row when="mode=clear | mode=color">
-##     <Text>R</Text><LineBox id="r" placeholder="255" />
-##   </Row>
-##   <Text when="mode=color">A</Text><LineBox id="a" when="mode=color" placeholder="255" />
-##   <LineBox id="prot" when="mode=poly | mode=linePoly | mode=image" placeholder="0" />
-## </Block>
-## [/codeblock]
-##
-## - `Row` 显式分行（取代 `<Br/>`）；行与元素都可带 `when`，条件支持 `&` `|` `~` 与括号
-## - `Group` 给一串连续元素共享一个条件（不换行），解析时并入元素条件
-## - `Export` 也可带 `when`；`<Br/>` / `<Pressed>` / `<Item show>` 等旧写法已不再支持（会给出解析警告）
-## - `<Kind name="…" hidden="true">`：这个类别不进调色板（里头的块仍然能用 ——
-##   比如入口块就是编辑器自动放的，不该让用户从列表里拖）
-## - `<Block name="…" entry="true">`：程序入口块（一个文档只应有一个，见 [method entry_def]）
+## 块定义库：把 `blocks/{locale}/*.xml` 解析成 [BlockDef]。
+## 布局 = 显式的行 + 条件：`<Row [when]>` 分行，行与元素都能带 `when`（`&` `|` `~` 与括号）；
+## `<Group when>` 共享条件、`<Export [when]>` 是导出模板、`<Kind hidden>` 不进调色板、`<Block entry>` 是入口块。
+## `<Br/>` / `<Pressed>` / `<Item show>` 不再支持，会进 [member warnings]。
 
 class Kind extends RefCounted:
 	var id: StringName = &""
@@ -37,7 +21,6 @@ class Kind extends RefCounted:
 const DIR: String = "res://blocks"
 const FALLBACK_LANG: String = "en_US"
 
-## 解析过程中的问题（缺文件、重名、条件写错等），供编辑器提示用。
 var warnings: PackedStringArray = []
 var kinds: Array[Kind] = []
 
@@ -74,7 +57,6 @@ func by_id(block_id: StringName) -> BlockDef:
 	return _by_id.get(block_id)
 
 
-## 这个块是不是入口块（XML `entry="true"`，目前是 Start）。
 func is_entry(block_id: StringName) -> bool:
 	var def := by_id(block_id)
 	return def != null and def.entry
@@ -84,8 +66,7 @@ func has(block_id: StringName) -> bool:
 	return _by_id.has(block_id)
 
 
-## 程序入口块（XML 里 `entry="true"`，目前是 Start）：编辑器用它给新页放起点，
-## 导出器用它决定从哪里开始导。没有这样的块时返回 null。
+## 程序入口块（`entry="true"`，目前是 Start）：新页起点 + 导出从哪儿开始。
 func entry_def() -> BlockDef:
 	for kind in kinds:
 		for block in kind.blocks:
@@ -114,7 +95,6 @@ func _parse_file(path: String) -> void:
 	var row: BlockDef.RowDef = null
 	var group_condition: ConditionDef = null
 	var variant: BlockDef.ExportVariant = null
-	# 下一个文本节点该写给谁（Text / Item / Literal）
 	var text_target: Variant = null
 	# 当前打开的（非自闭合）元素：`<Place>` 写在它内部，所以要知道自己在谁肚子里
 	var current_element: ElementDef = null
@@ -172,9 +152,7 @@ func _parse_file(path: String) -> void:
 							var field_part := ExportPart.make_field(StringName(attrs.get("id", "")))
 							field_part.space_before = _space_before(attrs)
 							field_part.link = _as_bool(attrs.get("link", "false"))
-							# as="string"：这一段是字符串，导出时加引号并转义（见 ExportPart.as_string）
 							field_part.as_string = String(attrs.get("as", "")) == "string"
-							# allow_empty="true"：空值不补 0（注释文本这类字段）
 							field_part.allow_empty = _as_bool(attrs.get("allow_empty", "false"))
 							_export_target(block, variant).append(field_part)
 					"FirstOf":
@@ -186,12 +164,10 @@ func _parse_file(path: String) -> void:
 						if option_element != null:
 							var item := ElementDef.OptionItem.new("")
 							item.value = String(attrs.get("value", ""))
-							# 旧名字（如 op 的 atan2/dst）：导入认它，存回去用现在的名字
 							item.alias = String(attrs.get("alias", ""))
 							option_element.items.append(item)
 							text_target = item
 					"Place":
-						# 条件化排位：满足 when 时把宿主元素挪到 before/after 指定的元素前面/后面
 						if current_element == null:
 							warnings.append("%s：<Place> 只能写在元素内部（`<LineBox id=\"a\"><Place …/></LineBox>`）"
 								% [block.id if block != null else "?"])
@@ -234,9 +210,7 @@ func _parse_file(path: String) -> void:
 					if text != "":
 						text_target.set_text(text)
 			XMLParser.NODE_ELEMENT_END:
-				# 先关掉正在打开的元素（它的 <Place> 子元素已收集完）。
-				# [b]必须放在 match 之前[/b]：写在 match 里就会被某个具名分支吃掉，
-				# 而通配分支 `_` 会把后面的 "Block"/"Kind" 分支全遮住。
+				# 必须放在 match 之前：写进 match 会被具名分支吃掉，通配分支又会让后面的 "Block"/"Kind" 全走不到。
 				if current_element != null and xml.get_node_name() == String(current_element.type):
 					current_element = null
 				match xml.get_node_name():
@@ -368,11 +342,9 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	var text := String(attrs.get("when", "")).strip_edges()
 	if text == "":
 		return null
-	# 不在解析中途校验：条件可能引用本块后面才声明的字段（<Export when> 通常写在元素前），
-	# 那时校验会把合法条件误判成"未知字段"并丢弃 —— 校验推迟到整块解析完（_validate_conditions）
+	# 不在解析中途校验：条件可能引用本块后面才声明的字段 —— 校验推迟到整块解析完
 	var result := ConditionParser.parse(text)
 	var condition: ConditionDef = result["condition"]
-	# 语法错误也一并记下：整块解析完后由 _validate_conditions 报进 warnings
 	block.pending_conditions.append({"text": text, "condition": condition, "errors": result["errors"]})
 	return condition
 
@@ -386,7 +358,6 @@ func _start_variant(block: BlockDef, attrs: Dictionary) -> BlockDef.ExportVarian
 		variant.derive_button_from_condition()
 		block.export_variants.append(variant)
 		return variant
-	# 没有 when 的块级 <Export>：就是默认模板
 	block.export_parts = variant.parts
 	return null
 

@@ -1,31 +1,19 @@
 class_name BlockView
 extends Control
 
-## 一个逻辑块的视图：按 [BlockDef] 建出各行控件、算自己的几何、画自己的背景。
+## 一个逻辑块的视图：建各行控件、算几何、画背景。
 ##
-## 与旧实现（BlockLayout extends Container）的三个根本差别：
-## [br]1. 不再是 [Container]，行的位置由本类显式给出 —— 不再出现「引擎布局」与
-##    「手写绝对坐标」两套规则打架，也不需要 `-1/+2` 这类魔法数字来对齐；
-## [br]2. 尺寸由 [method measure] 主动算出并返回 [BlockMetrics]，**不再从绘制缓存反读**，
-##    所以任何时刻调用都得到一致结果；
-## [br]3. 嵌套子块不是本节点的子节点：它们与父块一样是画布的直接子级，
-##    位置由布局求解给出 —— 于是「拖拽时 reparent 整条链」这件事彻底不存在了。
+## 不是 [Container]：行位置显式给出，尺寸由 [method measure] 算出（绝不从绘制缓存反读）；
+## 嵌套子块与父块一样是画布的直接子级。
 
-## 请求开始拖动（画布/拖拽控制器接管）：左键按下 = 搬移，右键按下 = 复制一份。
 signal drag_requested(view: BlockView, offset: Vector2)
-## 请求复制：右键按下时发出，落地时由画布深拷贝这棵子树（原块不动）。
+## 请求复制：由画布深拷贝子树，原块不动。
 signal copy_requested(view: BlockView, offset: Vector2)
-## 某个字段被用户改动（画布负责写进图与撤销栈）。
+## 字段被用户改动（画布负责写图与撤销栈）。
 signal field_committed(node: LogicNode, field_id: StringName, value: Variant, merge_key: StringName)
-## 可见性/尺寸变了，需要重新布局。
 signal layout_dirty()
-## 请求打开选择器（由编辑器标签页提供浮层，避免依赖 Window/Popup）。
-## 带上 view：选中后要由它把值写进数据层（见 [method apply_picker_value]）。
 signal picker_requested(view: BlockView, element: ElementDef, control: Control)
-## 请求把某个块引用字段（Jump 的跳转目标）锁定到画布上的某一块 ——
-## 块视图看不到图，锁定会话由编辑器标签页里的 [LinkController] 接管。
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
-## 输入框失焦等场合：结束当前撤销合并段。
 signal history_group_closed()
 
 const FONT: FontFile = preload("res://assets/fonts/font.woff")
@@ -38,24 +26,21 @@ const ROW_TAIL: StringName = &"tail"
 @export var separation: int = 10
 @export var row_height: int = 40
 @export var corner_radius: int = 10
-## 体（nest 行）左侧那条竖条的宽度：子块就挂在这条竖条右边（从 margin * 4 处开始摆）。
+## 体（nest 行）左侧竖条宽度：子块挂在它右边。
 @export var body_bar_width: int = 20
 
 var def: BlockDef
 var node: LogicNode
-## 样品（调色板里的块）或拖拽幽灵：不在图上，改动不写历史。
+## 样品（调色板）或拖拽幽灵：不在图上，改动不写历史。
 var preview: bool = false
 ## 是否接受鼠标（幽灵不接）。
 var interactive: bool = true
-## 引用字段的显示文本由画布注入（只有它知道图）：`(节点 id, 字段 id) -> 文本`。
+## 引用字段的显示文本由画布注入：`(节点 id, 字段 id) -> 文本`。
 var link_labeler: Callable = Callable()
-## 是否正被「锁定跳转目标」的高亮描边圈住。
 var _link_highlight: bool = false
 
 var metrics: BlockMetrics = null
-## 上一次度量传入的槽位尺寸：主题/字体到位后要原样再量一次，不能把 nest 占位的尺寸丢掉。
 var _last_slot_extents: Dictionary[StringName, Vector2] = {}
-## 本帧是否已经排过一次「主题到位后的补量」。
 var _theme_remeasure_queued: bool = false
 
 var _rows: Array[HBoxContainer] = []
@@ -65,15 +50,11 @@ var _row_widths: Array[float] = []
 var _row_heights: Array[float] = []
 ## 每个可视行对应的定义行（nest / tail 行为 null）
 var _row_def: Array[BlockDef.RowDef] = []
-## 该行本轮是否整行不参与布局（条件不成立）
 var _row_skip: Array[bool] = []
 var _nest_controls: Dictionary[StringName, Control] = {}
-## 建好的输入控件，逐个元素一条：`{"element": ElementDef, "control": Control, "row": HBoxContainer}`。
-##
-## [b]按元素记、不是按字段 id 记[/b]：一个字段可以有多个控件（元素写两遍时），按 id 存字典
-## 会把重复的那个覆盖掉 —— 它的可见性与显示顺序再也没人管。
+## 输入控件逐个元素一条：`{element, control, row}` —— 一个字段可能有多个控件，按字段 id 存会互相覆盖。
 var _element_entries: Array[Dictionary] = []
-## 各行当前的单元格（元素 + 控件），条件变化时要重排（见 [method _apply_row_orders]）。
+## 各行当前单元格（元素 + 控件），条件变化时重排（见 [method _apply_row_orders]）。
 var _row_cells: Array[Array] = []
 var _bg_rects: Array[Rect2] = []
 var _styles: Array[StyleBoxFlat] = []
@@ -100,12 +81,10 @@ func font() -> Font:
 	return FONT
 
 
-## 给控件套上块内统一的字体（元素构建器用）。
 func apply_font(control: Control) -> void:
 	control.add_theme_font_override("font", font())
 
 
-## 给按钮套上块配色（normal / hover / pressed 三态）。
 func style_button(button: Button) -> void:
 	apply_font(button)
 	var base := block_color()
@@ -144,7 +123,6 @@ func commit_field(field_id: StringName, value: Variant, grouped: bool = false) -
 	if grouped:
 		merge_key = StringName("field:%d:%s" % [node.id, String(field_id)])
 	field_committed.emit(node, field_id, value, merge_key)
-	# 用户点选时控件本来就对；程序化写入（行为脚本、批量修改）时把它拉回来
 	_sync_control(field_id)
 
 
@@ -152,11 +130,8 @@ func request_picker(element: ElementDef, control: Control) -> void:
 	picker_requested.emit(self, element, control)
 
 
-## 选择器选中一个值：先把控件刷成新值（不然用户还看着旧的），[b]再显式写进数据层[/b]。
-##
-## 为什么必须显式 commit：程序化设置 `LineEdit.text`（以及 `OptionButton.select()`）
-## [b]不会[/b]发 text_changed —— 只有用户输入才发。以前这里就指望那条信号顺带提交，
-## 结果控件显示了新值、数据层还是旧值，导出自然还是默认值。
+## 选择器选中后：先刷控件，[b]再显式写进数据层[/b] —— 程序化设置 `text` / `select()`
+## 不会发 text_changed，指望信号顺带提交的话导出的还是旧值。
 func apply_picker_value(element: ElementDef, control: Control, value: String) -> void:
 	if element == null:
 		return
@@ -166,7 +141,6 @@ func apply_picker_value(element: ElementDef, control: Control, value: String) ->
 	commit_field(element.id, value)
 
 
-## 引用字段现在指着哪一块（元素构建器用它显示按钮文字）。
 func reference_label(field_id: StringName) -> String:
 	if node == null:
 		return "未锁定"
@@ -175,14 +149,12 @@ func reference_label(field_id: StringName) -> String:
 	return "未锁定"
 
 
-## 引用字段的按钮被按下：请求开始一次「拖拽锁定」。
 func request_link(element: ElementDef, control: Control) -> void:
 	if preview or not interactive:
 		return
 	link_requested.emit(self, element, control)
 
 
-## 世界坐标是否落在这块上（只认真正画出来的行，与点击判定同源）。
 func contains_world_point(point: Vector2) -> bool:
 	return visible and _has_point(point - position)
 
@@ -198,7 +170,6 @@ func set_link_highlight(on: bool) -> void:
 func flush_history_group() -> void:
 	history_group_closed.emit()
 
-## 控件样式：与旧实现同一套观感（圆角 + 内边距 + 按块配色）。
 func control_style(base: Color, hover: bool = false, pressed: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	var color := base
@@ -237,10 +208,9 @@ func _build() -> void:
 	_row_skip.clear()
 	if def == null:
 		return
-	# 控件一次性建齐并常驻，切换条件只改可见性 —— 不会重建、也不会打断正在输入的控件
+	# 控件一次性建齐常驻，切换条件只改可见性 —— 不重建，也就不会打断正在输入的控件
 	for row_def in def.rows:
 		var row: HBoxContainer = null
-		# 本行的控件（元素 + 控件），先收齐再按排位规则定顺序（见 _ordered_cells）
 		var cells: Array[Dictionary] = []
 		for cell in row_def.cells:
 			if cell.type == &"Nest":
@@ -284,7 +254,6 @@ func _make_row(kind: StringName, slot: StringName, row_def: BlockDef.RowDef) -> 
 	return row
 
 
-## 收齐一行的控件：按排位规则定顺序后入行，并把这一行的单元格记下来（条件变化时要重排）。
 func _flush_row(row: HBoxContainer, cells: Array[Dictionary]) -> void:
 	if row == null or cells.is_empty():
 		return
@@ -293,11 +262,7 @@ func _flush_row(row: HBoxContainer, cells: Array[Dictionary]) -> void:
 	_row_cells.append(cells)
 
 
-## 一行内控件的最终顺序：从书写顺序出发，把带排位规则的单元格挪到目标元素的前/后。
-##
-## 规则见 [ElementDef.placements]（XML 的 `<Place when="…" before|after="…"/>`）：同一个元素
-## 只写一次，排到哪儿由条件决定 —— 不用把元素写两遍。隐藏的元素也一起排队，
-## 免得重新可见时位置不对（隐藏的不占位置，不影响观感）。
+## 一行内控件的最终顺序：从书写顺序出发，把带排位规则（[ElementDef.placements]）的单元格挪到目标前/后。
 func _ordered_cells(cells: Array[Dictionary], value_of: Callable) -> Array:
 	var order: Array = cells.duplicate()
 	for cell in cells:
@@ -334,10 +299,7 @@ func _cell_index(cells: Array, id: StringName) -> int:
 	return -1
 
 
-## 把各行的控件按当前的排位规则重新摆一遍（[method move_child]）。
-##
-## 可见性变化与顺序变化是同一次条件求值的结果，所以两者总是一起做：
-## `refresh_visibility()` / `sync_from_data()` 调到这里。
+## 按当前排位规则重摆各行控件（可见性与顺序是同一次条件求值，总一起做）。
 func _apply_row_orders(value_of: Callable) -> void:
 	for cells in _row_cells:
 		var order := _ordered_cells(cells, value_of)
@@ -358,7 +320,6 @@ func _make_nest_row(element: ElementDef, row_def: BlockDef.RowDef) -> void:
 	_nest_controls[element.id] = placeholder
 
 
-## 空巢的占位尺寸：巢里有子链时由 [method measure] 换成子链的真实尺寸。
 func _empty_nest_size() -> Vector2:
 	return Vector2(separation * 4, row_height / 2.0)
 
@@ -425,7 +386,7 @@ func measure(slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 	return result
 
 
-## 按行矩形摆好行控件与背景（只在求解时调用，不做任何"改邻居位置"的事）。
+## 按行矩形摆好行控件与背景（只在求解时调用，不改邻居位置）。
 func _layout_rows(widths: Array[float], heights: Array[float], block_width: float) -> void:
 	_bg_rects.clear()
 	_styles.clear()
@@ -445,7 +406,6 @@ func _layout_rows(widths: Array[float], heights: Array[float], block_width: floa
 		else:
 			row.position = Vector2(margin * 2, y + margin / 2.0)
 			row.size = Vector2(block_width - margin * 4, maxf(row_h - margin, 1.0))
-		# 体（nest）行只在最左边画一条竖条 —— 子块挂在它右边，其余地方保持透明
 		var bg_width := float(body_bar_width) if kind == ROW_NEST else block_width
 		_bg_rects.append(Rect2(0, y, bg_width, row_h + 1.0))
 		_styles.append(_row_style(i))
@@ -471,8 +431,7 @@ func _notification(what: int) -> void:
 				var width := maxf(size.x, metrics.size.x if metrics != null else size.x)
 				_layout_rows(_row_widths, _row_heights, width)
 		NOTIFICATION_THEME_CHANGED:
-			# 行内控件的最小尺寸要先拿到主题字体才对，而入树与主题传播都发生在 setup 之后：
-			# 不补量这一次，背景会停在按兜底字体算出的宽度上，而行内容已经变宽、溢出块外。
+			# 补量一次：行内控件的最小尺寸要拿到主题字体才对，否则背景会比内容窄
 			if def != null and not _theme_remeasure_queued:
 				_theme_remeasure_queued = true
 				_remeasure_after_theme.call_deferred()
@@ -490,7 +449,7 @@ func _remeasure_after_theme() -> void:
 		layout_dirty.emit()
 
 
-## 行背景：体（nest）行的矩形就是左侧那条竖条（见 [method _layout_rows]），首尾行保留圆角。
+## 行背景：体（nest）行的矩形就是左侧竖条（见 [method _layout_rows]），首尾行保留圆角。
 func _row_style(index: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color()
@@ -505,8 +464,7 @@ func _row_style(index: int) -> StyleBoxFlat:
 	return style
 
 
-## 命中判定：只认真正画出来的行。体（nest）行的矩形就是左侧那条竖条，
-## 所以点竖条能拖动整块，点体里的留白不会。
+## 命中判定：只认真正画出来的行（nest 行只算左侧竖条）。
 func _has_point(point: Vector2) -> bool:
 	for i in _bg_rects.size():
 		if _bg_rects[i].has_point(point):
@@ -518,25 +476,20 @@ func _has_point(point: Vector2) -> bool:
 
 #region 可见性与交互
 
-## 重新计算可见性：各 Option 的规则与各 Button 的规则全部取交集。
-##
-## 旧实现只维护一个 `_current_show`，多个 Option 各带 show 时会互相覆盖；
-## 这里每个元素各出一份规则再求交，互不干扰。
+## 重新计算可见性：每个控件按它自己那个元素的条件判（同一字段的多个控件条件不同）。
 func refresh_visibility() -> void:
 	_apply_visibility()
-	# 顺带重排：排位规则跟选项走（`op` 的一元运算要把运算符提到前面）
+	# 顺带重排：排位规则跟选项走（一元运算要把运算符提到前面）
 	_apply_row_orders(_value_reader())
 	layout_dirty.emit()
 
 
-## 把 [BlockDef.visibility_from] 算出的规则应用到控件上。
-## 值以数据层为准（控件只是显示），这样导出与视图对可见性的判断必然一致。
+## 把可见性规则应用到控件上（值以数据层为准，于是与导出判断必然一致）。
 func _apply_visibility() -> void:
 	if def == null:
 		return
 	var value_of := _value_reader()
-	# 每个控件按[b]它自己那个元素[/b]的条件判可见性：同一个字段的多个控件条件不同，
-	# 所以不能拿 `def.element(id)`（只认第一个）去判。
+	# 不能拿 def.element(id)（只认第一个）去判：同一字段的多个控件条件不同
 	for entry in _element_entries:
 		var element: ElementDef = entry["element"]
 		var control: Control = entry["control"]
@@ -562,7 +515,6 @@ func _sync_control(field_id: StringName) -> void:
 			_sync_entry(entry)
 
 
-## 把数据层里的当前值灌回某个元素的控件。
 func _sync_entry(entry: Dictionary) -> void:
 	var element: ElementDef = entry["element"]
 	var control: Control = entry["control"]
@@ -583,9 +535,7 @@ func sync_from_data() -> void:
 	_apply_visibility()
 
 
-## 拖拽期间统一禁用/恢复本块里所有可交互控件（输入框 / 下拉 / 开关 / 选择器按钮）——
-## 拖拽只搬位置，键鼠不该顺手改数据。
-## [param enabled] 是"画布允许操作"：preview（调色板样品 / 幽灵）始终保持禁用。
+## 拖拽期间统一禁用/恢复本块的可交互控件（preview 始终保持禁用）。
 func set_elements_enabled(enabled: bool) -> void:
 	if def == null:
 		return
@@ -609,8 +559,7 @@ func _draw() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	# 调色板样品（preview）也要能拖出来，因此这里只看 interactive；
-	# 拖动幽灵的 interactive 为 false，不会抢输入。
+	# 这里只看 interactive：样品可拖出，拖动幽灵（interactive = false）不抢输入
 	if not interactive:
 		return
 	if not (event is InputEventMouseButton) or not event.pressed:

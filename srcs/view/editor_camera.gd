@@ -1,11 +1,7 @@
 class_name EditorCamera
 extends Camera2D
 
-## 画布相机：滚轮缩放 + 左键空白处平移。
-##
-## 平移挂在 [method _unhandled_input] 上：点在块上的按下会被 [BlockView] 的
-## `_gui_input` 消费掉，于是「按在块上 = 拖块、按在空白 = 平移」自然分开，
-## 不需要旧实现那种「拖块时通知相机 stop_moving()」的耦合。
+## 画布相机：滚轮缩放 + 左键空白处平移（按在块上的会被 [BlockView] 消费掉，两者自然分开）。
 
 @export var zoom_speed: float = 1.1
 @export var zoom_min: float = 0.25

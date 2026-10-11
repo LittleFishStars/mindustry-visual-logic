@@ -3,14 +3,9 @@ extends CanvasPointerSession
 
 ## 拖拽会话：调色板出块、画布内搬移、吸附提示与落地。
 ##
-## 会话骨架（开始 / 每帧 / 落地 / 取消 / 失焦收尾）在 [CanvasPointerSession] 里，
-## 与 [LinkController] 共用；本类只管「搬的是什么块、该落到哪」。
-## 本节点挂在编辑器标签页根下（[b]不在[/b] SubViewport 里），所以 [_input] 能收到
-## 画布之外（包括左侧调色板）的鼠标事件 —— 这是旧实现把 Dragger 放在根节点下的原因。
-## 根本差别是：它[b]不再 reparent 任何节点[/b]，拖拽期间图与视图树都保持原样 ——
-## 只有幽灵（新建）或被拖块及其子树（搬移）在动，落地时才产生一条撤销记录。
-## 于是「拖到画布外松手」等价于取消；唯一删数据的是[b]拖到左侧块列表上松手[/b]——
-## 那是有意为之的删除入口（一次撤销记录，拿起的整串一起删），不像旧实现那样「甩出画布就没了」。
+## 骨架在 [CanvasPointerSession]（与 [LinkController] 共用），本类只管「搬什么、落到哪」；
+## 它挂在标签页根下（不在 SubViewport 里），拖到画布外也收得到事件：画布外 = 取消，
+## 左侧块列表 = 删除（一次撤销，拿起的整串一起删）。
 
 signal drag_started()
 signal drag_finished()
@@ -30,36 +25,31 @@ var _offset: Vector2 = Vector2.ZERO
 var _subtree_positions: Dictionary[int, Vector2] = {}
 var _exclude: Dictionary[int, bool] = {}
 var _target: Dictionary = {}
-## 本次搬移的块：拿起的那块 + 它后面的所有块（同一容器里的后续兄弟）
+## 本次搬移的块：拿起的那块 + 它后面的所有块（同容器的后续兄弟）。
 var _carried: Array[int] = []
-## 非零表示这次是「右键拖拽复制」：源子树根的节点 id（源块不动，落地时才克隆）。
+## 非零表示这次是「右键拖拽复制」：源子树根的节点 id。
 var _copy_source_id: int = 0
 ## 复制拖拽时源子树的全部节点：落点占位与让位都按它们的布局算。
 var _copy_ids: Array[int] = []
 ## 这次拖拽是用哪个键起的：松手落地只认它（右键拖拽就得右键松手）。
 var _button: MouseButton = MOUSE_BUTTON_LEFT
-## 为落点占位块让位而被临时下移的块（松手/换目标时按布局结果还原）
 var _pushed: Array[int] = []
-## 悬停提示：当前是否停在删除区（用来给拖动副本压暗红）。
+## 是否停在删除区（给拖动副本压暗红用）。
 var _delete_hover: bool = false
-## 拖动中的块改用顶层覆盖层（SubViewport 之外）的副本显示 —— 画布里的块永远盖不过
-## 兄弟控件（比如左侧的块列表），所以副本必须挂在这一层
+## 拖动中的副本挂在顶层覆盖层：画布里的块盖不过兄弟控件（左侧块列表）。
 var _overlay: Control = null
 var _floats: Array[BlockView] = []
 var _float_offsets: Array[Vector2] = []
-## 被副本顶替而临时隐藏的原块（松手时还原可见性）
 var _hidden: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
-	# 顶层覆盖层：画布是 SubViewport，拖动的块要画在整个界面之上才不会被块列表挡住
 	_overlay = get_parent().get_node_or_null(^"DragLayer") as Control
 	super._ready()
 
 
 #region 开始拖拽
 
-## 从画布上的块开始搬移。
 func start_from_view(view: BlockView, offset: Vector2) -> void:
 	if _active or canvas == null or view == null or view.node == null:
 		return
@@ -84,17 +74,13 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 	_begin_session()
 
 
-## 右键在块上按下：拖出一份副本（含它的整棵子树），原块留在原地。
-##
-## 与搬移的区别：源块[b]不隐藏也不移动[/b]，覆盖层里那组跟手的块只是“预览”，
-## 真正的新节点在松手时由 [method EditorCanvas.duplicate_subtree] 一次克隆出来。
+## 右键在块上按下：拖出一份副本（源块不隐藏也不移动，落地时才克隆）。
 func start_copy_from_view(view: BlockView, offset: Vector2) -> void:
 	if _active or canvas == null or view == null or view.node == null:
 		return
 	if not canvas.graph.has(view.node.id):
 		return
-	# 入口块（Start）不许复制：一个文档只该有一个，导出从它开始才有确定的意义。
-	# 连会话都不开 —— 这样右键按下去不会冒出跟手的副本，比“放下时再拒绝”清楚。
+	# 入口块不许复制（一个文档只该有一个）：连会话都不开，右键不会冒出跟手的副本
 	if canvas.is_entry(view.node):
 		return
 	_active = true
@@ -115,7 +101,6 @@ func start_copy_from_view(view: BlockView, offset: Vector2) -> void:
 	_begin_session()
 
 
-## 从左侧调色板开始新建（[param offset] 是点击点在块内的位置）。
 func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	if _active or canvas == null or block == null:
 		return
@@ -127,8 +112,7 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	_offset = offset
 	_subtree_positions.clear()
 	_exclude.clear()
-	# 新建块没有"要一起搬的块"，这里必须清掉上一次拖拽留下的 _carried，
-	# 否则落点会摆出上一次那几个块的占位视图
+	# 新建块没有“要一起搬的块”：清掉上一次拖拽留下的 _carried，免得摆出旧占位视图
 	_carried.clear()
 	_ghost = canvas.make_ghost(_type_id, _overlay)
 	if _ghost != null:
@@ -136,15 +120,14 @@ func start_from_palette(block: BlockDef, offset: Vector2) -> void:
 	_begin_session()
 
 
-## 会话开始：拖拽期间块里的控件一律不可操作（拖拽只搬位置，不该顺手改数据）。
+## 会话开始：拖拽期间块里的控件一律不可操作（拖拽只搬位置，不改数据）。
 func _on_session_started() -> void:
 	canvas.set_elements_enabled(false)
 	_target = {}
 	drag_started.emit()
 
 
-## 生成跟手的副本：把 [param ids] 各自做成覆盖层里的幽灵视图，
-## 位置按它们相对「头块」的布局偏移。搬移时顺带把原块藏起来，复制时原块留在原地。
+## 生成跟手的副本（位置 = 相对头块的布局偏移）；搬移时顺带藏起原块。
 func _spawn_floats(ids: Array, head: Vector2, hide_sources: bool) -> void:
 	_floats.clear()
 	_float_offsets.clear()
@@ -184,7 +167,7 @@ func _update_session() -> void:
 		_ghost.position = layer - _offset * zoom
 		_ghost.scale = Vector2(zoom, zoom)
 	elif not _floats.is_empty():
-		# 覆盖层是屏幕空间：位置按鼠标 + 各块相对"头块"的布局偏移 × 缩放
+		# 覆盖层是屏幕空间：位置 = 鼠标 + 各块相对头块的布局偏移 × 缩放
 		var origin := layer - _offset * zoom
 		for i in _floats.size():
 			var float_view := _floats[i]
@@ -200,7 +183,7 @@ func _update_session() -> void:
 			if view != null and is_instance_valid(view):
 				view.position = (_subtree_positions[id] as Vector2) + delta
 	if _delete_hover or not _inside_canvas():
-		# 拖到删除区 / 画布外：不找吸附点，也不摆占位块（松手时自行决定是删是取消）
+		# 拖到删除区 / 画布外：不找吸附点也不摆占位块（松手时再决定删还是取消）
 		_target = {}
 		_release_shift()
 		canvas.clear_placement_preview()
@@ -209,7 +192,6 @@ func _update_session() -> void:
 	_update_placement_preview()
 
 
-## 在落点摆出占位块：指示"现在放下会落到哪、长什么样"。
 func _update_placement_preview() -> void:
 	_release_shift()
 	if _target.is_empty() or canvas.layout == null:
@@ -236,8 +218,7 @@ func _update_placement_preview() -> void:
 	_apply_insert_shift(at)
 
 
-## 插在中间时给占位块腾位置：把插入点之后的块（及其子树）整体下移一个占位块的高度。
-## 每帧都"先还原、再重算"，所以换目标不会有累积偏移；松手后会重新求解布局，自然归位。
+## 插在中间时给占位块腾位置：把插入点之后的块整体下移（每帧先还原再重算）。
 func _apply_insert_shift(_at: Vector2) -> void:
 	var index: int = int(_target.get("index", -1))
 	var height := canvas.placement_preview_height()
@@ -279,7 +260,7 @@ func _finish_session() -> void:
 	var copy_source := _copy_source_id
 	_close_session()
 	if deleting and not carried.is_empty():
-		# 入口块也不能删 —— 删了文档就没起点了（导出“从 Start 开始”也就无从谈起）。
+		# 入口块不能删：删了文档就没起点（导出「从 Start 开始」也无从谈起）。
 		if self._carries_entry(carried):
 			print("[MVL] 入口块（Start）不能删除")
 			canvas.relayout()
@@ -288,7 +269,6 @@ func _finish_session() -> void:
 		return
 	if not inside or not moved:
 		# 画布外松手 = 取消；原地松手 = 没搬动，都不动数据
-		# （旧实现落在画布外就把整块及其下游 queue_free 掉；现在只有左侧块列表是有意的删除区）
 		canvas.relayout()
 		return
 	if copy_source > 0:
@@ -312,7 +292,6 @@ func _finish_session() -> void:
 		canvas.move_tail_to_new_chain(_carried, origin)
 
 
-## 这串块里有没有入口块（拿起的整串里带上它就不让删）。
 func _carries_entry(ids: Array[int]) -> bool:
 	for id in ids:
 		if canvas.is_entry(canvas.graph.get_node_by_id(id)):
@@ -320,12 +299,11 @@ func _carries_entry(ids: Array[int]) -> bool:
 	return false
 
 
-## 松手落地只认「开始这次拖拽的那个键」：左键搬移就左键松手，右键复制就右键松手。
 func _finish_button() -> MouseButton:
 	return _button
 
 
-## 右键 / Esc：取消拖拽，清掉临时效果并把布局复原（搬动期间只是临时挪了位置）。
+## 右键 / Esc：取消拖拽，清掉临时效果并把布局复原。
 func cancel() -> void:
 	if not _active:
 		return
@@ -365,7 +343,7 @@ func _close_session() -> void:
 	drag_finished.emit()
 
 
-## 覆盖层坐标下的鼠标位置；没有覆盖层时退回画布世界坐标（保持旧行为）。
+## 覆盖层坐标下的鼠标位置；没有覆盖层时退回画布世界坐标。
 func _layer_mouse() -> Vector2:
 	if _overlay != null:
 		return _overlay.get_global_mouse_position()
