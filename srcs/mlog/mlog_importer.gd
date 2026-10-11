@@ -56,15 +56,18 @@ static func parse(
 				if marked != null:
 					var values: Dictionary = marked["values"]
 					var raw_after := String(values.get(AFTER_KEY, ""))
-					var after := raw_after.to_int() if raw_after.is_valid_int() else -1
-					if after < 0:
-						warnings.append("结构标记 %s 的巢结束行号不是数字：%s" % [marker["def"].marker, raw_after])
 					values.erase(AFTER_KEY)
+					# 巢结束行号只有装巢的结构块用得上；没有巢的标记块（Break / Continue）本来就忽略它
+					var slot := _nest_slot(marker["def"])
+					var after := -1
+					if slot != &"":
+						after = raw_after.to_int() if raw_after.is_valid_int() else -1
+						if after < 0:
+							warnings.append("结构标记 %s 的巢结束行号不是数字：%s" % [marker["def"].marker, raw_after])
 					# 注释里的字段为准：模板里的比较是取反导出的，从行里认不回来
 					values.merge(marker["fields"], true)
 					out.append(_make_node(graph, marker["def"], values, marked["states"]))
-					# 没有巢的标记块（Break / Continue）不参与结构还原
-					ends.append(after if _nest_slot(marker["def"]) != &"" else -1)
+					ends.append(after)
 					src_lines.append(line_index)
 					continue
 				warnings.append("结构标记 %s 与这一行不符，已按普通语句导入：%s" % [marker["def"].marker, statement])
@@ -240,6 +243,14 @@ static func _tail_shapes(def: BlockDef) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if not def.tail_parts.is_empty():
 		out.append({"tokens": _parts_to_tokens(def.tail_parts), "states": {}})
+	return out
+
+
+## 跳出块的备用形式模板（`<Halt>`）：只在「这一行是不是某个跳出块的停止形式」时才拿来对。
+static func _halt_shapes(def: BlockDef) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not def.halt_parts.is_empty():
+		out.append({"tokens": _parts_to_tokens(def.halt_parts), "states": {}})
 	return out
 
 
@@ -439,6 +450,10 @@ static func _match_marked(def: BlockDef, tokens: PackedStringArray) -> Variant:
 		var values: Variant = _match(def, shape["tokens"], shape["states"], tokens, true)
 		if values != null:
 			return {"values": values, "states": shape["states"]}
+	# 循环之后没有代码时导出的是备用形式（停止 + 自己的标记）：也认回本块
+	for shape in _halt_shapes(def):
+		if _match(def, shape["tokens"], shape["states"], tokens, true) != null:
+			return {"values": {}, "states": shape["states"]}
 	return null
 
 

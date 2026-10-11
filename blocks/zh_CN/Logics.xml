@@ -146,10 +146,15 @@
 		</Row>
 	</Block>
 	<Block name="Break" marker="break" loop_jump="break">
-		<!-- 跳出最内层循环 = 一条无条件 jump；目标行号由导出器换成循环之后的第一条指令。 -->
+		<!-- 跳出最内层循环 = 一条无条件 jump；目标行号由导出器换成循环之后的第一条指令。
+			 循环之后没有代码时那条 jump 会指向不存在的行，改用 <Halt>（stop，与跑出程序末尾等价）；
+			 行尾照样带 #break 标记，导回来还是跳出块。 -->
 		<Export>
 			<Literal>jump</Literal><AfterSubtree/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
 		</Export>
+		<Halt>
+			<Literal>stop</Literal>
+		</Halt>
 		<Row>
 			<Text id="T">跳出</Text>
 		</Row>

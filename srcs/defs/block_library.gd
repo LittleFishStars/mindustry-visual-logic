@@ -148,6 +148,9 @@ func _parse_file(path: String) -> void:
 					"Tail":
 						if block != null:
 							export_target = block.tail_parts
+					"Halt":
+						if block != null:
+							export_target = block.halt_parts
 					"Literal":
 						if block != null:
 							var part := ExportPart.make_literal("")
@@ -241,6 +244,8 @@ func _parse_file(path: String) -> void:
 						export_target = block.export_parts if block != null else export_target
 					"Tail":
 						export_target = block.export_parts if block != null else export_target
+					"Halt":
+						export_target = block.export_parts if block != null else export_target
 					"Block":
 						if block != null:
 							# 先建索引：校验要用到 element() / row_of()
@@ -250,6 +255,8 @@ func _parse_file(path: String) -> void:
 							# 有尾跳却没 marker：导出仍然合法，只是导回来认不出这是结构块
 							if not block.tail_parts.is_empty() and block.marker == "":
 								warnings.append("%s：有 <Tail> 尾跳却没有 marker=，导回来会认不出这个结构块" % block.id)
+							if not block.halt_parts.is_empty() and block.loop_jump == &"":
+								warnings.append("%s：有 <Halt> 备用形式却不是 loop_jump 块（只有跳出 / 继续用得上）" % block.id)
 						block = null
 					"Kind":
 						current_kind = null
