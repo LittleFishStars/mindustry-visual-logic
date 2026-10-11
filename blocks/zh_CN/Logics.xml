@@ -107,4 +107,50 @@
 			<Nest id="nest" />
 		</Row>
 	</Block>
+	<Block name="While" marker="while">
+		<!-- 条件循环 = 头部一条「条件不成立就跳过整段巢」的 jump + 尾部一条回跳（<Tail>，<SelfLine/> 就是头部那一行）。
+			 比较取反，行尾带 `#while 字段=值…` 供导入还原。 -->
+		<Export>
+			<Literal>jump</Literal><AfterSubtree/><Literal>notEqual</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=notEqual">
+			<Literal>jump</Literal><AfterSubtree/><Literal>equal</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=lessThan">
+			<Literal>jump</Literal><AfterSubtree/><Literal>greaterThanEq</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=lessThanEq">
+			<Literal>jump</Literal><AfterSubtree/><Literal>greaterThan</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=greaterThan">
+			<Literal>jump</Literal><AfterSubtree/><Literal>lessThanEq</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Export when="cmp=greaterThanEq">
+			<Literal>jump</Literal><AfterSubtree/><Literal>lessThan</Literal>
+			<Field id="a" /><Field id="b" />
+		</Export>
+		<Tail>
+			<Literal>jump</Literal><SelfLine/><Literal>always</Literal><Literal>0</Literal><Literal>0</Literal>
+		</Tail>
+		<Row>
+			<Text id="T1">当</Text>
+			<LineBox id="a" placeholder="a" />
+			<Option id="cmp">
+			<Item value="equal">相等</Item>
+			<Item value="notEqual">不等于</Item>
+			<Item value="lessThan">小于</Item>
+			<Item value="lessThanEq">小于等于</Item>
+			<Item value="greaterThan">大于</Item>
+			<Item value="greaterThanEq">大于等于</Item>
+		</Option>
+			<LineBox id="b" placeholder="b" />
+			<Text id="T2">时循环</Text>
+			<Nest id="nest" />
+		</Row>
+	</Block>
 </Kind>

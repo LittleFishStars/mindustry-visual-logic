@@ -7,4 +7,8 @@
 大于 / 大于等于」；严格相等没法用一条 jump 取反，要就自己用 [b]Jump[/b] 搭。
 导出的行尾还会带一段标记（[code]#if a=1 cmp=equal b=2[/code]），导入靠它把这一行变回 If 并把巢里的块放回去。
 
-要跳到别处、或者做循环，用 [b]Jump[/b]。
+[b]While[/b] 是条件循环，导出成[b]两条[/b] [code]jump[/code]：头部一条「条件不成立就跳过整段巢」，尾部一条回跳
+（[code]jump 1 always 0 0[/code]）—— 出口在尾跳之后。行尾同样带标记（[code]#while a=1 cmp=lessThan b=2[/code]），
+导回来还是 While，巢也一起回来。
+
+要跳到别处，用 [b]Jump[/b]。

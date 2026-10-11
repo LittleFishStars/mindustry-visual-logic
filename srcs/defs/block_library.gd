@@ -97,7 +97,8 @@ func _parse_file(path: String) -> void:
 	var option_element: ElementDef = null
 	var row: BlockDef.RowDef = null
 	var group_condition: ConditionDef = null
-	var variant: BlockDef.ExportVariant = null
+	# 当前的导出段目标：块的基础模板 / 某个 <Export> 变体 / <Tail> 尾跳
+	var export_target: Array[ExportPart] = []
 	var text_target: Variant = null
 	# 当前打开的（非自闭合）元素：`<Place>` 写在它内部，所以要知道自己在谁肚子里
 	var current_element: ElementDef = null
@@ -124,11 +125,11 @@ func _parse_file(path: String) -> void:
 							warnings.append("%s：<Block> 不在 <Kind> 内" % path)
 						else:
 							block = _make_block(attrs, current_kind, order)
+							export_target = block.export_parts
 							order += 1
 							# 解析上下文按块重置：否则后续块会把单元格塞进上一个块的行里
 							row = null
 							group_condition = null
-							variant = null
 							option_element = null
 					"Row":
 						if block != null:
@@ -143,12 +144,15 @@ func _parse_file(path: String) -> void:
 								else ConditionDef.all_of([group_condition, condition])
 					"Export":
 						if block != null:
-							variant = _start_variant(block, attrs)
+							export_target = _start_export(block, attrs)
+					"Tail":
+						if block != null:
+							export_target = block.tail_parts
 					"Literal":
 						if block != null:
 							var part := ExportPart.make_literal("")
 							part.space_before = _space_before(attrs)
-							_export_target(block, variant).append(part)
+							export_target.append(part)
 							text_target = part
 					"Field":
 						if block != null:
@@ -157,15 +161,18 @@ func _parse_file(path: String) -> void:
 							field_part.link = _as_bool(attrs.get("link", "false"))
 							field_part.as_string = String(attrs.get("as", "")) == "string"
 							field_part.allow_empty = _as_bool(attrs.get("allow_empty", "false"))
-							_export_target(block, variant).append(field_part)
+							export_target.append(field_part)
 					"FirstOf":
 						if block != null:
-							_export_target(block, variant).append(
+							export_target.append(
 								ExportPart.make_first_visible(_ids(String(attrs.get("ids", ""))))
 							)
 					"AfterSubtree":
 						if block != null:
-							_export_target(block, variant).append(ExportPart.make_after_subtree())
+							export_target.append(ExportPart.make_after_subtree())
+					"SelfLine":
+						if block != null:
+							export_target.append(ExportPart.make_self_line())
 					"Item":
 						if option_element != null:
 							var item := ElementDef.OptionItem.new("")
@@ -231,13 +238,18 @@ func _parse_file(path: String) -> void:
 					"Group":
 						group_condition = null
 					"Export":
-						variant = null
+						export_target = block.export_parts if block != null else export_target
+					"Tail":
+						export_target = block.export_parts if block != null else export_target
 					"Block":
 						if block != null:
 							# 先建索引：校验要用到 element() / row_of()
 							block.build_index()
 							_validate_conditions(block)
 							_validate_placements(block)
+							# 有尾跳却没 marker：导出仍然合法，只是导回来认不出这是结构块
+							if not block.tail_parts.is_empty() and block.marker == "":
+								warnings.append("%s：有 <Tail> 尾跳却没有 marker=，导回来会认不出这个结构块" % block.id)
 						block = null
 					"Kind":
 						current_kind = null
@@ -362,7 +374,8 @@ func _condition_of(block: BlockDef, attrs: Dictionary) -> ConditionDef:
 	return condition
 
 
-func _start_variant(block: BlockDef, attrs: Dictionary) -> BlockDef.ExportVariant:
+## 开一个 <Export>：带 when 的进 export_variants，不带的当场当基础模板；返回接下来这些段该往哪写。
+func _start_export(block: BlockDef, attrs: Dictionary) -> Array[ExportPart]:
 	var text := String(attrs.get("when", "")).strip_edges()
 	var variant := BlockDef.ExportVariant.new()
 	if text != "":
@@ -370,16 +383,9 @@ func _start_variant(block: BlockDef, attrs: Dictionary) -> BlockDef.ExportVarian
 		variant.condition = condition
 		variant.derive_button_from_condition()
 		block.export_variants.append(variant)
-		return variant
-	block.export_parts = variant.parts
-	return null
-
-
-func _export_target(block: BlockDef, variant: BlockDef.ExportVariant) -> Array[ExportPart]:
-	if variant != null:
 		return variant.parts
+	block.export_parts = variant.parts
 	return block.export_parts
-
 
 #endregion
 

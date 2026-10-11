@@ -6,6 +6,8 @@ extends RefCounted
 ## 结构块（XML `<Block marker="if">`）导出时会在指令行尾留一份字段快照 `#if 字段=值…`：导入靠它把这一行认回结构块、
 ## 还原字段与巢。没有标记的行照旧 —— 模板里 `<AfterSubtree/>` 那一格匹配不上，结构块导出的 jump 会当成普通 Jump 导进来。
 const AFTER_KEY: StringName = &"@after"
+## `<SelfLine/>`（本块自己那一行）：只用在尾跳模板上 —— 导入靠它把结构块的回跳从那一段里认出来。
+const SELF_KEY: StringName = &"@self"
 
 
 static func parse(
@@ -70,7 +72,18 @@ static func parse(
 			out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
 			ends.append(-1)
 			src_lines.append(line_index)
-	_build_structure(out, ends, library, warnings)
+	var dropped := _build_structure(out, ends, library, warnings)
+	if not dropped.is_empty():
+		# 尾跳不留在图里：它是导出时补的，导入还原时会重新生成
+		var kept: Array[LogicNode] = []
+		var kept_lines: Array[int] = []
+		for i in out.size():
+			if dropped.has(out[i].id):
+				continue
+			kept.append(out[i])
+			kept_lines.append(src_lines[i])
+		out = kept
+		src_lines.assign(kept_lines)
 	return out
 
 
@@ -240,6 +253,14 @@ static func _shapes(def: BlockDef) -> Array[Dictionary]:
 	return out
 
 
+## 尾跳模板（`<Tail>`）：只在「这一行是不是某个结构块的回跳」时才拿来对。
+static func _tail_shapes(def: BlockDef) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not def.tail_parts.is_empty():
+		out.append({"tokens": _parts_to_tokens(def.tail_parts), "states": {}})
+	return out
+
+
 ## 把导出段合并成 token 模板（`space_before` 处开新 token，紧贴的段并进当前）；<FirstOf> 要带上整串候选，只带第一个会把值回填到错字段上。
 static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 	var tokens: Array[Dictionary] = []
@@ -249,6 +270,7 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 		var field: StringName = &""
 		var candidates: Array[StringName] = []
 		var after := false
+		var self_line := false
 		match part.kind:
 			ExportPart.Kind.LITERAL:
 				text = part.literal
@@ -257,16 +279,19 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 				string_field = part.as_string
 			ExportPart.Kind.AFTER_SUBTREE:
 				after = true
+			ExportPart.Kind.SELF_LINE:
+				self_line = true
 			_:
 				candidates = part.fields
 				if not candidates.is_empty():
 					field = candidates[0]
 		if tokens.is_empty() or part.space_before:
 			tokens.append({"literal": text, "field": field, "suffix": "",
-				"string": string_field, "fields": candidates, "after": after})
+				"string": string_field, "fields": candidates, "after": after, "self": self_line})
 			continue
 		var token: Dictionary = tokens[-1]
 		token["after"] = bool(token.get("after", false)) or after
+		token["self"] = bool(token.get("self", false)) or self_line
 		if token.get("field", &"") == &"" and field != &"":
 			token["field"] = field
 			token["string"] = string_field
@@ -321,9 +346,9 @@ static func _canonicalize(def: BlockDef, values: Dictionary) -> Dictionary:
 
 
 ## 模板与 token 逐一对照，返回字段值或 null；允许行比模板短（缺的参数保持默认，同 LogicIO.read）。
-## [param allow_after]：只有带结构标记的行才允许 `<AfterSubtree/>` 那一格（它存的就是巢结束的行号）。
+## [param allow_lines]：只有带结构标记的行才允许 `<AfterSubtree/>` / `<SelfLine/>` 那两格取到行号。
 static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: PackedStringArray,
-		allow_after: bool = false) -> Variant:
+		allow_lines: bool = false) -> Variant:
 	if tokens.size() > template.size():
 		return null
 	var values: Dictionary = {}
@@ -331,10 +356,11 @@ static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: P
 	for i in tokens.size():
 		var slot: Dictionary = template[i]
 		var token := tokens[i]
-		if bool(slot.get("after", false)):
-			if not allow_after:
+		var line_key: StringName = SELF_KEY if bool(slot.get("self", false)) else AFTER_KEY
+		if bool(slot.get("after", false)) or bool(slot.get("self", false)):
+			if not allow_lines:
 				return null
-			values[AFTER_KEY] = token
+			values[line_key] = token
 			continue
 		var literal := String(slot.get("literal", ""))
 		var field: StringName = slot.get("field", &"")
@@ -435,21 +461,30 @@ static func _match_marked(def: BlockDef, tokens: PackedStringArray) -> Variant:
 
 
 ## 按结构块的巢结束序号把扁表还原成嵌套：挂进槽位后顺序不变，仍是文档顺序。
+## 返回要丢掉的节点 id：结构块自己的尾跳（`<Tail>`）是导出时补的，不挂回巢里。
 static func _build_structure(nodes: Array[LogicNode], ends: Array[int], library: BlockLibrary,
-		warnings: Array[String]) -> void:
-	var open: Array[LogicNode] = []
-	var slots: Array[StringName] = []
-	var open_ends: Array[int] = []
+		warnings: Array[String]) -> Dictionary:
+	## 打开着的结构块：{node, slot, end（巢结束序号）, line（头部指令序号）}
+	var open: Array[Dictionary] = []
+	var dropped: Dictionary = {}
 	var instruction := 0
 	for i in nodes.size():
 		var node := nodes[i]
 		# 走到下一条指令前，先把已经到头的结构块收掉
-		while not open_ends.is_empty() and open_ends[-1] <= instruction:
-			open_ends.pop_back()
-			slots.pop_back()
+		while not open.is_empty() and int(open[-1]["end"]) <= instruction:
 			open.pop_back()
+		# 尾跳：这个结构块的巢到此为止（它自己那一行不挂回巢里）
 		if not open.is_empty():
-			open[-1].slot(slots[-1]).append(node.id)
+			var head: LogicNode = open[-1]["node"]
+			if _is_tail(library, library.by_id(head.type_id), node, int(open[-1]["line"])):
+				dropped[node.id] = true
+				open.pop_back()
+				if _is_instruction_node(library, node):
+					instruction += 1
+				continue
+		if not open.is_empty():
+			var owner: LogicNode = open[-1]["node"]
+			owner.slot(open[-1]["slot"]).append(node.id)
 		var def := library.by_id(node.type_id)
 		if ends[i] >= 0:
 			var slot := _nest_slot(def)
@@ -458,11 +493,33 @@ static func _build_structure(nodes: Array[LogicNode], ends: Array[int], library:
 			elif ends[i] <= instruction:
 				warnings.append("结构块 %s 的巢结束行号（%d）在自己这一行之前" % [node.type_id, ends[i]])
 			else:
-				open.append(node)
-				slots.append(slot)
-				open_ends.append(ends[i])
-		if def != null and MlogExporter.is_instruction(MlogExporter.render_node(def, node)):
+				open.append({"node": node, "slot": slot, "end": ends[i], "line": instruction})
+		if _is_instruction_node(library, node):
 			instruction += 1
+	return dropped
+
+
+## 这一行是不是这个结构块自己的尾跳：对得上 `<Tail>` 模板，且 `<SelfLine/>` 指着它的头部。
+static func _is_tail(library: BlockLibrary, def: BlockDef, node: LogicNode, head_line: int) -> bool:
+	if def == null or def.tail_parts.is_empty():
+		return false
+	var node_def := library.by_id(node.type_id)
+	if node_def == null:
+		return false
+	var tokens := tokenize(MlogExporter.render_node(node_def, node))
+	for shape in _tail_shapes(def):
+		var values: Variant = _match(def, shape["tokens"], shape["states"], tokens, true)
+		if values == null:
+			continue
+		var self_text := String(values.get(SELF_KEY, ""))
+		if self_text.is_valid_int() and self_text.to_int() == head_line:
+			return true
+	return false
+
+
+static func _is_instruction_node(library: BlockLibrary, node: LogicNode) -> bool:
+	var def := library.by_id(node.type_id)
+	return def != null and MlogExporter.is_instruction(MlogExporter.render_node(def, node))
 
 
 ## 结构块装巢的槽位：它的第一个槽位（XML 里的 `<Nest>`）。

@@ -252,14 +252,20 @@ assets/
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
   （注释行 `#…` 与标签行 `label:` 不占行号），导入时 `MlogImporter.bind_links` 再把行号绑回块。
   「哪些字段是引用」的唯一真相在导出模板上（`BlockDef.reference_fields()`），元素种类只管怎么编辑它。
-- **结构块 `If` 的导出与还原**：它没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
+- **结构块（`If` / `While`）的导出与还原**：它们没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
   取反逐项写在 `<Export when="cmp=…">` 里（`equal`→`notEqual`、`lessThan`→`greaterThanEq`…），
-  没写 `when` 的那条按「相等」兜底；`strictEqual` / `always` 不在它的可选值里（一条 jump 取反不了严格相等）。
+  没写 `when` 的那条按「相等」兜底；`strictEqual` / `always` 不在它们的可选值里（一条 jump 取反不了严格相等）。
   行号由 `MlogExporter` 算：`_walk` 给每个节点记下「子树结束的下标」，`_table_of` 再换算成 `after` 行号表。
+  [b]循环还要一条尾跳[/b]：`<Tail>` 是整段巢之后补的那一行（`<SelfLine/>` = 本块头部那一行），`_walk` 把它当作
+  同一个节点的第二条 entry —— 它照样占行号，但 `line_of` / `fallback` / `after` 只认头部那一条（别人 jump 到这块要落到头部）。
+  [b]块定义解析器里 `export_target` 就是为它加的[/b]：`<Block>` 默认写基础模板、`<Export when>` 写变体、`<Tail>` 写尾跳
+  （以前靠 `variant` 判断，加第三种目标就会写错数组）。
 - **行尾标记（导入还原结构块）**：`<Block name="If" marker="if">` 声明标记后，导出时由 `MlogExporter.marker_fields`
   在行尾补一段 `#if 字段=值…`（值带空白/引号就加引号，同 mlog 字面量写法）—— 字段要写全，因为模板里的比较是
-  取反导出的，从行里认不回来。导入侧 `MlogImporter` 拿它把这一行认回结构块：`_match(…, allow_after=true)` 允许
-  `<AfterSubtree/>` 那一格取到巢结束的行号，`_build_structure` 再按「没标记的行照旧」把序号区间挂回槽位。
+  取反导出的，从行里认不回来。标记只写在头部那一条上。导入侧 `MlogImporter` 拿它把这一行认回结构块：
+  `_match(…, allow_lines=true)` 允许 `<AfterSubtree/>` / `<SelfLine/>` 那两格取到行号，`_build_structure` 按
+  「没标记的行照旧」把序号区间挂回槽位，并把结构块自己的尾跳（对得上 `<Tail>`、且 `<SelfLine/>` 就是它头部那一行）
+  从结果里剔掉 —— 它由导出时重新补。[b]尾跳剔不干净 = 回跳重复一条[/b]，这是这块最容易踩的坑。
   [b]改这里要注意[/b]：`parse()` 现在会写好槽位，调用方（`editor.gd` 的两处导入）必须用 `MlogImporter.subtrees()`
   + `LogicGraph.insert_subtree` 整棵插入 —— 再逐个 `insert_node` 会把巢里的块也塞进链里。
 - **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 是显示字符、导出字符码）。

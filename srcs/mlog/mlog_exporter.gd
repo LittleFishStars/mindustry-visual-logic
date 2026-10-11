@@ -14,8 +14,7 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 	for entry in walk:
 		var def: BlockDef = entry["def"]
 		var node: LogicNode = entry["node"]
-		var after: int = table["after"].get(node.id, -1)
-		var line := render_node(def, node, _resolver(node, table, warnings), after)
+		var line := render_entry(entry, table, warnings)
 		if line != "":
 			lines.append(line)
 	if lines.is_empty():
@@ -37,20 +36,43 @@ static func line_count(graph: LogicGraph, library: BlockLibrary) -> int:
 ## [param after_line] 是本块子树之后的第一条指令行号（`<AfterSubtree/>` 用它；算不出来时传 -1）。
 static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Callable(),
 		after_line: int = -1) -> String:
-	var value_of := node.value_reader()
-	var parts := def.export_parts_for(value_of)
+	var out := _render_parts(def, node, def.export_parts_for(node.value_reader()), resolver, after_line, -1)
+	# 行尾标记只写在头部那一条上，尾跳没有标记
+	if out != "" and def.marker != "":
+		out += " #%s%s" % [def.marker, marker_fields(def, node)]
+	return out
+
+
+## 结构块的尾跳（XML `<Tail>`）：整段巢之后补的那一条，`<SelfLine/>` 取本块头部那一行。
+static func render_tail(def: BlockDef, node: LogicNode, self_line: int) -> String:
+	return _render_parts(def, node, def.tail_parts, Callable(), -1, self_line)
+
+
+## 渲染一条 entry（导入侧数指令序号时只关心它会不会成为指令，行号给 -1 即可）。
+static func render_entry(entry: Dictionary, table: Dictionary = {}, warnings: Array[String] = []) -> String:
+	var def: BlockDef = entry["def"]
+	var node: LogicNode = entry["node"]
+	if bool(entry.get("tail", false)):
+		return render_tail(def, node, int(table.get("line_of", {}).get(node.id, -1)))
+	if table.is_empty():
+		return render_node(def, node)
+	var after: int = int(table.get("after", {}).get(node.id, -1))
+	return render_node(def, node, _resolver(node, table, warnings), after)
+
+
+static func _render_parts(def: BlockDef, node: LogicNode, parts: Array[ExportPart], resolver: Callable,
+		after_line: int, self_line: int) -> String:
 	if parts.is_empty():
 		return ""
+	var value_of := node.value_reader()
 	var out := ""
 	for part in parts:
-		var text := _render_part(def, node, part, value_of, resolver, after_line)
+		var text := _render_part(def, node, part, value_of, resolver, after_line, self_line)
 		if text == "":
 			continue
 		if part.space_before and out != "":
 			out += " "
 		out += text
-	if out != "" and def.marker != "":
-		out += " #%s%s" % [def.marker, marker_fields(def, node)]
 	return out
 
 
@@ -123,7 +145,9 @@ static func _walk_chain(
 		var at := out.size() - 1
 		for slot_id in def.slot_ids():
 			_walk_chain(graph, library, graph.slot_items(id, slot_id), out, warnings)
-		# 子树在 walk 里是连续的：递归完它，out 的长度就是「本块之后」那个 entry 的下标
+		if not def.tail_parts.is_empty():
+			out.append({"node": node, "def": def, "tail": true})
+		# 子树（连尾跳）在 walk 里是连续的：递归完它，out 的长度就是「本块之后」那个 entry 的下标
 		out[at]["end"] = out.size()
 
 
@@ -138,14 +162,20 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 	for entry in walk:
 		var def: BlockDef = entry["def"]
 		var node: LogicNode = entry["node"]
+		var text := render_entry(entry)
 		lines_at.append(count)
-		fallback[node.id] = count
-		if is_instruction(render_node(def, node)):
-			line_of[node.id] = count
+		# 尾跳也占一行，但「这个块在第几行」说的是它的头部那一条
+		if not bool(entry.get("tail", false)):
+			fallback[node.id] = count
+			if is_instruction(text):
+				line_of[node.id] = count
+		if is_instruction(text):
 			count += 1
 	lines_at.append(count)
 	for entry in walk:
 		var node: LogicNode = entry["node"]
+		if bool(entry.get("tail", false)):
+			continue
 		after[node.id] = lines_at[int(entry.get("end", walk.size()))]
 	return {"line_of": line_of, "fallback": fallback, "after": after, "count": count}
 
@@ -180,7 +210,8 @@ static func _render_part(
 	part: ExportPart,
 	value_of: Callable,
 	resolver: Callable,
-	after_line: int
+	after_line: int,
+	self_line: int
 ) -> String:
 	match part.kind:
 		ExportPart.Kind.LITERAL:
@@ -191,6 +222,8 @@ static func _render_part(
 			return _quoted(text) if part.as_string else text
 		ExportPart.Kind.AFTER_SUBTREE:
 			return str(after_line)
+		ExportPart.Kind.SELF_LINE:
+			return str(self_line)
 		_:
 			for field_id in part.fields:
 				if def.is_field_active(field_id, value_of):

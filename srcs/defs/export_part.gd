@@ -10,6 +10,8 @@ enum Kind {
 	FIRST_VISIBLE,
 	## 本块（含子树）之后的第一条指令行号 —— 结构块用它做「跳过整段嵌套」的条件跳转（只有导出期算得出来）。
 	AFTER_SUBTREE,
+	## 本块自己那一条指令的行号 —— 结构块的尾跳（`<Tail>`）靠它跳回头部（也只有导出期算得出来）。
+	SELF_LINE,
 }
 
 var kind: Kind = Kind.LITERAL
@@ -59,6 +61,12 @@ static func make_after_subtree() -> ExportPart:
 	return part
 
 
+static func make_self_line() -> ExportPart:
+	var part := ExportPart.new()
+	part.kind = Kind.SELF_LINE
+	return part
+
+
 func set_text(value: String) -> void:
 	literal = value
 
@@ -71,6 +79,8 @@ func describe() -> String:
 			return "%" + String(field)
 		Kind.AFTER_SUBTREE:
 			return "→after"
+		Kind.SELF_LINE:
+			return "→self"
 		_:
 			var names: PackedStringArray = []
 			for field_id in fields:

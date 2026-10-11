@@ -54,6 +54,8 @@ var rows: Array[RowDef] = []
 var export_parts: Array[ExportPart] = []
 ## 条件化的导出模板：第一个条件成立的优先，都不成立时用 [member export_parts]。
 var export_variants: Array[ExportVariant] = []
+## 尾跳模板（XML `<Tail>`）：整段巢之后额外补的那一行，结构块用它跳回自己的头部（`<SelfLine/>`）。
+var tail_parts: Array[ExportPart] = []
 ## 解析期收集的条件（整块解析完再统一校验字段与取值）
 var pending_conditions: Array[Dictionary] = []
 var order: int = 0
