@@ -36,18 +36,48 @@ static func parse(
 				out.append(_make_node(graph, library.by_id(&"Expression"), {&"text": line.substr(1).strip_edges()}, {}))
 				src_lines.append(line_index)
 			continue
-		var tokens := tokenize(line)
-		if tokens.is_empty():
-			continue
-		var candidates: Array = index.get(StringName(tokens[0]), [])
-		var hit: Variant = _try_defs(candidates, tokens)
-		if hit == null:
-			hit = _try_defs(fallback, tokens)
-		if hit == null:
-			warnings.append("无法识别的 mlog 行：%s" % line)
-			continue
-		out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
-		src_lines.append(line_index)
+		# 一行可以放多条语句（`;` 分隔），也可以跟行尾注释（`#`）——
+		# 两者都在引号外才生效，与 Mindustry 的 `LParser` 同一套规则。
+		for piece in split_statements(line):
+			var statement := piece.strip_edges()
+			if statement == "":
+				continue
+			var tokens := tokenize(statement)
+			if tokens.is_empty():
+				continue
+			var candidates: Array = index.get(StringName(tokens[0]), [])
+			var hit: Variant = _try_defs(candidates, tokens)
+			if hit == null:
+				hit = _try_defs(fallback, tokens)
+			if hit == null:
+				warnings.append("无法识别的 mlog 行：%s" % statement)
+				continue
+			out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
+			src_lines.append(line_index)
+	return out
+
+
+## 把一行切成若干条语句：`;` 分开多条语句，`#` 起行尾注释（引号里的都不算）。
+##
+## Mindustry 的 `LParser` 就是这么切的（`\n` 与 `;` 都是语句结束符，`#` 之后全是注释），
+## 所以从教程或游戏里拄来的代码常常是一行多句加尾注释。
+static func split_statements(line: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var current := ""
+	var in_quote := false
+	for i in line.length():
+		var ch := line[i]
+		if ch == "\"":
+			in_quote = not in_quote
+			current += ch
+		elif not in_quote and ch == "#":
+			break
+		elif not in_quote and ch == ";":
+			out.append(current)
+			current = ""
+		else:
+			current += ch
+	out.append(current)
 	return out
 
 
@@ -178,25 +208,36 @@ static func _shapes(def: BlockDef) -> Array[Dictionary]:
 
 ## 把导出段合并成「token 模板」：`space_before` 为真处开一个新 token，
 ## 紧贴的段并进当前 token（字段 + 前后字面量）。
+##
+## 多候选的那一格（`<FirstOf ids="…">`）把[b]整串候选[/b]带进模板：
+## 哪一支生效取决于同行的选项字段（`draw` 的 mode、`ucontrol` 的类型……），
+## 只看第一个候选的话，`draw rotate 0 0 45 0 0 0` 会把 45 回填到 `r` 上。
 static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 	var tokens: Array[Dictionary] = []
 	for part in parts:
 		var text := ""
+		var string_field := false
 		var field: StringName = &""
+		var candidates: Array[StringName] = []
 		match part.kind:
 			ExportPart.Kind.LITERAL:
 				text = part.literal
 			ExportPart.Kind.FIELD:
 				field = part.field
+				string_field = part.as_string
 			_:
-				if not part.fields.is_empty():
-					field = part.fields[0]
+				candidates = part.fields
+				if not candidates.is_empty():
+					field = candidates[0]
 		if tokens.is_empty() or part.space_before:
-			tokens.append({"literal": text, "field": field, "suffix": ""})
+			tokens.append({"literal": text, "field": field, "suffix": "",
+				"string": string_field, "fields": candidates})
 			continue
 		var token: Dictionary = tokens[-1]
 		if token.get("field", &"") == &"" and field != &"":
 			token["field"] = field
+			token["string"] = string_field
+			token["fields"] = candidates
 			token["suffix"] = text
 		elif field == &"":
 			if token.get("field", &"") == &"":
@@ -207,25 +248,78 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 
 
 ## 尝试一组候选块；成功返回 {def, values, states}，失败返回 null。
+##
+## [b]候选之间要看选项取值合不合法[/b]：`ucontrol` 的十几个变体共用同一个首 token ——
+## 模板结构也是一模一样的（`ucontrol <类型> <p1>…<p5>`），只看结构的话 `ucontrol boost …`
+## 会被绑给「移动」那块：块上显示的类型与实际字段对不上（导出时又把错的值写出去）。
+## 所以给每个结构匹配打分：选项字段取值不合法扣分，取分最高的那个。
 static func _try_defs(defs: Array, tokens: PackedStringArray) -> Variant:
+	var best: Variant = null
+	var best_score := -2147483648
 	for def in defs:
 		for shape in _shapes(def):
-			var values: Variant = _match(shape["tokens"], tokens)
-			if values != null:
-				return {"def": def, "values": values, "states": shape["states"]}
-	return null
+			var values: Variant = _match(def, shape["tokens"], shape["states"], tokens)
+			if values == null:
+				continue
+			var normalized := _canonicalize(def, values)
+			var score := _score(def, normalized)
+			if score > best_score:
+				best_score = score
+				best = {"def": def, "values": normalized, "states": shape["states"]}
+	return best
+
+
+## 选项字段取值不合法就扣分（不是直接丢掉：认不出的新类型也比丢行强）。
+static func _score(def: BlockDef, values: Dictionary) -> int:
+	var score := 0
+	for field_id in values:
+		var element := def.option_element(field_id)
+		if element != null and element.canonical_value(String(values[field_id])) == "":
+			score -= 100
+	return score
+
+
+## 把选项字段的旧名字换成现在的名字（XML 里 `<Item value="angle" alias="atan2">`）。
+static func _canonicalize(def: BlockDef, values: Dictionary) -> Dictionary:
+	var out := values.duplicate()
+	for field_id in out:
+		var element := def.option_element(field_id)
+		if element == null:
+			continue
+		var canonical := element.canonical_value(String(out[field_id]))
+		if canonical != "":
+			out[field_id] = canonical
+	return out
 
 
 ## 模板与 token 逐一对照；成功返回字段值（可能为空字典），失败返回 null。
-static func _match(template: Array, tokens: PackedStringArray) -> Variant:
-	if template.size() != tokens.size():
+##
+## 允许行比模板[b]短[/b]：Mindustry 的 `LogicIO.read` 就是「有第 i 个 token 才填第 i 个字段」，
+## 缺的参数保持默认值 —— 手写的 `ucontrol idle`、`draw clear 255 0 0` 在游戏里能用，
+## 在这里也得能导进来。
+static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: PackedStringArray) -> Variant:
+	if tokens.size() > template.size():
 		return null
 	var values: Dictionary = {}
-	for i in template.size():
+	var value_of := _value_reader(def, values, states)
+	# 只走「实际有的 token」：模板剩下的段（多半是字面量默认值）不参与匹配
+	for i in tokens.size():
 		var slot: Dictionary = template[i]
 		var token := tokens[i]
 		var literal := String(slot.get("literal", ""))
 		var field: StringName = slot.get("field", &"")
+		var candidates: Array = slot.get("fields", [])
+		if candidates.size() > 1:
+			# 多候选的一格：按当前已知的选项值挑生效的那支（与导出用同一套判定）
+			var chosen: StringName = &""
+			for candidate in candidates:
+				if def.is_field_active(candidate, value_of):
+					chosen = candidate
+					break
+			if chosen == &"":
+				# 这一格与当前模式无关：值丢掉（游戏也忽略它），不因此判整行不匹配
+				continue
+			field = chosen
 		if field == &"":
 			if token != literal:
 				return null
@@ -239,7 +333,26 @@ static func _match(template: Array, tokens: PackedStringArray) -> Variant:
 			if not token.ends_with(suffix):
 				return null
 			token = token.substr(0, token.length() - suffix.length())
+		# 字符串字段：必须是带引号的字面量，去引号后再解码转义（与导出对称）
+		if bool(slot.get("string", false)):
+			if not MlogText.is_literal(token):
+				return null
+			values[field] = MlogText.unescape(token.substr(1, token.length() - 2))
+			continue
 		values[field] = token
 	return values
+
+## 匹配过程中的取值来源：先看本行已经解析出的字段，再看该字段的默认值
+## （新块入图时 [method BlockDef.apply_defaults] 会灌上默认值，这里得与它对齐 ——
+##  否则 `mode` 还没解析到时，`<FirstOf>` 的候选会挑错）。
+static func _value_reader(def: BlockDef, values: Dictionary, states: Dictionary) -> Callable:
+	return func(field_id: StringName) -> String:
+		if states.has(field_id):
+			return "true" if bool(states[field_id]) else "false"
+		if values.has(field_id):
+			return String(values[field_id])
+		var element := def.element(field_id)
+		return element.default_value if element != null else ""
+
 
 #endregion

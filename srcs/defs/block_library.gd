@@ -176,6 +176,10 @@ func _parse_file(path: String) -> void:
 							var field_part := ExportPart.make_field(StringName(attrs.get("id", "")))
 							field_part.space_before = _space_before(attrs)
 							field_part.link = _as_bool(attrs.get("link", "false"))
+							# as="string"：这一段是字符串，导出时加引号并转义（见 ExportPart.as_string）
+							field_part.as_string = String(attrs.get("as", "")) == "string"
+							# allow_empty="true"：空值不补 0（注释文本这类字段）
+							field_part.allow_empty = _as_bool(attrs.get("allow_empty", "false"))
 							_export_target(block, variant).append(field_part)
 					"FirstOf":
 						if block != null:
@@ -186,6 +190,8 @@ func _parse_file(path: String) -> void:
 						if option_element != null:
 							var item := ElementDef.OptionItem.new("")
 							item.value = String(attrs.get("value", ""))
+							# 旧名字（如 op 的 atan2/dst）：导入认它，存回去用现在的名字
+							item.alias = String(attrs.get("alias", ""))
 							option_element.items.append(item)
 							text_target = item
 					_:

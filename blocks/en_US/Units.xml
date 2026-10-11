@@ -91,10 +91,13 @@
 	</Block>
 	<Block name="UnitItem">
 		<Literal>ucontrol</Literal>
+		<!-- ucontrol 的 p1..p5。itemDrop 与 itemTake 的参数不一样（官方：
+		     itemDrop = 目标, 数量；itemTake = 目标, 物品, 数量）—— 先前两者共用一个
+		     模板，itemTake 的数量与物品写到了错的位置。 -->
 		<Field id="mode" />
 		<Field id="to" />
-		<Field id="amount" />
-		<Field id="ext" />
+		<FirstOf ids="amount item" />
+		<FirstOf ids="ext" />
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
@@ -105,9 +108,12 @@
 		</Option>
 			<Text id="T2">to</Text>
 			<LineBox id="to" placeholder="0" />
-			<Text id="T3">amount</Text>
-			<LineBox id="amount" placeholder="999" />
-			<LineBox id="ext" placeholder="0" />
+			<Text id="T3" when="mode=itemDrop">amount</Text>
+			<LineBox id="amount" placeholder="999" when="mode=itemDrop" />
+			<Text id="Ti" when="mode=itemTake">item</Text>
+			<LineBox id="item" placeholder="@copper" when="mode=itemTake" />
+			<Text id="Te" when="mode=itemTake">amount</Text>
+			<LineBox id="ext" placeholder="999" when="mode=itemTake" />
 		</Row>
 	</Block>
 	<Block name="UnitPay">

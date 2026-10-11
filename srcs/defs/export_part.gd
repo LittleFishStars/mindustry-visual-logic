@@ -29,6 +29,19 @@ var fields: Array[StringName] = []
 ## 在 XML 里写成 `<Field id="target" link="true"/>`。
 var link: bool = false
 
+## kind == FIELD 时：空值不再补 `0`，就写空串（注释这类字段要它）。
+##
+## 在 XML 里写成 `<Field id="text" allow_empty="true"/>`。别的字段空值补 0 是
+## 对的 —— mlog 缺参数就是 0，但 `#` 后面不该凭空长出一个 0。
+var allow_empty: bool = false
+
+## kind == FIELD 时：该字段是[b]字符串[/b]（要带引号写、要转义）。
+##
+## 在 XML 里写成 `<Field id="content" as="string"/>`：字面量引号交给导出器加，
+## 这样它能把内容里的 `"` 与 `\` 转义掉（手写 `<Literal>"</Literal>` 做不到这件事）。
+## 导入时反向：去引号 + 解码转义（见 [MlogText]）。
+var as_string: bool = false
+
 ## 输出时是否在本段之前插一个空格。
 ##
 ## 旧模板靠 `" ".join(parts)` 拼接，于是无法表达 `print "x"` 这种“引号紧贴值”的写法。

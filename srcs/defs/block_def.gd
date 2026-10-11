@@ -46,6 +46,15 @@ var entry: bool = false
 
 ## 扁平的全部元素（按出现顺序）—— 导出与字段查询用它。
 var elements: Array[ElementDef] = []
+
+
+## 这个字段对应的 `<Option>` 元素（不是选项字段就返回 null）。
+## 导入时用它判断「这个候选块的选项取值是否合法」—— 决定把一行绑给哪个块。
+func option_element(field_id: StringName) -> ElementDef:
+	for element in elements:
+		if element.type == &"Option" and element.id == field_id:
+			return element
+	return null
 ## 行的分组与行级条件 —— 布局用它。
 var rows: Array[RowDef] = []
 

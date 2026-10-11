@@ -151,7 +151,10 @@ assets/
 
 - **导出段**：`<Literal>`（可以含空格）、`<Field id>`、`<Field id link="true">`（块引用，见下）、
   `<FirstOf ids>`（取第一个**此刻生效**的字段，都不可用时输出 `0`）；
-  `glue="true"` / `space_before="false"` 表示本段紧贴上一段。
+  `glue="true"` / `space_before="false"` 表示本段紧贴上一段；
+  `<Field as="string">` 表示这一格是字符串（引号与转义由导出器加），
+  `<Field allow_empty="true">` 表示空值不补 `0`（注释文本这类字段）；
+  `<Item alias="…">` 让导入认出这个选项的旧名字。细节见下节。
 - **行**：`<Row [when]>` 显式分行；条件不成立的行**整行不参与布局**（不占位置、不绘制）。
   `<Group when="…">` 给一串连续元素共享条件（不换行，解析时并入元素条件）。
 - **元素**：`<Text>` / `<LineBox placeholder>` / `<Option>`+`<Item [value]>` / `<Button text>` / `<Selector kind>` /
@@ -167,6 +170,36 @@ assets/
   都会进 `BlockLibrary.warnings` —— 写错不会静默变成"恒生效"。
 - **改格式时的安全做法**：先 dump 一遍行为快照（每个字段组合的生效元素集合 + 导出结果），
   改完再 dump 比对 —— 迁移就是这么做的（见 git 历史），它抓出过三个"解析零警告但行为已变"的 bug。
+
+### mlog 文本格式（与官方对齐）
+
+Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicStatementProcessor` 生成
+`mindustry.logic.LogicIO`）：写 = 语句名 + 该语句类的[b]每一个非 transient 字段[/b]（枚举用 `.name()`）；
+读 = 按位置逐个赋值（`if(length > i+1)`，所以[b]短行合法[/b]、缺的参数保持默认）。
+由此有三条硬约束，改块定义时不能破：
+
+1. [b]每条语句的参数个数固定[/b]：`draw` 8、`control`/`ucontrol` 7、`radar`/`uradar` 8、`ulocate` 9、
+   `op` 5、`select` 7、`sensor`/`read`/`write` 4、`getlink` 3、`packcolor`/`unpackcolor` 6……
+   导出模板必须整够这么多格（用 `<Literal>0</Literal>` 占位也行）：少一格后面的参数读串位，
+   多一格游戏整行判成无效语句。
+2. [b]同一格的含义随选项变[/b]：`draw` 的六格是官方的 (x, y, p1…p4)，哪个字段落在哪一格看 `mode`
+   （`LExecutor`/`LogicDisplay`：`rotate` 的角度在 [b]p1[/b]、`print` 的对齐在 p1、`rect` 的宽高在 p1/p2…）；
+   `ucontrol` 的 p1…p5 也随类型变（`itemDrop` = 目标+数量，`itemTake` = 目标+物品+数量）。
+   这类块用一串 `<FirstOf>` 把「当前模式生效的那个字段」放进对应格子 —— 顺序写错，
+   值就落进游戏不读的参数里（表现就是“改一下选项，内容就变了/丢了”）。
+3. [b]枚举取值必须是官方的 Java 名[/b]（`col`、`lineRect`、`payTake`、`autoPathfind`…）：
+   否则游戏那边 `valueOf()` 抛异常，整行变成无效语句。
+
+导入侧（`MlogImporter`）三条对应规则：
+
+- 结构匹配之外还按[b]选项取值合法性打分[/b]（`_score`）：`ucontrol` 的十几个变体共用 `ucontrol`
+  首 token、模板结构也一样，只看结构会把 `ucontrol boost …` 绑给「移动」那块。
+- `<FirstOf>` 那一格按[b]已解析出的选项值[/b]挑生效字段（与导出同一套 `is_field_active`）。
+- 允许短行，并像 `LParser` 那样把 `;` 当语句分隔符、把 `#` 当行尾注释（`split_statements()`）。
+
+校验手段（改完 XML 跑一遍）：每块导出一行，token 数应与官方表一致；再逐选项导出，
+[b]参数个数不能变[/b]（选项只换内容，不换参数个数）；最后做导出→导入→再导出的往返比对。
+
 
 ### 扩展点
 

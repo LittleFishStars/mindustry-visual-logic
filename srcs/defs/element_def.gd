@@ -15,6 +15,10 @@ class OptionItem extends RefCounted:
 	var text: String = ""
 	## 导出进 mlog 的值。为空时等于 [member text]。
 	var value: String = ""
+	## 旧名字（`<Item alias="atan2">`）：导入时认它，但存回去的是一支规范值。
+	## 游戏自己的解析器就带这么一张改名表（`LParser.opNameChanges`），
+	## 不跟着认的话，旧代码导进来会在下拉里显示成另一个选项（字段值与显示不符）。
+	var alias: String = ""
 	func _init(p_text: String = "") -> void:
 		text = p_text
 
@@ -24,8 +28,34 @@ class OptionItem extends RefCounted:
 	func value_or_text() -> String:
 		return value if value != "" else text
 
+	## 这个取值是不是本项（规范值或旧名字）。
+	func accepts(candidate: String) -> bool:
+		return candidate == value_or_text() or (alias != "" and candidate == alias)
+
 
 ## 元素种类（XML 标签名，或注册表里自定义的种类名）。
+##
+## [b]选项字段[/b]（`<Option>`）顺便提供「取值合法吗 / 旧名字叫什么」两件事：
+## 导入时用它挑候选块 —— 多个块的模板结构可能一模一样（`ucontrol` 的十几个变体就是），
+## 只有「选项取值是否合法」能把它们分开。
+func option_values() -> PackedStringArray:
+	var out := PackedStringArray()
+	for item in items:
+		out.append(item.value_or_text())
+	return out
+
+
+## 规范值：合法值返回自身，旧名字返回它现在的值，都认不出返回 ""。
+func canonical_value(candidate: String) -> String:
+	for item in items:
+		if item.value_or_text() == candidate:
+			return candidate
+	for item in items:
+		if item.alias != "" and item.alias == candidate:
+			return item.value_or_text()
+	return ""
+
+
 var type: StringName = &""
 
 ## 元素 id：既是可见性引用的名字，也是导出时取值的字段名。

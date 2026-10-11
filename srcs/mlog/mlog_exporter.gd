@@ -176,7 +176,10 @@ static func _render_part(
 		ExportPart.Kind.LITERAL:
 			return part.literal
 		ExportPart.Kind.FIELD:
-			return _field_text(def, node, part.field, resolver)
+			var text := _field_text(def, node, part.field, resolver)
+			# 字符串字段：引号由这里加，内容里的 `"` / `\` 必须转义 ——
+			# 否则用户在输入框里打一个引号就会把整行写坏（游戏那边整行变成无效语句）
+			return _quoted(text) if part.as_string else text
 		_:
 			# 旧语法 %a|b：取第一个此刻生效的候选；都不生效时输出 0
 			for field_id in part.fields:
@@ -186,8 +189,16 @@ static func _render_part(
 
 
 ## 取字段的 mlog 文本：块引用先换成行号，其余按原值（空值补 0）。
-static func _field_text(def: BlockDef, node: LogicNode, field_id: StringName, resolver: Callable) -> String:
+static func _field_text(def: BlockDef, node: LogicNode, field_id: StringName, resolver: Callable,
+		allow_empty: bool = false) -> String:
 	if def.is_reference_field(field_id) and resolver.is_valid():
 		return String(resolver.call(field_id))
 	var value := String(node.get_field(field_id, ""))
+	if value == "" and allow_empty:
+		return ""
 	return value if value != "" else "0"
+
+
+## 字符串字段的写法：包引号 + 转义（规则见 [MlogText]）。
+static func _quoted(text: String) -> String:
+	return "\"" + MlogText.escape(text) + "\""

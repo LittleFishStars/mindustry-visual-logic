@@ -30,7 +30,8 @@
 	</Block>
 	<Block name="Expression">
 		<Literal>#</Literal>
-		<Field id="text" />
+		<!-- 注释就是 `#` 加文本：空文本时不要被补成 `# 0`（那样导回来内容就变了） -->
+		<Field id="text" allow_empty="true" />
 		<Row>
 			<Text id="T1">Expression</Text>
 			<LineBox id="text" />

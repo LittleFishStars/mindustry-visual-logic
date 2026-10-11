@@ -112,6 +112,9 @@ Start 不能复制、也不能删除（一个文档就一个起点）。
 [ul]
 [*][code]<Literal>[/code] / [code]<Field>[/code]：导出模板（原样输出 / 取某个字段的值）；
 [*][code]<Field id="target" link="true"/>[/code]：这一格存的是[b]块引用[/b]（Jump 的目标就是它）；
+[*][code]<Field as="string"/>[/code]：字符串格（引号与转义由编辑器管，内容里打引号不会写坏）；
+[*][code]<Field allow_empty="true"/>[/code]：允许留空（注释文本）；
+[*][code]<Item alias="atan2">angle</Item>[/code]：认旧名字（导入时自动换成现在的写法）；
 [*][code]<Row when="…">[/code]：显式分行；[code]when[/code] 支持 [code]&[/code]（与）、[code]|[/code]（或）、[code]~[/code]（非）与括号；
 [*]元素有 [code]<Text>[/code] / [code]<LineBox>[/code] / [code]<Option>[/code]+[code]<Item>[/code] / [code]<Button>[/code] / [code]<Selector>[/code] / [code]<JumpTarget>[/code] / [code]<Nest>[/code]。
 [/ul]

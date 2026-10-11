@@ -30,10 +30,14 @@
 	<Block name="Draw">
 		<Literal>draw</Literal>
 		<Field id="mode" />
-		<FirstOf ids="r clr sk x1 x rot" />
+		<!-- 六个参数槽位 = 官方的 x, y, p1, p2, p3, p4。rot（旋转角度）必须落在 p1 上：
+			 LExecutor 的 rotate 分支读的是 p1，落在 x 上的话角度会被丢掉。 -->
+		<FirstOf ids="r clr sk x1 x" />
 		<FirstOf ids="g y1 y" />
-		<FirstOf ids="b x2 rw s img" />
+		<FirstOf ids="b x2 rw s img rot align" />
 		<FirstOf ids="a y2 h rd sz" />
+		<!-- 注意：最后一个槽位（p4）恒写 y3，这是故意的 ——
+			 Mindustry 的 LogicIO 就是无条件写全部字段，多余参数对用不到的指令无影响。 -->
 		<FirstOf ids="prot x3" />
 		<Field id="y3" />
 		<Row>
@@ -76,10 +80,23 @@
 			<LineBox id="x2" placeholder="0" when="mode=line | mode=triangle" />
 			<Text id="Ty2" when="mode=line | mode=triangle">y2</Text>
 			<LineBox id="y2" placeholder="0" when="mode=line | mode=triangle" />
-			<Text id="Tx" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale">x</Text>
-			<LineBox id="x" placeholder="0" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale" />
-			<Text id="Ty" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale">y</Text>
-			<LineBox id="y" placeholder="0" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale" />
+			<Text id="Tx" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale | mode=print">x</Text>
+			<LineBox id="x" placeholder="0" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale | mode=print" />
+			<Text id="Ty" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale | mode=print">y</Text>
+			<LineBox id="y" placeholder="0" when="mode=rect | mode=lineRect | mode=poly | mode=linePoly | mode=image | mode=translate | mode=scale | mode=print" />
+			<!-- draw print：把预打印区画到 (x, y)，p1 是对齐方式（@bottomLeft 这种常量） -->
+			<Text id="Tal" when="mode=print">align</Text>
+			<Option id="align" default="6" when="mode=print">
+			<Item>@topLeft</Item>
+			<Item>@top</Item>
+			<Item>@topRight</Item>
+			<Item>@left</Item>
+			<Item>@center</Item>
+			<Item>@right</Item>
+			<Item>@bottomLeft</Item>
+			<Item>@bottom</Item>
+			<Item>@bottomRight</Item>
+			</Option>
 			<Text id="Trw" when="mode=rect | mode=lineRect">width</Text>
 			<LineBox id="rw" placeholder="0" when="mode=rect | mode=lineRect" />
 			<Text id="Th" when="mode=rect | mode=lineRect">height</Text>
@@ -104,11 +121,10 @@
 	<Block name="Print">
 		<Literal>print</Literal>
 		<Field id="content" />
+		<!-- as="string"：引号由导出器加并转义（内容里的 `"` / `\` 不会被写坏） -->
 		<Export when="txt=true">
 			<Literal>print</Literal>
-			<Literal>"</Literal>
-			<Field id="content" glue="true" />
-			<Literal glue="true">"</Literal>
+			<Field id="content" as="string" />
 		</Export>
 		<Row>
 			<Text id="T1">Print</Text>
@@ -227,9 +243,7 @@
 		<Field id="content" />
 		<Export when="txt=true">
 			<Literal>format</Literal>
-			<Literal>"</Literal>
-			<Field id="content" glue="true" />
-			<Literal glue="true">"</Literal>
+			<Field id="content" as="string" />
 		</Export>
 		<Export when="txt=false">
 			<Literal>format</Literal>

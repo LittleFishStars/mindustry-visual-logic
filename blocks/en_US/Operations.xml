@@ -28,6 +28,8 @@
 			<Item>div</Item>
 			<Item>idiv</Item>
 			<Item>mod</Item>
+			<!-- emod：向负无穷取整的取模（`%%`），150 版加的；mod 其实是取余 -->
+			<Item>emod</Item>
 			<Item>pow</Item>
 			<Item>equal</Item>
 			<Item>notEqual</Item>
@@ -46,9 +48,10 @@
 			<Item>not</Item>
 			<Item>max</Item>
 			<Item>min</Item>
-			<Item>angle</Item>
+			<!-- 旧名字（Mindustry 把 atan2 改名叫 angle、dst 改名叫 len）：导入认、导出用新名 -->
+			<Item alias="atan2">angle</Item>
 			<Item>angleDiff</Item>
-			<Item>len</Item>
+			<Item alias="dst">len</Item>
 			<Item>noise</Item>
 			<Item>abs</Item>
 			<Item>sign</Item>
