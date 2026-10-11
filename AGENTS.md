@@ -8,7 +8,9 @@ Godot 4.x application (GL Compatibility renderer, not Vulkan). Visual block-base
 
 - **LSP**: `godot --headless --editor --lsp-server`（用哪个编辑器接都行）
 - **Run**: `godot --path /home/ylxc/Projects/app/mindustry-visual-logic`, or F5 in the editor
-- **Export**: via editor UI only — `export_presets.cfg` is gitignored
+- **Export**: 预设 Linux / Android / Windows Desktop 三套（`export_presets.cfg` 是 gitignored，换机要重配）；
+  产物在 `export/<平台>/`；编辑器 UI 或 CLI 都行 —— `godot --headless --path . --export-release "<预设名>" <输出路径>`。
+  Android 必须用 JDK ≤ 23（模板的 Gradle 8.11.1 跑不了 JDK 27）
 - **Headless 冒烟**: `godot --headless --path . --quit-after 60` —— 加载主场景跑若干帧，能捕到脚本解析/运行期错误
 - **No tests, no CI, no linter** — do not attempt to run any
 
@@ -398,6 +400,8 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   代码不用动（[DocumentPage] 在 `_ready` 与切语言时各读一次）。
   [b]导出时必须把 [code]docs/[/code] 加进 export preset 的「Filters to export non-resource files/folders」[/b]：
   `.bbcode` 不是 Godot 资源，漏了它打包出来的应用里文档是空的（此时页面会显示提示文字）。
+  同理 [code]exclude_filter[/code] 要排掉 [code]build/*[/code] 与 [code]export/*[/code]：`export_filter=all_resources`
+  会把这两个目录里的 `.tres`/`.res` 一并打进包 —— 脚手架与缓存混进发行包（实测 3.2MB）。
 - **F5 快捷导出**：等价于 `File → 导出到剪贴板`。键位在 [code]project.godot[/code] 的 `[input]` 里，
   action 名沿用旧版的 `compile`（旧版把「导出 mlog」叫 compile），代码里只认
   `Main.QUICK_EXPORT_ACTION` 常量 —— 要换键就改 project.godot，不用碰代码。
@@ -453,7 +457,7 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 
 ## Conventions and gotchas
 
-- **`build/`（临时脚本、导出的发行包）与 `export_presets.cfg` 是 gitignored**。
+- **`build/`（临时脚本、构建脚手架）、`export/`（导出的发行包）与 `export_presets.cfg` 是 gitignored**。
 - **`old/`（旧版实现）已于 2026-10-11 删除**：重构早已定稿，它又不曾在 git 里 —— 再要对照旧行为
   只能看 git 历史或 GitHub 上 0.2.3 的发行版。
 - **只用 GDScript**。
