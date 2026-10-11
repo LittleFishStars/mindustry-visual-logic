@@ -38,6 +38,8 @@ var kind: StringName = &""
 var color: Color = Color.WHITE
 ## 程序入口块（XML `<Block entry="true">`，目前是 Start）：一个文档只应有一个。
 var entry: bool = false
+## 结构块标记（XML `<Block marker="if">`）：导出时在指令行尾写 `#if 字段=值…`，导入靠它把这一行还原成结构块。
+var marker: String = ""
 
 var elements: Array[ElementDef] = []
 

@@ -63,8 +63,9 @@
 			<LineBox id="value2" placeholder="false" when="cmp!=always" />
 		</Row>
 	</Block>
-	<Block name="If">
+	<Block name="If" marker="if">
 		<!-- 条件执行 = 一条 jump 跳过整段嵌套：条件不成立才跳，所以模板里的比较都是「反过来的」。
+			 marker="if" 让导出行尾带上 `#if 字段=值…`，导入靠它把这一行认回 If（否则只是普通 Jump）。
 			 AfterSubtree 是导出器算出的「本块（含嵌套）之后」那条指令的行号；没写 when 的那条是兜底。
 			 没有严格相等：一条 jump 取反不了它（真要就自己用 Jump 搭）。 -->
 		<Export>

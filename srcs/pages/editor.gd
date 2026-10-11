@@ -292,8 +292,10 @@ func import_mlog(text: String, append: bool = false) -> int:
 			nCanvas.graph.clear()
 			_place_entry_block()
 		var target := self._import_target(Vector2(40, 40))
-		for node in nodes:
-			nCanvas.graph.insert_node(node, int(target["owner_id"]), StringName(target["slot"]), -1)
+		# 结构块还原后子节点已经挂在它的巢里，所以按子树整体入图（逐个插会把子节点也塞进链里）
+		for group in MlogImporter.subtrees(nodes):
+			var subtree: Array[LogicNode] = group
+			nCanvas.graph.insert_subtree(subtree, int(target["owner_id"]), StringName(target["slot"]), -1)
 		# 块都入图了，现在才谈得上「第 N 行是哪一块」
 		MlogImporter.bind_links(nodes, src_lines, line_offset, nCanvas.graph, library, warnings))
 	for message in warnings:
@@ -313,8 +315,9 @@ func paste_mlog_new_chain(text: String) -> int:
 	var pos := _paste_position()
 	nCanvas.history.record("粘贴 %d 个块" % nodes.size(), func() -> void:
 		var chain := nCanvas.graph.create_chain(pos)
-		for node in nodes:
-			nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1)
+		for group in MlogImporter.subtrees(nodes):
+			var subtree: Array[LogicNode] = group
+			nCanvas.graph.insert_subtree(subtree, LogicGraph.ROOT, chain, -1)
 		MlogImporter.bind_links(nodes, src_lines, 0, nCanvas.graph, library, warnings))
 	for message in warnings:
 		push_warning(message)

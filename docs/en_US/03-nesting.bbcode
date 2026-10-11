@@ -6,5 +6,6 @@ children can nest further, with no depth limit.
 comparison is written the other way round, so "If a equals b" exports [code]jump … notEqual a b[/code]. The choices are
 equal / notEqual / lessThan / lessThanEq / greaterThan / greaterThanEq; strictEqual cannot be negated by a single jump,
 so build it with [b]Jump[/b] yourself.
+The exported line also ends with a marker ([code]#if a=1 cmp=equal b=2[/code]); import uses it to turn that line back into an If and put the nest back.
 
 Use [b]Jump[/b] to jump somewhere else, or to build a loop.

@@ -63,9 +63,10 @@
 			<LineBox id="value2" placeholder="false" when="cmp!=always" />
 		</Row>
 	</Block>
-	<Block name="If">
+	<Block name="If" marker="if">
 		<!-- Conditional run = one `jump` that skips the whole nest: it jumps when the condition does NOT hold,
-			 so every template below writes the comparison "the other way round".
+			 so every template below writes the comparison "the other way round". marker="if" adds a `#if field=value…`
+			 comment to the exported line so the importer can turn it back into an If instead of a plain Jump.
 			 AfterSubtree is the line number the exporter computes for "after this block (nest included)";
 			 the Export without when= is the fallback. No strictEqual: a single jump cannot negate it. -->
 		<Export>

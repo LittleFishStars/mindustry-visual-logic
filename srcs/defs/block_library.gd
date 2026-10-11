@@ -315,12 +315,19 @@ func _make_block(attrs: Dictionary, current_kind: Kind, order: int) -> BlockDef:
 	block.color = current_kind.color
 	block.order = order
 	block.entry = _as_bool(attrs.get("entry", "false"))
+	block.marker = String(attrs.get("marker", "")).strip_edges()
+	if block.marker != "" and (block.marker.contains(" ") or block.marker.begins_with("#")):
+		warnings.append("%s：marker 只能是不带空格、不带 # 的一个词（实际 `%s`）" % [block.id, block.marker])
 	if block.id == &"":
 		warnings.append("存在没有 name 的 <Block>（%s）" % current_kind.id)
 	elif _by_id.has(block.id):
 		warnings.append("块 id 重复：%s" % block.id)
 	else:
 		_by_id[block.id] = block
+		for other in _by_id.values():
+			# marker 是导入时认块的唯一线索，重名会让另一个块永远认不回来
+			if other != block and other.marker != "" and other.marker == block.marker:
+				warnings.append("块 %s 与 %s 的 marker 重名：%s" % [block.id, other.id, block.marker])
 	current_kind.blocks.append(block)
 	return block
 

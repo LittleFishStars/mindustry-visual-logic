@@ -49,7 +49,28 @@ static func render_node(def: BlockDef, node: LogicNode, resolver: Callable = Cal
 		if part.space_before and out != "":
 			out += " "
 		out += text
+	if out != "" and def.marker != "":
+		out += " #%s%s" % [def.marker, marker_fields(def, node)]
 	return out
+
+
+## 结构块写在行尾的字段快照（`#if a=1 cmp=equal b=2`）：导入靠它把这一行还原成结构块。
+## 字段要写全 —— 模板里的比较是取反导出的，从行里认不回原来的取值。
+static func marker_fields(def: BlockDef, node: LogicNode) -> String:
+	var out := ""
+	for field_id in def.field_ids():
+		if def.is_reference_field(field_id):
+			continue
+		out += " %s=%s" % [String(field_id), _marker_value(String(node.get_field(field_id, "")))]
+	return out
+
+
+## 标记里的一个值：空值 / 含空白 / 含引号就加引号（注释里也按 mlog 字面量的转义写法写）。
+static func _marker_value(value: String) -> String:
+	var simple := value != ""
+	for ch in [" ", "\t", "\n", "\r", "\""]:
+		simple = simple and not value.contains(ch)
+	return value if simple else "\"" + MlogText.escape(value) + "\""
 
 
 ## 遍历顺序表。不输出行的块也在表里（不占行号，但跳转落到它之后的第一条指令）；导出只走入口块那条链、从它开始。
@@ -119,7 +140,7 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 		var node: LogicNode = entry["node"]
 		lines_at.append(count)
 		fallback[node.id] = count
-		if _is_instruction(render_node(def, node)):
+		if is_instruction(render_node(def, node)):
 			line_of[node.id] = count
 			count += 1
 	lines_at.append(count)
@@ -129,8 +150,8 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 	return {"line_of": line_of, "fallback": fallback, "after": after, "count": count}
 
 
-## 这一行会不会成为一条指令（判定与导入侧同一套规则）。
-static func _is_instruction(text: String) -> bool:
+## 这一行会不会成为一条指令（导入侧数指令序号用的是同一套规则）。
+static func is_instruction(text: String) -> bool:
 	if text == "" or text.begins_with("#"):
 		return false
 	return not (text.ends_with(":") and not text.contains(" "))

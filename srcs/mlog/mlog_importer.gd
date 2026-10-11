@@ -3,8 +3,9 @@ extends RefCounted
 
 ## mlog 文本 → 逻辑节点（尚未入图）。反向利用导出模板：行首字面量定位块类型，其余段按模板顺序回填字段 —— 模板是唯一真相，新增块自动可导入。
 ## [param src_lines] 与返回值平行：第 i 个节点在文本里的 0 基行号（行号绑引用的唯一线索）。
-## `<AfterSubtree/>`（本块子树之后的行号）只有导出期算得出来：带它的模板导入时整体判为不可匹配，
-## 结构块导出的 jump 于是当成普通 Jump 块导进来（文本不变，结构会摊平）。
+## 结构块（XML `<Block marker="if">`）导出时会在指令行尾留一份字段快照 `#if 字段=值…`：导入靠它把这一行认回结构块、
+## 还原字段与巢。没有标记的行照旧 —— 模板里 `<AfterSubtree/>` 那一格匹配不上，结构块导出的 jump 会当成普通 Jump 导进来。
+const AFTER_KEY: StringName = &"@after"
 
 
 static func parse(
@@ -19,17 +20,22 @@ static func parse(
 		return out
 	var index := _build_index(library)
 	var fallback := _fallback_candidates(library)
+	var markers := _marker_index(library)
+	## 与 out 平行：结构块的巢结束指令序号（-1 = 不是结构块）
+	var ends: Array[int] = []
 	var lines := text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 	for line_index in lines.size():
 		var line := String(lines[line_index]).strip_edges()
 		if line == "":
 			continue
-		# 注释行：整行余下部分就是注释块的文本
+		# 注释行：整行余下部分就是注释块的文本（行尾标记只认指令行）
 		if line.begins_with("#"):
 			if library.has(&"Expression"):
 				out.append(_make_node(graph, library.by_id(&"Expression"), {&"text": line.substr(1).strip_edges()}, {}))
+				ends.append(-1)
 				src_lines.append(line_index)
 			continue
+		var marker := _read_marker(line, markers, warnings)
 		for piece in split_statements(line):
 			var statement := piece.strip_edges()
 			if statement == "":
@@ -37,6 +43,23 @@ static func parse(
 			var tokens := tokenize(statement)
 			if tokens.is_empty():
 				continue
+			# 带标记的行：按结构块自己的模板认，`<AfterSubtree/>` 那一格就是巢结束的行号
+			if not marker.is_empty():
+				var marked: Variant = _match_marked(marker["def"], tokens)
+				if marked != null:
+					var values: Dictionary = marked["values"]
+					var raw_after := String(values.get(AFTER_KEY, ""))
+					var after := raw_after.to_int() if raw_after.is_valid_int() else -1
+					if after < 0:
+						warnings.append("结构标记 %s 的巢结束行号不是数字：%s" % [marker["def"].marker, raw_after])
+					values.erase(AFTER_KEY)
+					# 注释里的字段为准：模板里的比较是取反导出的，从行里认不回来
+					values.merge(marker["fields"], true)
+					out.append(_make_node(graph, marker["def"], values, marked["states"]))
+					ends.append(after)
+					src_lines.append(line_index)
+					continue
+				warnings.append("结构标记 %s 与这一行不符，已按普通语句导入：%s" % [marker["def"].marker, statement])
 			var candidates: Array = index.get(StringName(tokens[0]), [])
 			var hit: Variant = _try_defs(candidates, tokens)
 			if hit == null:
@@ -45,8 +68,40 @@ static func parse(
 				warnings.append("无法识别的 mlog 行：%s" % statement)
 				continue
 			out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
+			ends.append(-1)
 			src_lines.append(line_index)
+	_build_structure(out, ends, library, warnings)
 	return out
+
+
+## 把 [method parse] 的结果摊成若干棵子树（每棵是根在前、深度优先的节点表），形状正好给
+## [method LogicGraph.insert_subtree] 用 —— 结构块的子节点已经挂在它的槽位里，不能再逐个插进链里。
+static func subtrees(nodes: Array[LogicNode]) -> Array:
+	var by_id: Dictionary = {}
+	for node in nodes:
+		by_id[node.id] = node
+	var nested: Dictionary = {}
+	for node in nodes:
+		for slot_id in node.slots:
+			for child_id in node.peek_slot(slot_id):
+				nested[int(child_id)] = true
+	var out: Array = []
+	for node in nodes:
+		if nested.has(node.id):
+			continue
+		var group: Array[LogicNode] = []
+		_collect_subtree(by_id, node, group)
+		out.append(group)
+	return out
+
+
+static func _collect_subtree(by_id: Dictionary, node: LogicNode, out: Array[LogicNode]) -> void:
+	out.append(node)
+	for slot_id in node.slots:
+		for child_id in node.peek_slot(slot_id):
+			var child: LogicNode = by_id.get(int(child_id))
+			if child != null:
+				_collect_subtree(by_id, child, out)
 
 
 ## 把一行切成若干条语句：`;` 分隔语句，`#` 起行尾注释（引号里的不算，同 LParser）。
@@ -193,7 +248,7 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 		var string_field := false
 		var field: StringName = &""
 		var candidates: Array[StringName] = []
-		var unmatchable := false
+		var after := false
 		match part.kind:
 			ExportPart.Kind.LITERAL:
 				text = part.literal
@@ -201,17 +256,17 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 				field = part.field
 				string_field = part.as_string
 			ExportPart.Kind.AFTER_SUBTREE:
-				unmatchable = true
+				after = true
 			_:
 				candidates = part.fields
 				if not candidates.is_empty():
 					field = candidates[0]
 		if tokens.is_empty() or part.space_before:
 			tokens.append({"literal": text, "field": field, "suffix": "",
-				"string": string_field, "fields": candidates, "unmatchable": unmatchable})
+				"string": string_field, "fields": candidates, "after": after})
 			continue
 		var token: Dictionary = tokens[-1]
-		token["unmatchable"] = bool(token.get("unmatchable", false)) or unmatchable
+		token["after"] = bool(token.get("after", false)) or after
 		if token.get("field", &"") == &"" and field != &"":
 			token["field"] = field
 			token["string"] = string_field
@@ -266,7 +321,9 @@ static func _canonicalize(def: BlockDef, values: Dictionary) -> Dictionary:
 
 
 ## 模板与 token 逐一对照，返回字段值或 null；允许行比模板短（缺的参数保持默认，同 LogicIO.read）。
-static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: PackedStringArray) -> Variant:
+## [param allow_after]：只有带结构标记的行才允许 `<AfterSubtree/>` 那一格（它存的就是巢结束的行号）。
+static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: PackedStringArray,
+		allow_after: bool = false) -> Variant:
 	if tokens.size() > template.size():
 		return null
 	var values: Dictionary = {}
@@ -274,8 +331,11 @@ static func _match(def: BlockDef, template: Array, states: Dictionary, tokens: P
 	for i in tokens.size():
 		var slot: Dictionary = template[i]
 		var token := tokens[i]
-		if bool(slot.get("unmatchable", false)):
-			return null
+		if bool(slot.get("after", false)):
+			if not allow_after:
+				return null
+			values[AFTER_KEY] = token
+			continue
 		var literal := String(slot.get("literal", ""))
 		var field: StringName = slot.get("field", &"")
 		var candidates: Array = slot.get("fields", [])
@@ -321,5 +381,95 @@ static func _value_reader(def: BlockDef, values: Dictionary, states: Dictionary)
 		var element := def.element(field_id)
 		return element.default_value if element != null else ""
 
+
+## 行尾注释（不在引号里的第一个 `#` 之后的部分）；没有则返回 ""。
+static func trailing_comment(line: String) -> String:
+	var in_quote := false
+	for i in line.length():
+		var ch := line[i]
+		if ch == "\"":
+			in_quote = not in_quote
+		elif ch == "#" and not in_quote:
+			return line.substr(i + 1).strip_edges()
+	return ""
+
+
+## marker 名 → 块定义（结构块在 XML 里用 `<Block marker="if">` 声明）。
+static func _marker_index(library: BlockLibrary) -> Dictionary:
+	var out: Dictionary = {}
+	for block_id in library.block_ids():
+		var def := library.by_id(block_id)
+		if def != null and def.marker != "":
+			out[StringName(def.marker)] = def
+	return out
+
+
+## 解析行尾标记：`#<名字> 字段=值 …`（值可带引号）；不是本程序的标记就返回空字典。
+static func _read_marker(line: String, markers: Dictionary, warnings: Array[String]) -> Dictionary:
+	var tokens := tokenize(trailing_comment(line))
+	if tokens.is_empty():
+		return {}
+	var def: BlockDef = markers.get(StringName(tokens[0]))
+	if def == null:
+		return {}
+	var fields: Dictionary = {}
+	var known := def.field_ids()
+	for i in range(1, tokens.size()):
+		var at := tokens[i].find("=")
+		var field_id := StringName(tokens[i].substr(0, at)) if at > 0 else &""
+		if at <= 0 or not known.has(field_id) or def.is_reference_field(field_id):
+			warnings.append("结构标记 %s 里认不出的字段：%s" % [def.marker, tokens[i]])
+			continue
+		var raw := tokens[i].substr(at + 1)
+		fields[field_id] = MlogText.unescape(raw.substr(1, raw.length() - 2)) if MlogText.is_literal(raw) else raw
+	return {"def": def, "fields": fields}
+
+
+## 标记行的匹配：与普通行同一套模板，只是允许 `<AfterSubtree/>` 那一格取行号。
+static func _match_marked(def: BlockDef, tokens: PackedStringArray) -> Variant:
+	for shape in _shapes(def):
+		var values: Variant = _match(def, shape["tokens"], shape["states"], tokens, true)
+		if values != null:
+			return {"values": values, "states": shape["states"]}
+	return null
+
+
+## 按结构块的巢结束序号把扁表还原成嵌套：挂进槽位后顺序不变，仍是文档顺序。
+static func _build_structure(nodes: Array[LogicNode], ends: Array[int], library: BlockLibrary,
+		warnings: Array[String]) -> void:
+	var open: Array[LogicNode] = []
+	var slots: Array[StringName] = []
+	var open_ends: Array[int] = []
+	var instruction := 0
+	for i in nodes.size():
+		var node := nodes[i]
+		# 走到下一条指令前，先把已经到头的结构块收掉
+		while not open_ends.is_empty() and open_ends[-1] <= instruction:
+			open_ends.pop_back()
+			slots.pop_back()
+			open.pop_back()
+		if not open.is_empty():
+			open[-1].slot(slots[-1]).append(node.id)
+		var def := library.by_id(node.type_id)
+		if ends[i] >= 0:
+			var slot := _nest_slot(def)
+			if slot == &"":
+				warnings.append("结构块 %s 没有槽位，巢放不进去" % node.type_id)
+			elif ends[i] <= instruction:
+				warnings.append("结构块 %s 的巢结束行号（%d）在自己这一行之前" % [node.type_id, ends[i]])
+			else:
+				open.append(node)
+				slots.append(slot)
+				open_ends.append(ends[i])
+		if def != null and MlogExporter.is_instruction(MlogExporter.render_node(def, node)):
+			instruction += 1
+
+
+## 结构块装巢的槽位：它的第一个槽位（XML 里的 `<Nest>`）。
+static func _nest_slot(def: BlockDef) -> StringName:
+	if def == null:
+		return &""
+	var slots := def.slot_ids()
+	return slots[0] if not slots.is_empty() else &""
 
 #endregion

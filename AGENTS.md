@@ -73,7 +73,7 @@ srcs/                                   ← 按职责分区：app 外壳 / pages
 │   └── selector_panel.gd       ← 内容选择弹窗（单位/建筑/物品/液体/传感器属性）
 └── mlog/                       ← 与 mlog 文本互转（纯函数，不碰控件）
     ├── mlog_exporter.gd        ← LogicGraph → mlog 文本
-    ├── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型）
+    ├── mlog_importer.gd        ← mlog 文本 → 尚未入图的节点（复用导出模板反查块类型；结构块按行尾标记还原嵌套）
     └── mlog_text.gd            ← mlog 字符串字面量读写（与游戏 LParser 对齐）
 
 blocks/{locale}/*.xml           ← 块定义（en_US / zh_CN；只差显示文本，见「本地化」）
@@ -140,7 +140,7 @@ assets/
   `<Item>` 显示文本、`<Kind name>`。两条硬规矩：
   1. `<Item>` 没有 `value=` 时，显示文本[b]就是导出值[/b]（[method OptionItem.value_or_text]）——
      翻译它必须同时补 `value="原文"`，否则导出会跟着变成中文；
-  2. `placeholder=` / `default=` / `<Block name>` / `<Literal>` / 各种 `id`、`when` 一律不动 ——
+  2. `placeholder=` / `default=` / `<Block name>` / `marker=` / `<Literal>` / 各种 `id`、`when` 一律不动 ——
      它们是默认值与标识符，改了会直接改变导出内容。
   校验办法：两套 [BlockLibrary] 各跑一遍，比对「导出模板渲染 + 字段默认值 + 候选取值 + 条件 describe +
   槽位/引用」必须逐字相同（显示文本除外），且两侧 `warnings` 都为空。
@@ -252,11 +252,16 @@ assets/
   而不是直接进 mlog 的文本。Jump 就是这么做的：导出时由 `MlogExporter` 把它换成目标块的**指令行号**
   （注释行 `#…` 与标签行 `label:` 不占行号），导入时 `MlogImporter.bind_links` 再把行号绑回块。
   「哪些字段是引用」的唯一真相在导出模板上（`BlockDef.reference_fields()`），元素种类只管怎么编辑它。
-- **结构块 `If` 的导出**：它没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
+- **结构块 `If` 的导出与还原**：它没有目标字段，模板就是「比较取反的一条 `jump`」—— 条件不成立时跳过整段巢；
   取反逐项写在 `<Export when="cmp=…">` 里（`equal`→`notEqual`、`lessThan`→`greaterThanEq`…），
   没写 `when` 的那条按「相等」兜底；`strictEqual` / `always` 不在它的可选值里（一条 jump 取反不了严格相等）。
   行号由 `MlogExporter` 算：`_walk` 给每个节点记下「子树结束的下标」，`_table_of` 再换算成 `after` 行号表。
-  导入侧认不出它（带 `<AfterSubtree/>` 的模板整体不可匹配），导回来的结构块会摊平成普通 `Jump` —— 文本逐字不变。
+- **行尾标记（导入还原结构块）**：`<Block name="If" marker="if">` 声明标记后，导出时由 `MlogExporter.marker_fields`
+  在行尾补一段 `#if 字段=值…`（值带空白/引号就加引号，同 mlog 字面量写法）—— 字段要写全，因为模板里的比较是
+  取反导出的，从行里认不回来。导入侧 `MlogImporter` 拿它把这一行认回结构块：`_match(…, allow_after=true)` 允许
+  `<AfterSubtree/>` 那一格取到巢结束的行号，`_build_structure` 再按「没标记的行照旧」把序号区间挂回槽位。
+  [b]改这里要注意[/b]：`parse()` 现在会写好槽位，调用方（`editor.gd` 的两处导入）必须用 `MlogImporter.subtrees()`
+  + `LogicGraph.insert_subtree` 整棵插入 —— 再逐个 `insert_node` 会把巢里的块也塞进链里。
 - **`<Item value="33">!</Item>`**：显示值与导出值可以不同（PrintChar 是显示字符、导出字符码）。
 - **报错要出声**：`condition_parser.gd` 只做语法解析；「字段是否存在、取值是否合法」由 `BlockLibrary`
   在整块解析完后统一校验。语法错、未知字段、非法取值、未注册的元素标签与 `<Br>`/`<Pressed>` 旧写法
@@ -288,7 +293,8 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
 - 结构匹配之外还按[b]选项取值合法性打分[/b]（`_score`）：`ucontrol` 的十几个变体共用 `ucontrol`
   首 token、模板结构也一样，只看结构会把 `ucontrol boost …` 绑给「移动」那块。
 - `<FirstOf>` 那一格按[b]已解析出的选项值[/b]挑生效字段（与导出同一套 `is_field_active`）。
-- 允许短行，并像 `LParser` 那样把 `;` 当语句分隔符、把 `#` 当行尾注释（`split_statements()`）。
+- 允许短行，并像 `LParser` 那样把 `;` 当语句分隔符、把 `#` 当行尾注释（`split_statements()`）——
+  行尾那个 `#` 在 LParser 里读完就丢，所以结构块的字段快照可以放心写在那里（指令本身不受影响）。
 
 [b]显示层与文本层是两回事[/b]：参数个数固定说的是[b]文本[/b]，界面上该藏的输入框照样要藏。
 官方 UI 在每个语句的 `build()` 里按当前选项决定显示哪几个输入框，那张表就是：

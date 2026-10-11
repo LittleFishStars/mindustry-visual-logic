@@ -11,3 +11,7 @@ Save, export, import
 [/ul]
 
 Import tries to recognize every line as its original block; lines it cannot recognize are skipped and reported in the output.
+
+A [b]structural block[/b] (If, for example) exports with a marker comment at the end of its line ([code]jump … #if a=1 cmp=equal b=2[/code]):
+the importer uses it to recognize that line as an If and puts the blocks up to the jump target back into its nest — nesting is restored to any depth.
+A [code]jump[/code] line without that marker is an ordinary Jump.

@@ -17,6 +17,7 @@ What a block looks like and how it exports are all written in [code]blocks/{lang
 [*][code]<Field as="string"/>[/code]: a string slot (quotes and escaping are handled by the editor, so typing quotes in the content will not break it);
 [*][code]<Field allow_empty="true"/>[/code]: allow an empty value (comment text);
 [*][code]<AfterSubtree/>[/code]: the line number of the first instruction [b]after this block including its nest[/b] (only the exporter can compute it) — this is how If skips its whole nest;
+[*][code]<Block name="If" marker="if">[/code]: a structural-block marker — the exporter appends `#if field=value…` to the line so the importer can turn it back into this block (nest included);
 [*][code]<Item alias="atan2">angle</Item>[/code]: recognize the old name (import automatically converts it to the current spelling);
 [*][code]<Place when="…" after="another element id"/>[/code] (or [code]before=[/code]): written inside an element, it moves that element before/after another element when the condition holds — blocks whose order changes with the option (such as a unary operation needing [code]result = not a[/code]) rely on it, so you do not have to write the field twice;
 [*][code]<Row when="…">[/code]: an explicit row break; [code]when[/code] supports [code]&[/code] (and), [code]|[/code] (or), [code]~[/code] (not) and parentheses;
