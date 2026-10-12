@@ -105,7 +105,7 @@ static func _marker_value(value: String) -> String:
 ## 遍历顺序表。不输出行的块也在表里（不占行号，但跳转落到它之后的第一条指令）；只导出入口块那条链，没有入口块就什么都不导出。
 static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[String]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var entry := _entry_node(graph, library)
+	var entry := library.find_entry(graph) if library != null else null
 	if entry == null:
 		return out
 	var where := graph.locate(entry.id)
@@ -116,19 +116,6 @@ static func _walk(graph: LogicGraph, library: BlockLibrary, warnings: Array[Stri
 	tail.assign(siblings.slice(int(where["index"])))
 	_walk_chain(graph, library, tail, out, warnings, 0)
 	return out
-
-
-static func _entry_node(graph: LogicGraph, library: BlockLibrary) -> LogicNode:
-	if library == null:
-		return null
-	var def := library.entry_def()
-	if def == null:
-		return null
-	for id in graph.all_ids():
-		var node := graph.get_node_by_id(id)
-		if node != null and node.type_id == def.id:
-			return node
-	return null
 
 
 static func _walk_chain(

@@ -36,7 +36,7 @@ func _ready() -> void:
 	_picker.picked.connect(_on_picker_picked)
 	add_child(_picker)
 	_build_palette()
-	_place_entry_block()
+	nCanvas.spawn_entry_block()
 
 
 ## 语言变了（由 [Main] 调）：按新语言重载块定义，重建调色板与画布上的块视图；
@@ -89,16 +89,6 @@ func _build_palette() -> void:
 			first_visible = kind.id
 	_show_kind(first_visible)
 
-
-
-func _place_entry_block() -> void:
-	var def := library.entry_def() if library != null else null
-	if def == null:
-		return
-	var node := nCanvas.graph.new_node(def.id)
-	def.apply_defaults(node)
-	var chain := nCanvas.graph.create_chain(Vector2(40, 40))
-	nCanvas.graph.insert_node(node, LogicGraph.ROOT, chain, -1)
 
 
 func _make_sample(block: BlockDef) -> BlockView:
@@ -206,7 +196,7 @@ func set_custom_name(value: String) -> void:
 func new_project() -> void:
 	nCanvas.history.clear()
 	nCanvas.graph.clear()
-	_place_entry_block()
+	nCanvas.spawn_entry_block()
 	file_path = ""
 	name_changed.emit(display_name())
 
@@ -217,7 +207,7 @@ func clear_graph() -> void:
 		return
 	nCanvas.history.record("清空", func() -> void:
 		nCanvas.graph.clear()
-		_place_entry_block())
+		nCanvas.spawn_entry_block())
 
 
 ## 有没有用户搭的东西（入口块不算，否则「清空」永远不置灰）。
@@ -275,21 +265,19 @@ func redo() -> bool:
 	return nCanvas.redo()
 
 
-## 从 mlog 文本导入块；[param append] 为假时先清空，整个动作算一条撤销记录。
-func import_mlog(text: String, append: bool = false) -> int:
+## 把解析好的节点按子树整体入图并记一条撤销。[param place] 在撤销闭包里给出落点
+## （插哪里 / 新链摆哪）。返回导入的块数（0 = 文本里没有可识别的块）。
+func _insert_parsed(text: String, label: String, place: Callable) -> int:
 	var warnings: Array[String] = []
 	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings)
 	if nodes.is_empty():
 		for message in warnings:
 			push_warning(message)
 		return 0
-	nCanvas.history.record("导入 %d 个块" % nodes.size(), func() -> void:
-		if not append:
-			# 换掉当前程序：入口块跟着回来（Special 在调色板里是隐藏的）
-			nCanvas.graph.clear()
-			_place_entry_block()
-		var target := self._import_target(Vector2(40, 40))
-		# 结构块还原后子节点已经挂在它的巢里，所以按子树整体入图（逐个插会把子节点也塞进链里）
+	nCanvas.history.record("%s %d 个块" % [label, nodes.size()], func() -> void:
+		# place 只调一次：粘贴的落点闭包里会建新链，重复调会多出空链
+		var target: Dictionary = place.call()
+		# 结构块还原后子节点已经挂在它的巢里，按子树整体入图（逐个插会把子节点也塞进链里）
 		for group in MlogImporter.subtrees(nodes):
 			var subtree: Array[LogicNode] = group
 			nCanvas.graph.insert_subtree(subtree, int(target["owner_id"]), StringName(target["slot"]), -1))
@@ -298,24 +286,23 @@ func import_mlog(text: String, append: bool = false) -> int:
 	return nodes.size()
 
 
+## 从 mlog 文本导入块；[param append] 为假时先清空，整个动作算一条撤销记录。
+func import_mlog(text: String, append: bool = false) -> int:
+	return _insert_parsed(text, "导入", func() -> Dictionary:
+		if not append:
+			# 换掉当前程序：入口块跟着回来（Special 在调色板里是隐藏的）
+			nCanvas.graph.clear()
+			nCanvas.spawn_entry_block()
+		return _import_target(Vector2(40, 40)))
+
+
 ## Ctrl+V：把 mlog 转成块，另起一条新链摆在现有内容下方（不接入口块那条链）。
 ## jump 的行号按这段文本自己重新分析，所以片段内部的跳转照样连得上。
 func paste_mlog_new_chain(text: String) -> int:
-	var warnings: Array[String] = []
-	var nodes := MlogImporter.parse(text, library, nCanvas.graph, warnings)
-	if nodes.is_empty():
-		for message in warnings:
-			push_warning(message)
-		return 0
-	var pos := _paste_position()
-	nCanvas.history.record("粘贴 %d 个块" % nodes.size(), func() -> void:
-		var chain := nCanvas.graph.create_chain(pos)
-		for group in MlogImporter.subtrees(nodes):
-			var subtree: Array[LogicNode] = group
-			nCanvas.graph.insert_subtree(subtree, LogicGraph.ROOT, chain, -1))
-	for message in warnings:
-		push_warning(message)
-	return nodes.size()
+	var chain_id := StringName("")
+	return _insert_parsed(text, "粘贴", func() -> Dictionary:
+		chain_id = nCanvas.graph.create_chain(_paste_position())
+		return {"owner_id": LogicGraph.ROOT, "slot": chain_id})
 
 
 ## 粘贴位置：现有内容正下方，留 [constant PASTE_GAP] 空隙；没有内容时从固定点开始。
@@ -328,16 +315,13 @@ func _paste_position() -> Vector2:
 
 ## 导入的块插进入口块那条链（插到别的链等于导不出来），没有入口块时退回主链。
 func _import_target(fallback_pos: Vector2) -> Dictionary:
-	var def := library.entry_def() if library != null else null
-	if def != null:
-		for id in nCanvas.graph.all_ids():
-			var node := nCanvas.graph.get_node_by_id(id)
-			if node == null or node.type_id != def.id:
-				continue
-			var where := nCanvas.graph.locate(id)
-			if not where.is_empty() and int(where["owner_id"]) == LogicGraph.ROOT:
-				return {"owner_id": LogicGraph.ROOT, "slot": StringName(where["slot"])}
+	var entry := library.find_entry(nCanvas.graph) if library != null else null
+	if entry != null:
+		var where := nCanvas.graph.locate(entry.id)
+		if not where.is_empty() and int(where["owner_id"]) == LogicGraph.ROOT:
+			return {"owner_id": LogicGraph.ROOT, "slot": StringName(where["slot"])}
 	return {"owner_id": LogicGraph.ROOT, "slot": nCanvas.graph.primary_chain(fallback_pos)}
+
 
 func can_undo() -> bool:
 	return nCanvas.history.can_undo()

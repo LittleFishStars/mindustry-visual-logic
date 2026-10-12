@@ -125,6 +125,18 @@ static func _collect_subtree(by_id: Dictionary, node: LogicNode, out: Array[Logi
 
 ## 把一行切成若干条语句：`;` 分隔语句，`#` 起行尾注释（引号里的不算，同 LParser）。
 static func split_statements(line: String) -> PackedStringArray:
+	return _scan(line, &"statement")
+
+
+## 引号外按空白切 token（引号里的空白属于字面量）。
+static func tokenize(line: String) -> PackedStringArray:
+	return _scan(line, &"token")
+
+
+## 引号感知的行扫描：一个循环服务上面两套切法 —— 引号里的字符一律原样保留。
+## 只有 statement 模式把引号外的 `#` 当行尾注释截断；token 模式的调用方自带完整行（含标记行），
+## 截断会误删标记内容。
+static func _scan(line: String, mode: StringName) -> PackedStringArray:
 	var out := PackedStringArray()
 	var current := ""
 	var in_quote := false
@@ -133,14 +145,17 @@ static func split_statements(line: String) -> PackedStringArray:
 		if ch == "\"":
 			in_quote = not in_quote
 			current += ch
-		elif not in_quote and ch == "#":
+			continue
+		if mode == &"statement" and not in_quote and ch == "#":
 			break
-		elif not in_quote and ch == ";":
-			out.append(current)
-			current = ""
-		else:
-			current += ch
-	out.append(current)
+		if not in_quote and (ch == ";" if mode == &"statement" else ch == " "):
+			if mode == &"statement" or current != "":
+				out.append(current)
+				current = ""
+			continue
+		current += ch
+	if mode == &"statement" or current != "":
+		out.append(current)
 	return out
 
 
@@ -172,25 +187,6 @@ static func _resolve_links(nodes: Array[LogicNode], line_of: Dictionary, src_lin
 				warnings.append("mlog 第 %d 行的跳转目标（第 %d 行）不在导入的这段文本里，已按未锁定处理" % [at, want + 1])
 				node.put_field(field_id, "")
 
-
-static func tokenize(line: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var current := ""
-	var in_quote := false
-	for i in line.length():
-		var ch := line[i]
-		if ch == "\"":
-			in_quote = not in_quote
-			current += ch
-		elif ch == " " and not in_quote:
-			if current != "":
-				out.append(current)
-				current = ""
-		else:
-			current += ch
-	if current != "":
-		out.append(current)
-	return out
 
 
 #region 内部
@@ -391,14 +387,20 @@ static func _value_reader(def: BlockDef, values: Dictionary, states: Dictionary)
 
 
 ## 行尾注释（不在引号里的第一个 `#` 之后的部分）；没有则返回 ""。
+## 与 _scan 同一套「引号外才认 #」规则，但不切分、只找注释起点。
+## 必须用 while：GDScript 的 for 循环变量在循环体内赋值不会影响迭代。
 static func trailing_comment(line: String) -> String:
-	var in_quote := false
-	for i in line.length():
+	var i := 0
+	while i < line.length():
 		var ch := line[i]
 		if ch == "\"":
-			in_quote = not in_quote
-		elif ch == "#" and not in_quote:
+			# 跳过整段字符串；无闭引号时走到行尾（注释不会从字符串里开始）
+			i += 1
+			while i < line.length() and line[i] != "\"":
+				i += 1
+		elif ch == "#":
 			return line.substr(i + 1).strip_edges()
+		i += 1
 	return ""
 
 

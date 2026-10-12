@@ -168,18 +168,21 @@ func _on_view_layout_dirty() -> void:
 	relayout()
 
 
-## 视图内控件改了字段：写进图并记进撤销栈（视图自己发起的改动不回灌控件，避免打断输入）。
+## 视图内控件改了字段：写进图并记进撤销栈（不回灌控件，避免打断输入；解释见 [method _record_field]）。
 func _on_view_field_committed(node: LogicNode, field_id: StringName, value: Variant, merge_key: StringName) -> void:
-	_applying_field = true
-	history.record("修改 %s" % String(field_id), func() -> void:
-		graph.set_field(node.id, field_id, value), merge_key)
-	_applying_field = false
-	var view: BlockView = _views.get(node.id)
-	if view != null and is_instance_valid(view):
-		view.refresh_visibility()
-	relayout()
+	_record_field(node, field_id, value, "修改 %s" % String(field_id), Callable(), merge_key)
 
 #endregion
+
+
+## 放一个入口块到新链上（不进撤销栈）：新页 / 清空 / 重置后的起点。
+func spawn_entry_block() -> void:
+	var def := library.entry_def() if library != null else null
+	if def == null:
+		return
+	var node := _make_node(def.id)
+	var chain := graph.create_chain(Vector2(40, 40))
+	graph.insert_node(node, LogicGraph.ROOT, chain, -1)
 
 
 func insert_new_node(type_id: StringName, owner_id: int, slot_id: StringName, index: int, label: String = "添加块") -> LogicNode:
@@ -223,20 +226,7 @@ func move_tail_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
 	return true
 
 
-func remove_node(id: int) -> bool:
-	if not graph.has(id):
-		return false
-	# 被删的块可能是别的 Jump 的目标：指向它们的引用要一并清掉（同一撤销记录）
-	var doomed: Dictionary = {}
-	for victim in graph.subtree_ids(id):
-		doomed[victim] = true
-	history.record("删除块", func() -> void:
-		graph.remove_node(id)
-		_clear_links_to(doomed))
-	return true
-
-
-## 删除一串块，一次撤销记录。
+## 删除一串块，一次撤销记录；被删的块可能是别的 Jump 的目标，指向它们的引用一并清掉。
 func remove_tail(ids: Array[int]) -> bool:
 	if ids.is_empty() or not graph.has(ids[0]):
 		return false
@@ -417,24 +407,36 @@ func node_at_world(point: Vector2, exclude: Dictionary = {}) -> int:
 	return best
 
 
-## 锁定 / 解除某个引用字段（[param target_id] 为 0 表示解除）。
+## 锁定 / 解除某个引用字段（[param target_id] 为 0 表示解除）；重复锁同一目标不动数据。
 func set_link(source_id: int, field_id: StringName, target_id: int) -> bool:
 	var node := graph.get_node_by_id(source_id)
 	if node == null:
 		return false
-	var value := LogicGraph.make_link_ref(target_id)
-	if String(node.get_field(field_id, "")) == value:
+	if String(node.get_field(field_id, "")) == LogicGraph.make_link_ref(target_id):
 		return true
+	return _record_field(node, field_id, LogicGraph.make_link_ref(target_id),
+			"锁定跳转目标" if target_id > 0 else "解除跳转目标",
+			func(view: BlockView) -> void: view.sync_from_data())
+
+
+## 写一个字段并记一条撤销（值没变时由撤销栈的快照比对兜底，不在这里早退 ——
+## 视图提交后总要刷新可见性与布局）。视图自己发起的改动不回灌控件（避免打断输入），
+## [param sync] 提供时才把控件刷成新值（锁定目标是程序化改的，控件不会自己发信号）。
+## [param merge_key] 非空时与上一条同 key 的记录合并（输入框连续打字算一条撤销）。
+func _record_field(node: LogicNode, field_id: StringName, value: Variant, label: String,
+		sync: Callable, merge_key: StringName = &"") -> bool:
 	_applying_field = true
-	history.record("锁定跳转目标" if target_id > 0 else "解除跳转目标", func() -> void:
-		graph.set_field(source_id, field_id, value))
+	history.record(label, func() -> void:
+		graph.set_field(node.id, field_id, value), merge_key)
 	_applying_field = false
-	var view: BlockView = _views.get(source_id)
+	var view: BlockView = _views.get(node.id)
 	if view != null and is_instance_valid(view):
-		view.sync_from_data()
+		if sync.is_valid():
+			sync.call(view)
+		else:
+			view.refresh_visibility()
 	relayout()
 	return true
-
 
 ## 锁定拖拽中：更新预览线与悬停高亮（每帧由 [LinkController] 调）。
 func set_link_preview(from: Vector2, to: Vector2, hover_id: int) -> void:

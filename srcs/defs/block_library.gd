@@ -78,6 +78,17 @@ func entry_def() -> BlockDef:
 	return null
 
 
+## 图上现有的入口块节点；没有（或没定义入口块类型）返回 null。
+func find_entry(graph: LogicGraph) -> LogicNode:
+	var def := entry_def()
+	if def == null:
+		return null
+	for id in graph.all_ids():
+		var node := graph.get_node_by_id(id)
+		if node != null and node.type_id == def.id:
+			return node
+	return null
+
 func block_ids() -> Array[StringName]:
 	var out: Array[StringName] = []
 	out.assign(_by_id.keys())

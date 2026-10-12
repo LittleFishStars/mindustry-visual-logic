@@ -313,14 +313,11 @@ func _export_to_clipboard() -> void:
 	var text := editor.copy_mlog_to_clipboard()
 	print("[MVL] 已导出 %d 行 mlog 到剪贴板" % text.count("\n"))
 
-func _quick_export() -> void:
-	self._export_to_clipboard()
-
 
 ## F5 的兜底路径（键位在 project.godot）：平时事件在菜单栏就被 accelerator 接走了。
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed(QUICK_EXPORT_ACTION):
-		self._quick_export()
+		self._export_to_clipboard()
 		self.get_viewport().set_input_as_handled()
 		return
 	# Ctrl+C/V 只在没人接时才当整页操作（输入框有焦点时到不了这里）

@@ -422,7 +422,7 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   行号不按插入点偏移：两个入口都按这段文本自己的指令序号绑跳转 —— 片段自成一体，不会连到已有的块上。
 - **入口块（Start）**：XML 里 `<Block entry="true">`，它所在的类别用 `<Kind hidden="true">` 藏起来
   （Special 就是：块还在库里、`BlockLibrary.entry_def()` 找得到，只是不进调色板）。
-  新页由 `LogicEditorTab._place_entry_block()` 自动放一个，[b]不进撤销栈[/b]。
+  新页由 [method EditorCanvas.spawn_entry_block] 自动放一个，[b]不进撤销栈[/b]。
   一个文档只该有一个，所以：不能复制（[DragController.start_copy_from_view] 连会话都不开，
   [method EditorCanvas.duplicate_subtree] 再兜一道）、不能删除（拖到左侧列表时
   `_carries_entry()` 拦下）；`is_empty()` [b]不算[/b]入口块，否则「清空」永远不置灰。
