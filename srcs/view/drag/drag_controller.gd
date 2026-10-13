@@ -27,6 +27,9 @@ var _exclude: Dictionary[int, bool] = {}
 var _target: Dictionary = {}
 ## 本次搬移的块：拿起的那块 + 它后面的所有块（同容器的后续兄弟）。
 var _carried: Array[int] = []
+## 非空表示这次是「多选整组拖动」：要搬的顶层块 id（按选中时的视觉顺序）。
+## 它与 _carried 互斥：组拖是任意集合，不走「后面那串」的链式语义。
+var _group_ids: Array[int] = []
 ## 非零表示这次是「右键拖拽复制」：源子树根的节点 id。
 var _copy_source_id: int = 0
 ## 复制拖拽时源子树的全部节点：落点占位与让位都按它们的布局算。
@@ -71,6 +74,31 @@ func start_from_view(view: BlockView, offset: Vector2) -> void:
 			_subtree_positions[id] = canvas.layout.rect_of(id).position if canvas.layout != null else Vector2.ZERO
 	# 原块先隐藏，改用覆盖层里的副本跟手 —— 否则拖到左侧块列表上方时会被裁掉
 	_spawn_floats(_subtree_positions.keys(), _subtree_positions.get(_source_node.id, Vector2.ZERO), true)
+	_begin_session()
+
+
+## 多选整组拖动（由 [SelectionController] 发起）：搬一组任意顶层块，保序、一次撤销。
+## [param ids] 按视觉顺序；[param grabbed_id] 是按下拖拽的那一块（鼠标偏移以它为基准）。
+func start_group_from_view(ids: Array[int], grabbed_id: int, offset: Vector2) -> void:
+	if _active or canvas == null or ids.size() < 2:
+		return
+	if not canvas.graph.has(grabbed_id):
+		return
+	_active = true
+	_button = MOUSE_BUTTON_LEFT
+	_group_ids = ids.duplicate()
+	_source_node = canvas.graph.get_node_by_id(grabbed_id)
+	_type_id = _source_node.type_id
+	_type_def = canvas.library.by_id(_type_id)
+	_offset = offset
+	_carried.clear()
+	_subtree_positions.clear()
+	_exclude.clear()
+	for id in _group_ids:
+		for sub_id in canvas.graph.subtree_ids(id):
+			_exclude[sub_id] = true
+			_subtree_positions[sub_id] = canvas.layout.rect_of(sub_id).position if canvas.layout != null else Vector2.ZERO
+	_spawn_floats(_subtree_positions.keys(), _subtree_positions.get(grabbed_id, Vector2.ZERO), true)
 	_begin_session()
 
 
@@ -211,10 +239,12 @@ func _update_placement_preview() -> void:
 		canvas.show_new_placement_preview(_type_def, at)
 		_apply_insert_shift(at)
 		return
-	if _carried.is_empty():
+	if _carried.is_empty() and _group_ids.is_empty():
 		canvas.clear_placement_preview()
 		return
-	canvas.show_placement_preview(_carried, at - canvas.layout.rect_of(_carried[0]).position)
+	# 多选组拖：占位的是整个选中集（顺序与源布局无关，只按它们的原始摆位平移）。
+	var preview_ids: Array[int] = _group_ids if not _group_ids.is_empty() else _carried
+	canvas.show_placement_preview(preview_ids, at - canvas.layout.rect_of(preview_ids[0]).position)
 	_apply_insert_shift(at)
 
 
@@ -253,19 +283,21 @@ func _finish_session() -> void:
 	var source := _source_node
 	var type_id := _type_id
 	var moved := _moved(world)
-	# 拖到左侧块列表松手 = 删除（要在 _close_session() 清掉 _source_node / _carried 之前判断）
+	# 拖到左侧块列表松手 = 删除（要在 _close_session() 清掉这些集合之前判断）
 	var carried := _carried.duplicate()
+	var group := _group_ids.duplicate()
 	var deleting := source != null and moved and _over_delete_zone()
 	# 复制的源块要赶在 _close_session() 之前记下来
 	var copy_source := _copy_source_id
 	_close_session()
-	if deleting and not carried.is_empty():
+	var doomed: Array[int] = group if not group.is_empty() else carried
+	if deleting and not doomed.is_empty():
 		# 入口块不能删：删了文档就没起点（导出「从 Start 开始」也无从谈起）。
-		if self._carries_entry(carried):
+		if self._carries_entry(doomed):
 			print("[MVL] 入口块（Start）不能删除")
 			canvas.relayout()
 			return
-		canvas.remove_tail(carried)
+		canvas.remove_nodes(doomed)
 		return
 	if not inside or not moved:
 		# 画布外松手 = 取消；原地松手 = 没搬动，都不动数据
@@ -277,6 +309,13 @@ func _finish_session() -> void:
 			canvas.duplicate_subtree_to_new_chain(copy_source, origin)
 		else:
 			canvas.duplicate_subtree(copy_source, target["owner_id"], target["slot"], target["index"])
+		return
+	if not group.is_empty():
+		# 多选组拖：任意集合按选中时的视觉顺序保序落位
+		if target.is_empty():
+			canvas.move_nodes_to_new_chain(group, origin)
+		else:
+			canvas.move_nodes(group, target["owner_id"], target["slot"], target["index"])
 		return
 	if not target.is_empty():
 		var owner_id: int = target["owner_id"]
@@ -330,6 +369,7 @@ func _close_session() -> void:
 	_delete_hover = false
 	_source_node = null
 	_copy_source_id = 0
+	_group_ids.clear()
 	_copy_ids.clear()
 	_type_id = &""
 	_type_def = null

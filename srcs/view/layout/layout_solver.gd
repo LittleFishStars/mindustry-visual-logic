@@ -109,3 +109,40 @@ static func _place_chain(
 				cursor + metrics.slot_offsets[slot_key], id, slot_key, placed
 			)
 		cursor += metrics.tail_offset
+
+
+#region 选择辅助（框选 / shift 范围选用的都是「视觉顺序」，不是数组下标）
+
+
+## 全部顶层块按画布视觉顺序排的 id（先按链摆位，再按行；巢里的块不参与点选）。
+## 布局不变时结果稳定 —— 只有它才能当 shift 范围选择的「有序列表」。
+static func top_level_order(graph: LogicGraph, result: LayoutResult) -> Array[int]:
+	var out: Array[int] = []
+	if graph == null or result == null:
+		return out
+	var rows: Array[Dictionary] = []
+	for chain_id in graph.chain_ids():
+		var pos := graph.chain_position(chain_id)
+		for id in graph.slot_items(LogicGraph.ROOT, chain_id):
+			var rect := result.rect_of(id)
+			rows.append({"y": rect.position.y, "x": pos.x, "id": id})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if not is_equal_approx(float(a["y"]), float(b["y"])):
+			return float(a["y"]) < float(b["y"])
+		return float(a["x"]) < float(b["x"]))
+	for row in rows:
+		out.append(row["id"])
+	return out
+
+
+## 与矩形相交的顶层块 id（按视觉顺序）。
+static func nodes_in_rect(graph: LogicGraph, result: LayoutResult, rect: Rect2) -> Array[int]:
+	var out: Array[int] = []
+	if graph == null or result == null:
+		return out
+	for id in top_level_order(graph, result):
+		if result.rect_of(id).intersects(rect):
+			out.append(id)
+	return out
+
+#endregion

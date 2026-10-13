@@ -7,11 +7,16 @@ extends Control
 ## 嵌套子块与父块一样是画布的直接子级。
 
 signal drag_requested(view: BlockView, offset: Vector2)
+## 按下时先报选择层（ctrl/shift 切换、点已选组拖走）；被接管时拖拽请求不再发。
+signal press_requested(view: BlockView, offset: Vector2, ctrl: bool, shift: bool)
 ## 请求复制：由画布深拷贝子树，原块不动。
 signal copy_requested(view: BlockView, offset: Vector2)
 ## 字段被用户改动（画布负责写图与撤销栈）。
 signal field_committed(node: LogicNode, field_id: StringName, value: Variant, merge_key: StringName)
 signal layout_dirty()
+
+## 本次左键按下是否已被选择层接管（信号没有返回值，靠它在发完 press 后判断是否再发拖拽）。
+var _press_consumed := false
 signal picker_requested(view: BlockView, element: ElementDef, control: Control)
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
 signal history_group_closed()
@@ -38,6 +43,7 @@ var interactive: bool = true
 ## 引用字段的显示文本由画布注入：`(节点 id, 字段 id) -> 文本`。
 var link_labeler: Callable = Callable()
 var _link_highlight: bool = false
+var _selected_highlight: bool = false
 
 var metrics: BlockMetrics = null
 var _last_slot_extents: Dictionary[StringName, Vector2] = {}
@@ -95,6 +101,10 @@ func style_button(button: Button) -> void:
 
 ## 锁定拖拽悬停时的描边色。
 const LINK_HIGHLIGHT: Color = Color(1.0, 0.92, 0.45, 0.95)
+
+
+## 多选描边色（与跳线色错开：一眼分出「被选中」与「跳转目标」）。
+const SELECT_HIGHLIGHT: Color = Color(0.35, 0.85, 0.55, 0.95)
 
 
 func block_color() -> Color:
@@ -164,6 +174,14 @@ func set_link_highlight(on: bool) -> void:
 	if _link_highlight == on:
 		return
 	_link_highlight = on
+	queue_redraw()
+
+
+## 多选高亮：与锁定描边并列，谁开着画谁（都是纯视觉，不进数据层）。
+func set_selected_highlight(on: bool) -> void:
+	if _selected_highlight == on:
+		return
+	_selected_highlight = on
 	queue_redraw()
 
 
@@ -556,6 +574,14 @@ func _draw() -> void:
 	if _link_highlight:
 		for rect in _bg_rects:
 			draw_rect(rect.grow(1.0), LINK_HIGHLIGHT, false, 2.0)
+	if _selected_highlight:
+		for rect in _bg_rects:
+			draw_rect(rect.grow(1.5), SELECT_HIGHLIGHT, false, 2.0)
+
+
+## 选择层接管这次按下（ctrl/shift 切换 / 组拖）：调用后本次不再发 drag_requested。
+func consume_press() -> void:
+	_press_consumed = true
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -566,8 +592,12 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if not _has_point(event.position):
 		return
+		return
 	if event.button_index == MOUSE_BUTTON_LEFT:
-		drag_requested.emit(self, event.position)
+		press_requested.emit(self, event.position, event.ctrl_pressed, event.shift_pressed)
+		if not _press_consumed:
+			drag_requested.emit(self, event.position)
+		_press_consumed = false
 		accept_event()
 	elif event.button_index == MOUSE_BUTTON_RIGHT:
 		copy_requested.emit(self, event.position)

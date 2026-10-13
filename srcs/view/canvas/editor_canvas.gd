@@ -8,6 +8,8 @@ signal picker_requested(view: BlockView, element: ElementDef, control: Control)
 signal link_requested(view: BlockView, element: ElementDef, control: Control)
 signal copy_requested(view: BlockView, offset: Vector2)
 signal drag_requested(view: BlockView, offset: Vector2)
+## 按下时先报选择层（见 [BlockView.press_requested]）。
+signal press_requested(view: BlockView, offset: Vector2, ctrl: bool, shift: bool)
 
 @onready var nBlocks: Node2D = $Blocks
 ## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
@@ -15,6 +17,8 @@ signal drag_requested(view: BlockView, offset: Vector2)
 ## 落点占位块（幽灵视图）：状态在 [PlacementPreview] 里，画布只转发。
 var _placement: PlacementPreview = null
 @onready var nCamera: EditorCamera = $Camera
+## 「框选 / 多选 / 组拖」控制器（[method setup] 里创建，选区真相在它手里）。
+var _selection: SelectionController = null
 
 var library: BlockLibrary
 var graph: LogicGraph
@@ -29,6 +33,10 @@ var _segments: Array[Dictionary] = []
 var _preview: Dictionary = {}
 ## 当前被高亮描边圈住的块（0 = 没有）。
 var _highlight_id: int = 0
+## 多选高亮集合与框选矩形（都是纯视觉，真相在 [SelectionController]）。
+var _selected: Dictionary[int, bool] = {}
+var _selection_band := Rect2()
+var _selection_band_on := false
 
 
 
@@ -36,6 +44,10 @@ func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	library = p_library
 	_placement = PlacementPreview.new(self)
 	nLinks.canvas = self
+	_selection = SelectionController.new()
+	_selection.name = "Selection"
+	_selection.canvas = self
+	add_child(_selection)
 	_attach_graph(p_graph)
 
 
@@ -57,6 +69,8 @@ func _attach_graph(p_graph: LogicGraph) -> void:
 	graph.reset.connect(_on_graph_reset)
 	graph.field_changed.connect(_on_field_changed)
 	history = GraphHistory.new(graph)
+	if _selection != null:
+		_selection.prune()
 	rebuild()
 
 
@@ -71,6 +85,9 @@ func rebuild() -> void:
 	_views.clear()
 	for id in graph.all_ids():
 		_create_view(id)
+	# 重建后把选择高亮重新刷一遍（视图是新的，高亮不会自己回来）
+	for id in _selected:
+		_set_view_selected(id, true)
 	relayout()
 
 
@@ -94,7 +111,6 @@ func set_elements_enabled(enabled: bool) -> void:
 		var view: BlockView = _views[id]
 		if is_instance_valid(view):
 			view.set_elements_enabled(enabled)
-
 
 func _measure(node: LogicNode, slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 	var view: BlockView = _views.get(node.id)
@@ -123,6 +139,45 @@ func content_rect() -> Rect2:
 		out = rect if first else out.merge(rect)
 		first = false
 	return out
+
+
+## 「框选 / 多选 / 组拖」控制器（标签页接它的 area / drag）。
+func selection() -> SelectionController:
+	return _selection
+
+
+## 多选高亮集合变了（由 [SelectionController] 推过来）：同步到各块视图的描边。
+func set_selected_ids(ids: Array[int]) -> void:
+	var next: Dictionary[int, bool] = {}
+	for id in ids:
+		next[id] = true
+	for id in _selected:
+		if not next.has(id):
+			_set_view_selected(id, false)
+	for id in next:
+		if not _selected.has(id):
+			_set_view_selected(id, true)
+	_selected = next
+
+
+func _set_view_selected(id: int, on: bool) -> void:
+	var view: BlockView = _views.get(id)
+	if view != null and is_instance_valid(view):
+		view.set_selected_highlight(on)
+
+
+## 框选矩形（世界坐标）与开关；不命中任何块时也要画矩形本身。
+func set_selection_band(rect: Rect2, on: bool) -> void:
+	_selection_band = rect
+	_selection_band_on = on
+	_redraw_links()
+
+func selection_band() -> Rect2:
+	return _selection_band
+
+
+func selection_band_on() -> bool:
+	return _selection_band_on
 ## 这个节点是不是入口块：不放复制、不准删、导出从它开始。
 func is_entry(node: LogicNode) -> bool:
 	return node != null and library != null and library.is_entry(node.type_id)
@@ -152,6 +207,7 @@ func _create_view(id: int) -> BlockView:
 	view.copy_requested.connect(copy_requested.emit)
 	view.link_requested.connect(link_requested.emit)
 	view.picker_requested.connect(picker_requested.emit)
+	view.press_requested.connect(press_requested.emit)
 	view.history_group_closed.connect(history.flush_merge)
 	view.field_committed.connect(_on_view_field_committed)
 	view.layout_dirty.connect(_on_view_layout_dirty)
@@ -226,8 +282,26 @@ func move_tail_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
 	return true
 
 
-## 删除一串块，一次撤销记录；被删的块可能是别的 Jump 的目标，指向它们的引用一并清掉。
-func remove_tail(ids: Array[int]) -> bool:
+## 任意集合一起搬（多选组拖用），一次撤销记录；顺序 = 选中时的视觉顺序。
+func move_nodes(ids: Array[int], owner_id: int, slot_id: StringName, index: int) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
+		return false
+	history.record("移动块", func() -> void:
+		graph.move_nodes(ids, owner_id, slot_id, index))
+	return true
+
+
+func move_nodes_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
+		return false
+	history.record("移动块", func() -> void:
+		var chain := graph.create_chain(world_pos)
+		graph.move_nodes(ids, LogicGraph.ROOT, chain, -1))
+	return true
+
+
+## 删除任意集合（多选组拖的整组删除），一次撤销记录；语义同 [method remove_tail]。
+func remove_nodes(ids: Array[int]) -> bool:
 	if ids.is_empty() or not graph.has(ids[0]):
 		return false
 	var doomed := ids.duplicate()
@@ -241,6 +315,10 @@ func remove_tail(ids: Array[int]) -> bool:
 		_clear_links_to(links))
 	return true
 
+
+## 删除一串块，一次撤销记录；被删的块可能是别的 Jump 的目标，指向它们的引用一并清掉。
+func remove_tail(ids: Array[int]) -> bool:
+	return remove_nodes(ids)
 ## 复制以 [param source_id] 为根的子树插进容器，返回新根 id（失败 0）。
 func duplicate_subtree(source_id: int, owner_id: int, slot_id: StringName, index: int) -> int:
 	return _duplicate(source_id, func(nodes: Array[LogicNode]) -> void:

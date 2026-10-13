@@ -203,7 +203,8 @@ func tail_ids(id: int) -> Array[int]:
 
 
 ## 把一串有先后顺序的节点整体搬到目标容器（逐个搬会因下标变化而错位）。
-func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
+## 通用入口：按参数顺序落位；链式搬移（后面的跟着走）用 [method move_tail]。
+func move_nodes(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
 	if ids.is_empty():
 		return false
 	for id in ids:
@@ -238,6 +239,20 @@ func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index:
 		_drop_empty_container(at)
 	structure_changed.emit()
 	return true
+
+
+## 把「一个块 + 它后面的所有块」一起搬（拖拽搬移的直觉：后面的跟着走，顺序不乱）。
+## 展开的序列一定在原容器内连续，照旧按参数顺序落位，只是追加一个空位让位。
+func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
+	if ids.is_empty():
+		return false
+	# 同容器搬移时，尾巴这一串会先在原位置整体消失、再插到 index 处：
+	# 落在串内部的 index 等于没动，按搬完后的视觉位置多让一格。
+	var at := locate(ids[0])
+	if not at.is_empty() and at["owner_id"] == owner_id and at["slot"] == slot_id \
+			and index > int(at["index"]):
+		index += 1
+	return move_nodes(ids, owner_id, slot_id, index)
 
 
 func set_field(id: int, field_id: StringName, value: Variant) -> bool:

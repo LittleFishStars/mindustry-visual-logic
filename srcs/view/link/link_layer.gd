@@ -7,6 +7,8 @@ const LINE_WIDTH: float = 2.0
 const ARROW_SIZE: float = 9.0
 const PREVIEW_COLOR: Color = Color(1.0, 0.9, 0.4, 0.95)
 const PREVIEW_CANCEL_COLOR: Color = Color(1.0, 1.0, 1.0, 0.4)
+const BAND_FILL: Color = Color(0.30, 0.55, 1.0, 0.10)
+const BAND_EDGE: Color = Color(0.45, 0.72, 1.0, 0.95)
 
 ## 数据由画布提供（它是唯一知道图与布局的地方）。
 var canvas: EditorCanvas
@@ -25,6 +27,11 @@ func _draw() -> void:
 	var preview: Dictionary = canvas.link_preview()
 	if not preview.is_empty():
 		_draw_preview(preview)
+	# 框选矩形与跳线同层：都是画布上的叠加提示，不遮挡块身
+	if canvas.selection_band_on():
+		var band := canvas.selection_band()
+		draw_rect(band, BAND_FILL, true)
+		draw_rect(band, BAND_EDGE, false, 1.5)
 
 
 ## 目标端箭头：贴着终点朝目标块内侧（不沿最后一段延长）。

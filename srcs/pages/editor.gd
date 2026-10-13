@@ -31,6 +31,7 @@ func _ready() -> void:
 	nCanvas.picker_requested.connect(_on_picker_requested)
 	nCanvas.link_requested.connect(_on_canvas_link_requested)
 	nCanvas.copy_requested.connect(_on_canvas_copy_requested)
+	nCanvas.press_requested.connect(_on_canvas_press_requested)
 	_setup_pointer_sessions()
 	_picker = SelectorPanel.new()
 	_picker.picked.connect(_on_picker_picked)
@@ -64,6 +65,10 @@ func _setup_pointer_sessions() -> void:
 		session.area = nEditArea
 		# 拖到左侧块列表（分类按钮列 + 块列表）松手 = 删块 / 解除锁定
 		session.delete_zones.assign([nBlockKindList, nBlockArea])
+	# 「框选 / 多选 / 组拖」控制器与两个会话同区域；组拖复用主拖拽控制器
+	var selection := nCanvas.selection()
+	selection.area = nEditArea
+	selection.drag = nDrag
 #region 调色板
 
 func _build_palette() -> void:
@@ -116,6 +121,12 @@ func _show_kind(kind: StringName) -> void:
 
 
 #region 画布交互
+
+## 块按下先报选择层：ctrl/shift 切换、点已选中的组（>1）整组拖动都由它直接接管
+## （它会调 [method BlockView.consume_press] 拦住随后的 drag_requested）；没接管就走单块拖动。
+func _on_canvas_press_requested(view: BlockView, offset: Vector2, ctrl: bool, shift: bool) -> void:
+	_close_picker()
+	nCanvas.selection().editor_on_block_press(view, offset, ctrl, shift)
 
 ## 画布上的块按下：开始搬移（画布外松手 = 取消）。
 func _on_canvas_drag_requested(view: BlockView, offset: Vector2) -> void:

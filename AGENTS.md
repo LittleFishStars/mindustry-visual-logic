@@ -122,6 +122,27 @@ assets/
 同理，标签条的「就地重命名」手势+输入框全在 [TabRename] 里，外壳只接
 「改完的名字写到哪」—— `main.gd` 不再自己管延时、双击与焦点。
 
+### 框选 / 多选 / 整组拖动
+
+- **选择集是 [BlockSelection]（`model/block_selection.gd`）**：纯数据、按节点 id 存、与视图解耦；
+  信号 `changed`（无参）。选中态不存引用，视图销毁重建后依然有效；图换掉后由
+  [SelectionController.prune] 清掉失效 id。
+- **交互在 [SelectionController]（`view/canvas/selection_controller.gd`）**：画布的子节点，
+  用引擎原生 `_unhandled_input` 收画布内未处理事件 —— 空白按住左键拖 = 框选
+  （矩形实时命中顶层块，交 [LinkLayer] 画），位移 < `BAND_MIN_DRAG`(6px) = 点击空白清空；
+  `ctrl` 点击 = 切换、`shift` 点击 = 范围选（锚点基于视觉顺序）；点已选中的组（>1）= 整组拖动。
+  [b]按下时不选中[/b]：等拖拽会话结束按位移判定（< `CLICK_MAX_MOVE` = 点击选中、≥ = 真拖动则 clear，
+  放下不残留选中），与上游 v0.3 实锤的手感一致。
+- **「视觉顺序」来自 [LayoutSolver.top_level_order]**（先按链摆位、再按行；巢里块不参与点选）——
+  shift 范围选与组保序都用它，不要用链下标。矩形命中是 [LayoutSolver.nodes_in_rect]。
+- **块按下先报选择层**：`BlockView._gui_input` 左键按下时先发 `press_requested`，选择层接管
+  （ctrl/shift/组拖）就调 [method BlockView.consume_press] 拦住随后的 `drag_requested`；
+  信号没有返回值，靠这个标志分流（`editor.gd` 的 `_on_canvas_press_requested` 只转发）。
+- **组搬移走 [LogicGraph.move_nodes]**（任意集合按视觉顺序保序、一次撤销），
+  链式搬移仍是 [method move_tail]（它在 `move_nodes` 之上多一个「同容器让位」）；
+  删除任意集合是 `EditorCanvas.remove_nodes`（`remove_tail` 已是它的别名）。
+  组拖复用 [DragController.start_group_from_view]，与单块共用占位预览 / 删除区 / 落点。
+
 ### 本地化（i18n）
 
 界面支持 **English / 简体中文**，语言在 `Edit → Settings…` 里选（默认跟随系统）。
