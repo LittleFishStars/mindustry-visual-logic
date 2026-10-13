@@ -1,8 +1,7 @@
 class_name EditorCamera
 extends Camera2D
 
-## 画布相机：滚轮缩放 + 左键空白处平移（按在块上的会被 [BlockView] 消费掉，两者自然分开）。
-
+## 画布相机：滚轮缩放 + 中键平移（左键留给框选，两者不再冲突）。
 @export var zoom_speed: float = 1.1
 @export var zoom_min: float = 0.25
 @export var zoom_max: float = 3.0
@@ -15,7 +14,7 @@ var _last_pos: Vector2 = Vector2.ZERO
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		match event.button_index:
-			MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE:
+			MOUSE_BUTTON_MIDDLE:
 				panning = event.pressed
 				_last_pos = event.position
 			MOUSE_BUTTON_WHEEL_UP:

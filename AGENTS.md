@@ -55,7 +55,7 @@ srcs/                                   ← 按职责分区：app 外壳 / pages
 ├── view/                       ← 视图层（只渲染与交互，不持有拓扑真相）
 │   ├── canvas/                 ← 画布与其相机
 │   │   ├── editor_canvas.gd    ← EditorCanvas：图 + 撤销栈 + 视图集合（布局/跳线/占位预览各自外置）
-│   │   └── editor_camera.gd    ← 相机：滚轮缩放 + 空白处左键平移
+│   │   └── editor_camera.gd    ← 相机：滚轮缩放 + 中键平移（左键留给框选）
 │   ├── block/                  ← 块视图与几何契约
 │   │   ├── block_view.gd       ← BlockView：一个块的控件、几何度量、背景绘制
 │   │   └── block_metrics.gd    ← 块几何契约（尺寸/尾锚点/槽位锚点）
@@ -501,7 +501,7 @@ Mindustry 的文本读写是[b]构建期生成[/b]的（`annotations/…/LogicSt
   收尾事件真丢了（切窗口 / 在窗口外松手）时，由会话骨架的
   `_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)` 统一收尾（搬块与锁定目标都有）。
   也不要拿 `Input.is_mouse_button_pressed` 做守时兜底：触屏（项目有 Android 导出）不反映鼠标键。
-- **UI 配色暂时没有单一来源**：设置窗/公告窗/文档页各自的 `StyleBoxFlat` 与
-  `SelectorPanel` 里那几个 `COLOR_*` 常量是同一套深色值抄了四份（主主题
+- **UI 配色统一在 `UiStyle`（`srcs/view/ui_style.gd`）**：设置窗/公告窗/文档页/
+  选择器面板的深色 `StyleBoxFlat` 全部由它构造，场景里不再内联 StyleBox（主主题
   `assets/styles/main_theme.tres` 只覆盖了 Button/Label/MenuBar/PopupMenu/TabContainer/Tree/ScrollBar）。
-  要统一就把它们移进主题再删掉场景里的 override —— 那需要逐个窗口目测，本轮没动，改色时四处一起改。
+  改色只改 `UiStyle` 一处，各窗口自动同步。
