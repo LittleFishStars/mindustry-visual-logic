@@ -79,10 +79,10 @@ func _unhandled_input(event: InputEvent) -> void:
 #region 框选
 
 func _try_begin_band() -> void:
-	if not PlacementPreview.is_valid_object(area):
-		return
+	# 本节点是 SubViewport 的子节点，只有鼠标在画布范围内才会收到事件，不需要再用 area 判定
 	var screen := get_viewport().get_mouse_position()
-	if not area.get_global_rect().has_point(screen):
+	var vp_rect := Rect2(Vector2.ZERO, get_viewport().size)
+	if not vp_rect.has_point(screen):
 		return
 	var world := _world_mouse()
 	# 按在块上不框选（那是块自己的事）；巢里的子块与顶层块都算「有块」
@@ -228,5 +228,7 @@ func _on_selection_changed() -> void:
 		canvas.set_selected_ids(selection.get_selected())
 
 
+## 本节点是 SubViewport 的子节点，get_viewport().get_mouse_position() 已经是 SubViewport 内坐标；
+## 直接走画布变换的逆即可，不能再减 SubViewportContainer 的全局位置（两者坐标空间不同）。
 func _world_mouse() -> Vector2:
-	return canvas.world_from_screen(area.get_global_rect(), get_viewport().get_mouse_position())
+	return canvas.get_canvas_transform().affine_inverse() * get_viewport().get_mouse_position()
