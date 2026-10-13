@@ -16,7 +16,7 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位待命</Text>
+			<Text id="T1">单位待机</Text>
 		</Row>
 	</Block>
 	<Block name="UnitStop">
@@ -42,9 +42,9 @@
 		<Row>
 			<Text id="T1">单位移动</Text>
 			<Option id="mode">
-			<Item value="move">移动</Item>
-			<Item value="approach">接近</Item>
-			<Item value="pathfind">寻路</Item>
+			<Item value="move">移动到...</Item>
+			<Item value="approach">靠近</Item>
+			<Item value="pathfind">敌式寻路到...</Item>
 			<Item value="autoPathfind">自动寻路</Item>
 		</Option>
 			<!-- 官方 LUnitControl 的参数表：move(x,y) / approach(x,y,radius) /
@@ -66,7 +66,7 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位加速</Text>
+			<Text id="T1">单位助推</Text>
 			<LineBox id="id" placeholder="0" />
 		</Row>
 	</Block>
@@ -81,10 +81,10 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位射击</Text>
+			<Text id="T1">单位瞄准</Text>
 			<Option id="mode">
-			<Item value="target">目标坐标</Item>
-			<Item value="targetp">目标单位</Item>
+			<Item value="target">瞄准</Item>
+			<Item value="targetp">根据提前量瞄准</Item>
 		</Option>
 			<Text id="T2" when="mode=target">x</Text>
 			<LineBox id="x" placeholder="0" when="mode=target" />
@@ -111,8 +111,8 @@
 		<Row>
 			<Text id="T1">单位物品</Text>
 			<Option id="mode">
-			<Item value="itemDrop">丢下物品</Item>
-			<Item value="itemTake">拾取物品</Item>
+			<Item value="itemDrop">将物品放入建筑</Item>
+			<Item value="itemTake">从建筑取出物品</Item>
 		</Option>
 			<Text id="T2">到</Text>
 			<LineBox id="to" placeholder="0" />
@@ -133,11 +133,11 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位拾取</Text>
+			<Text id="T1">单位载荷</Text>
 			<Option id="mode">
-			<Item value="payTake">拾取</Item>
-			<Item value="payDrop">丢下</Item>
-			<Item value="payEnter">进入</Item>
+			<Item value="payTake">拾取载荷</Item>
+			<Item value="payDrop">卸下载荷</Item>
+			<Item value="payEnter">进入载荷</Item>
 		</Option>
 			<!-- 官方 payTake(takeUnits) 才有一个参数；payDrop / payEnter 无参数 -->
 			<Text id="T2" when="mode=payTake">拾取单位</Text>
@@ -153,7 +153,7 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位采矿</Text>
+			<Text id="T1">单位采集</Text>
 			<Text id="T2">x</Text>
 			<LineBox id="x" placeholder="0" />
 			<Text id="T3">y</Text>
@@ -169,7 +169,7 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位标记</Text>
+			<Text id="T1">单位 flag</Text>
 			<LineBox id="id" placeholder="0" />
 		</Row>
 	</Block>
@@ -207,7 +207,7 @@
 		<Field id="bld" />
 		<Field id="flr" />
 		<Row>
-			<Text id="T1">获取单位方块</Text>
+			<Text id="T1">获取单位地块</Text>
 			<Text id="T2">x</Text>
 			<LineBox id="x" placeholder="0" />
 			<Text id="T3">y</Text>
@@ -231,7 +231,7 @@
 		<Field id="result" />
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">单位范围内</Text>
+			<Text id="T1">单位接近</Text>
 			<Text id="T2">x</Text>
 			<LineBox id="x" placeholder="0" />
 			<Text id="T3">y</Text>
@@ -251,7 +251,7 @@
 		<Literal>0</Literal>
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">解绑单位</Text>
+			<Text id="T1">取消单位控制</Text>
 		</Row>
 	</Block>
 	<Block name="UnitRadar">
@@ -267,34 +267,34 @@
 			<Text id="T1">单位雷达</Text>
 			<Text id="T2">目标</Text>
 			<Option id="s1">
-			<Item value="any">任意</Item>
-			<Item value="enemy">敌人</Item>
-			<Item value="ally">友军</Item>
-			<Item value="player">玩家</Item>
-			<Item value="attacker">攻击者</Item>
-			<Item value="flying">飞行</Item>
-			<Item value="boss">首领</Item>
-			<Item value="ground">地面</Item>
+			<Item value="any">任意单位</Item>
+			<Item value="enemy">敌方单位</Item>
+			<Item value="ally">己方单位</Item>
+			<Item value="player">玩家控制的单位</Item>
+			<Item value="attacker">有武器的单位</Item>
+			<Item value="flying">空中单位</Item>
+			<Item value="boss">Boss 单位</Item>
+			<Item value="ground">地面单位</Item>
 		</Option>
 			<Option id="s2">
-			<Item value="any">任意</Item>
-			<Item value="enemy">敌人</Item>
-			<Item value="ally">友军</Item>
-			<Item value="player">玩家</Item>
-			<Item value="attacker">攻击者</Item>
-			<Item value="flying">飞行</Item>
-			<Item value="boss">首领</Item>
-			<Item value="ground">地面</Item>
+			<Item value="any">任意单位</Item>
+			<Item value="enemy">敌方单位</Item>
+			<Item value="ally">己方单位</Item>
+			<Item value="player">玩家控制的单位</Item>
+			<Item value="attacker">有武器的单位</Item>
+			<Item value="flying">空中单位</Item>
+			<Item value="boss">Boss 单位</Item>
+			<Item value="ground">地面单位</Item>
 		</Option>
 			<Option id="s3">
-			<Item value="any">任意</Item>
-			<Item value="enemy">敌人</Item>
-			<Item value="ally">友军</Item>
-			<Item value="player">玩家</Item>
-			<Item value="attacker">攻击者</Item>
-			<Item value="flying">飞行</Item>
-			<Item value="boss">首领</Item>
-			<Item value="ground">地面</Item>
+			<Item value="any">任意单位</Item>
+			<Item value="enemy">敌方单位</Item>
+			<Item value="ally">己方单位</Item>
+			<Item value="player">玩家控制的单位</Item>
+			<Item value="attacker">有武器的单位</Item>
+			<Item value="flying">空中单位</Item>
+			<Item value="boss">Boss 单位</Item>
+			<Item value="ground">地面单位</Item>
 		</Option>
 		</Row>
 		<Row>
@@ -322,23 +322,23 @@
 		<Field id="found" />
 		<Field id="building" />
 		<Row>
-			<Text id="T1">定位单位</Text>
+			<Text id="T1">单位搜寻</Text>
 			<Option id="find">
-			<Item value="ore">矿石</Item>
+			<Item value="ore">矿脉</Item>
 			<Item value="building">建筑</Item>
-			<Item value="spawn">出生点</Item>
-			<Item value="damaged">受损建筑</Item>
+			<Item value="spawn">敌人出生点</Item>
+			<Item value="damaged">受损的己方建筑</Item>
 		</Option>
 			<Text id="Tore" when="find=ore">矿石</Text>
 			<Selector id="ore" kind="items" placeholder="@copper" when="find=ore" />
 			<Text id="T2" when="find=building">分组</Text>
 			<Option id="group" when="find=building">
 			<Item value="core">核心</Item>
-			<Item value="storage">存储</Item>
-			<Item value="generator">发电机</Item>
+			<Item value="storage">仓储建筑</Item>
+			<Item value="generator">发电建筑</Item>
 			<Item value="turret">炮塔</Item>
 			<Item value="factory">工厂</Item>
-			<Item value="repair">修复</Item>
+			<Item value="repair">维修点</Item>
 			<Item value="battery">电池</Item>
 			<Item value="reactor">反应堆</Item>
 			<Item value="drill">钻头</Item>

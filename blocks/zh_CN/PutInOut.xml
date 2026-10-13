@@ -41,7 +41,7 @@
 		<FirstOf ids="prot x3" />
 		<Field id="y3" />
 		<Row>
-			<Text id="T1">绘制</Text>
+			<Text id="T1">绘图</Text>
 			<Option id="mode">
 			<Item value="clear">清空</Item>
 			<Item value="color">颜色</Item>
@@ -97,9 +97,9 @@
 			<Item>@bottom</Item>
 			<Item>@bottomRight</Item>
 			</Option>
-			<Text id="Trw" when="mode=rect | mode=lineRect">宽度</Text>
+			<Text id="Trw" when="mode=rect | mode=lineRect">宽</Text>
 			<LineBox id="rw" placeholder="0" when="mode=rect | mode=lineRect" />
-			<Text id="Th" when="mode=rect | mode=lineRect">高度</Text>
+			<Text id="Th" when="mode=rect | mode=lineRect">高</Text>
 			<LineBox id="h" placeholder="0" when="mode=rect | mode=lineRect" />
 			<Text id="Ts" when="mode=poly | mode=linePoly">边数</Text>
 			<LineBox id="s" placeholder="4" when="mode=poly | mode=linePoly" />

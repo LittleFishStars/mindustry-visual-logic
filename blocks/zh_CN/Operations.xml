@@ -4,7 +4,7 @@
 		<Field id="result" />
 		<Field id="value" />
 		<Row>
-			<Text id="T1">设置</Text>
+			<Text id="T1">赋值</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<LineBox id="value" placeholder="0" />
@@ -37,7 +37,7 @@
 			<Item value="emod">取模</Item>
 			<Item value="pow">幂</Item>
 			<Item value="equal">相等</Item>
-			<Item value="notEqual">不等于</Item>
+			<Item value="notEqual">不相等</Item>
 			<Item value="land">逻辑与</Item>
 			<Item value="lessThan">小于</Item>
 			<Item value="lessThanEq">小于等于</Item>
@@ -89,20 +89,20 @@
 		<Field id="t" />
 		<Field id="f" />
 		<Row>
-			<Text id="T1">选择</Text>
+			<Text id="T1">判断</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<Text id="T3">如果</Text>
 			<LineBox id="x" placeholder="x" when="cmp!=always" />
 			<Option id="cmp">
 			<Item value="equal">相等</Item>
-			<Item value="notEqual">不等于</Item>
+			<Item value="notEqual">不相等</Item>
 			<Item value="lessThan">小于</Item>
 			<Item value="lessThanEq">小于等于</Item>
 			<Item value="greaterThan">大于</Item>
 			<Item value="greaterThanEq">大于等于</Item>
 			<Item value="strictEqual">严格相等</Item>
-			<Item value="always">总是</Item>
+			<Item value="always">无条件</Item>
 		</Option>
 			<LineBox id="value" placeholder="false" when="cmp!=always" />
 		</Row>
@@ -119,10 +119,10 @@
 		<Field id="result" />
 		<Field id="id" />
 		<Row>
-			<Text id="T1">查找</Text>
+			<Text id="T1">查询</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
-			<Text id="T3">查找</Text>
+			<Text id="T3">查询</Text>
 			<Option id="type">
 			<Item value="block">方块</Item>
 			<Item value="unit">单位</Item>

@@ -3,7 +3,7 @@
 		<Literal>drawflush</Literal>
 		<Field id="display" />
 		<Row>
-			<Text id="T1">绘制刷新</Text>
+			<Text id="T1">打印绘图</Text>
 			<Text id="T2">到</Text>
 			<LineBox id="display" placeholder="display1" />
 		</Row>
@@ -12,7 +12,7 @@
 		<Literal>printflush</Literal>
 		<Field id="message" />
 		<Row>
-			<Text id="T1">打印刷新</Text>
+			<Text id="T1">打印文本</Text>
 			<Text id="T2">到</Text>
 			<LineBox id="message" placeholder="message1" />
 		</Row>
@@ -22,7 +22,7 @@
 		<Field id="result" />
 		<Field id="link" />
 		<Row>
-			<Text id="T1">获取链接</Text>
+			<Text id="T1">获取连接</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<Text id="T3">link#</Text>
@@ -38,11 +38,11 @@
 		<Field id="shoot" />
 		<Literal>0</Literal>
 		<Row>
-			<Text id="T1">控制</Text>
+			<Text id="T1">控制建筑</Text>
 			<Option id="mode">
 			<Item value="enabled">启用</Item>
 			<Item value="shoot">射击</Item>
-			<Item value="shootp">射击位置</Item>
+			<Item value="shootp">预先射击</Item>
 			<Item value="config">配置</Item>
 			<Item value="color">颜色</Item>
 		</Option>
@@ -75,34 +75,34 @@
 			<Text id="T2">来自</Text>
 			<LineBox id="turret" placeholder="turret1" />
 			<Option id="s1">
-			<Item value="any">任意</Item>
-			<Item value="enemy">敌人</Item>
-			<Item value="ally">友军</Item>
-			<Item value="player">玩家</Item>
-			<Item value="attacker">攻击者</Item>
-			<Item value="flying">飞行</Item>
-			<Item value="boss">首领</Item>
-			<Item value="ground">地面</Item>
+			<Item value="any">任意单位</Item>
+			<Item value="enemy">敌方单位</Item>
+			<Item value="ally">己方单位</Item>
+			<Item value="player">玩家控制的单位</Item>
+			<Item value="attacker">有武器的单位</Item>
+			<Item value="flying">空中单位</Item>
+			<Item value="boss">Boss 单位</Item>
+			<Item value="ground">地面单位</Item>
 		</Option>
 			<Option id="s2">
-			<Item value="any">任意</Item>
-			<Item value="enemy">敌人</Item>
-			<Item value="ally">友军</Item>
-			<Item value="player">玩家</Item>
-			<Item value="attacker">攻击者</Item>
-			<Item value="flying">飞行</Item>
-			<Item value="boss">首领</Item>
-			<Item value="ground">地面</Item>
+			<Item value="any">任意单位</Item>
+			<Item value="enemy">敌方单位</Item>
+			<Item value="ally">己方单位</Item>
+			<Item value="player">玩家控制的单位</Item>
+			<Item value="attacker">有武器的单位</Item>
+			<Item value="flying">空中单位</Item>
+			<Item value="boss">Boss 单位</Item>
+			<Item value="ground">地面单位</Item>
 		</Option>
 			<Option id="s3">
-			<Item value="any">任意</Item>
-			<Item value="enemy">敌人</Item>
-			<Item value="ally">友军</Item>
-			<Item value="player">玩家</Item>
-			<Item value="attacker">攻击者</Item>
-			<Item value="flying">飞行</Item>
-			<Item value="boss">首领</Item>
-			<Item value="ground">地面</Item>
+			<Item value="any">任意单位</Item>
+			<Item value="enemy">敌方单位</Item>
+			<Item value="ally">己方单位</Item>
+			<Item value="player">玩家控制的单位</Item>
+			<Item value="attacker">有武器的单位</Item>
+			<Item value="flying">空中单位</Item>
+			<Item value="boss">Boss 单位</Item>
+			<Item value="ground">地面单位</Item>
 		</Option>
 		</Row>
 		<Row>
@@ -125,7 +125,7 @@
 		<Field id="block" />
 		<Field id="prop" />
 		<Row>
-			<Text id="T1">传感器</Text>
+			<Text id="T1">获取数据</Text>
 			<LineBox id="result" placeholder="result" />
 			<Text id="T2">=</Text>
 			<Selector id="prop" kind="sensors" placeholder="@copper" />

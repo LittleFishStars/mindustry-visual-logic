@@ -17,7 +17,7 @@
 	<Block name="End">
 		<Literal>end</Literal>
 		<Row>
-			<Text id="T">结束</Text>
+			<Text id="T">结尾</Text>
 		</Row>
 	</Block>
 	<Block name="Expression">
@@ -44,13 +44,13 @@
 			<LineBox id="value1" placeholder="x" when="cmp!=always" />
 			<Option id="cmp">
 			<Item value="equal">相等</Item>
-			<Item value="notEqual">不等于</Item>
+			<Item value="notEqual">不相等</Item>
 			<Item value="lessThan">小于</Item>
 			<Item value="lessThanEq">小于等于</Item>
 			<Item value="greaterThan">大于</Item>
 			<Item value="greaterThanEq">大于等于</Item>
 			<Item value="strictEqual">严格相等</Item>
-			<Item value="always">总是</Item>
+			<Item value="always">无条件</Item>
 		</Option>
 			<LineBox id="value2" placeholder="false" when="cmp!=always" />
 		</Row>
@@ -89,7 +89,7 @@
 			<LineBox id="a" placeholder="a" />
 			<Option id="cmp">
 			<Item value="equal">相等</Item>
-			<Item value="notEqual">不等于</Item>
+			<Item value="notEqual">不相等</Item>
 			<Item value="lessThan">小于</Item>
 			<Item value="lessThanEq">小于等于</Item>
 			<Item value="greaterThan">大于</Item>
@@ -134,7 +134,7 @@
 			<LineBox id="a" placeholder="a" />
 			<Option id="cmp">
 			<Item value="equal">相等</Item>
-			<Item value="notEqual">不等于</Item>
+			<Item value="notEqual">不相等</Item>
 			<Item value="lessThan">小于</Item>
 			<Item value="lessThanEq">小于等于</Item>
 			<Item value="greaterThan">大于</Item>
