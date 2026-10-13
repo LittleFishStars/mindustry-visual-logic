@@ -14,21 +14,18 @@ static func segments(graph: LogicGraph, library: BlockLibrary, layout: LayoutRes
 	if graph == null or library == null or layout == null:
 		return out
 	var raw: Array[Dictionary] = []
-	for id in graph.all_ids():
-		var node := graph.get_node_by_id(id)
-		if node == null:
-			continue
-		var def := library.by_id(node.type_id)
-		if def == null:
-			continue
-		for field_id in def.reference_fields():
-			var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
-			if target <= 0 or not graph.has(target):
-				continue
-			var start := anchor(layout, id)
+	graph.each_link_ref(
+		func(node: LogicNode) -> Array[StringName]:
+			var def := library.by_id(node.type_id)
+			return def.reference_fields() if def != null else [] as Array[StringName],
+		func(ref: Dictionary) -> void:
+			var target: int = ref["target"]
+			if target <= 0:
+				return
+			var source: LogicNode = ref["node"]
+			var start := anchor(layout, source.id)
 			var end := anchor(layout, target)
-			raw.append({"start": start, "end": end, "target": target, "span": absf(end.y - start.y)})
-	# 短线占内侧道、长线往外让。
+			raw.append({"start": start, "end": end, "target": target, "span": absf(end.y - start.y)}))
 	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["span"]) < float(b["span"]))
 	var placed: Array[Dictionary] = []
 	for segment in raw:

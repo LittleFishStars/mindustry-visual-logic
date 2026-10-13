@@ -4,79 +4,6 @@
 [ext_resource type="FontFile" uid="uid://i8tur3ohx1u2" path="res://assets/fonts/font.woff" id="2_font"]
 [ext_resource type="Script" path="res://srcs/windows/settings_window.gd" id="3_script"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.207843, 0.180392, 0.25098, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar"]
-content_margin_top = 10.0
-content_margin_bottom = 6.0
-bg_color = Color(0.258824, 0.22352941, 0.30980393, 1)
-border_width_top = 5
-border_color = Color(0, 0, 0, 0.419608)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_edit"]
-content_margin_left = 8.0
-content_margin_top = 4.0
-content_margin_right = 8.0
-content_margin_bottom = 4.0
-bg_color = Color(0.212113, 0.181757, 0.255897, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.142885, 0.124547, 0.161226, 1)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_edit_focus"]
-content_margin_left = 8.0
-content_margin_top = 4.0
-content_margin_right = 8.0
-content_margin_bottom = 4.0
-bg_color = Color(0.212113, 0.181757, 0.255897, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.398337, 0.3869, 0.73, 1)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_track"]
-content_margin_top = 3.0
-content_margin_bottom = 3.0
-bg_color = Color(0.149020, 0.125490, 0.180392, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
-content_margin_top = 3.0
-content_margin_bottom = 3.0
-bg_color = Color(0.398337, 0.3869, 0.73, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_toggle_normal"]
-content_margin_left = 5.0
-content_margin_top = 5.0
-content_margin_right = 5.0
-content_margin_bottom = 5.0
-bg_color = Color(0, 0, 0, 0.258824)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_toggle_hover"]
-content_margin_left = 5.0
-content_margin_top = 5.0
-content_margin_right = 5.0
-content_margin_bottom = 5.0
-bg_color = Color(1, 1, 1, 0.552941)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_toggle_pressed"]
-content_margin_left = 5.0
-content_margin_top = 5.0
-content_margin_right = 5.0
-content_margin_bottom = 5.0
-bg_color = Color(1, 1, 1, 0.258824)
-
 [node name="SettingsWindow" type="Window"]
 title = "SETTINGS_TITLE"
 size = Vector2i(560, 456)
@@ -92,7 +19,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="Layout" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
@@ -124,9 +50,6 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
-theme_override_styles/slider = SubResource("StyleBoxFlat_track")
-theme_override_styles/grabber_area = SubResource("StyleBoxFlat_fill")
-theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_fill")
 min_value = 10.0
 max_value = 400.0
 step = 1.0
@@ -137,8 +60,6 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_styles/normal = SubResource("StyleBoxFlat_edit")
-theme_override_styles/focus = SubResource("StyleBoxFlat_edit_focus")
 text = "60"
 alignment = 1
 
@@ -156,9 +77,6 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
-theme_override_styles/slider = SubResource("StyleBoxFlat_track")
-theme_override_styles/grabber_area = SubResource("StyleBoxFlat_fill")
-theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_fill")
 min_value = 0.5
 max_value = 2.0
 step = 0.05
@@ -169,10 +87,9 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_styles/normal = SubResource("StyleBoxFlat_edit")
-theme_override_styles/focus = SubResource("StyleBoxFlat_edit_focus")
 text = "1.00"
 alignment = 1
+
 [node name="LanguageRow" type="HBoxContainer" parent="Panel/Layout/Margin/Body"]
 layout_mode = 2
 theme_override_constants/separation = 12
@@ -187,16 +104,11 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_styles/normal = SubResource("StyleBoxFlat_toggle_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_toggle_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_toggle_pressed")
+
 [node name="ExportOnFocusLost" type="CheckButton" parent="Panel/Layout/Margin/Body"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_styles/normal = SubResource("StyleBoxFlat_toggle_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_toggle_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_toggle_pressed")
 text = "SETTINGS_EXPORT_ON_FOCUS_LOST"
 
 [node name="Hint" type="Label" parent="Panel/Layout/Margin/Body"]
@@ -211,7 +123,6 @@ size_flags_vertical = 3
 
 [node name="BottomBar" type="PanelContainer" parent="Panel/Layout"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bar")
 
 [node name="Buttons" type="HBoxContainer" parent="Panel/Layout/BottomBar"]
 layout_mode = 2

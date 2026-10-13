@@ -47,11 +47,9 @@ func reload_language() -> void:
 	nCanvas.library = library
 	nCanvas.rebuild()
 	for child in nBlockKindList.get_children():
-		nBlockKindList.remove_child(child)
-		child.queue_free()
+		PlacementPreview.dismiss(child)
 	for child in nBlockArea.get_children():
-		nBlockArea.remove_child(child)
-		child.queue_free()
+		PlacementPreview.dismiss(child)
 	_kind_lists.clear()
 	_current_kind = &""
 	_build_palette()
@@ -146,7 +144,7 @@ func _on_canvas_link_requested(view: BlockView, element: ElementDef, control: Co
 
 
 func _on_picker_requested(view: BlockView, element: ElementDef, control: Control) -> void:
-	if element == null or control == null or not is_instance_valid(control):
+	if element == null or not PlacementPreview.is_valid_object(control):
 		return
 	_picker_view = view
 	_picker_target = control
@@ -156,7 +154,7 @@ func _on_picker_requested(view: BlockView, element: ElementDef, control: Control
 
 func _on_picker_picked(value: String) -> void:
 	# 交给块视图：先刷控件再提交数据层（程序化赋值不触发 text_changed，必须显式提交）
-	if _picker_view != null and is_instance_valid(_picker_view):
+	if PlacementPreview.is_valid_object(_picker_view):
 		_picker_view.apply_picker_value(_picker_element, _picker_target, value)
 	_close_picker()
 

@@ -168,7 +168,7 @@ func _spawn_floats(ids: Array, head: Vector2, hide_sources: bool) -> void:
 			continue
 		if hide_sources:
 			var source_view := canvas.view_of(id)
-			if source_view != null and is_instance_valid(source_view):
+			if PlacementPreview.is_valid_object(source_view):
 				_hidden[id] = source_view.visible
 				source_view.visible = false
 		var float_view := canvas.make_ghost(node.type_id, _overlay, node)
@@ -191,7 +191,7 @@ func _update_session() -> void:
 	if deleting != _delete_hover:
 		_delete_hover = deleting
 		_apply_delete_hint(deleting)
-	if _ghost != null and is_instance_valid(_ghost):
+	if PlacementPreview.is_valid_object(_ghost):
 		_ghost.position = layer - _offset * zoom
 		_ghost.scale = Vector2(zoom, zoom)
 	elif not _floats.is_empty():
@@ -199,7 +199,7 @@ func _update_session() -> void:
 		var origin := layer - _offset * zoom
 		for i in _floats.size():
 			var float_view := _floats[i]
-			if is_instance_valid(float_view):
+			if PlacementPreview.is_valid_object(float_view):
 				float_view.position = origin + _float_offsets[i] * zoom
 				float_view.scale = Vector2(zoom, zoom)
 	elif _source_node != null and not _subtree_positions.is_empty():
@@ -208,7 +208,7 @@ func _update_session() -> void:
 		var delta := world - _offset - base
 		for id in _subtree_positions:
 			var view: BlockView = canvas.view_of(id)
-			if view != null and is_instance_valid(view):
+			if PlacementPreview.is_valid_object(view):
 				view.position = (_subtree_positions[id] as Vector2) + delta
 	if _delete_hover or not _inside_canvas():
 		# 拖到删除区 / 画布外：不找吸附点也不摆占位块（松手时再决定删还是取消）
@@ -259,7 +259,7 @@ func _apply_insert_shift(_at: Vector2) -> void:
 	for item in canvas.graph.slot_items(owner_id, slot).slice(index):
 		for id in canvas.graph.subtree_ids(item):
 			var view := canvas.view_of(id)
-			if view != null and is_instance_valid(view):
+			if PlacementPreview.is_valid_object(view):
 				view.position += Vector2(0, height)
 				_pushed.append(id)
 
@@ -268,7 +268,7 @@ func _apply_insert_shift(_at: Vector2) -> void:
 func _release_shift() -> void:
 	for id in _pushed:
 		var view := canvas.view_of(id)
-		if view != null and is_instance_valid(view) and canvas.layout != null:
+		if PlacementPreview.is_valid_object(view) and canvas.layout != null:
 			view.position = canvas.layout.rect_of(id).position
 	_pushed.clear()
 
@@ -352,18 +352,18 @@ func cancel() -> void:
 
 func _close_session() -> void:
 	for float_view in _floats:
-		if is_instance_valid(float_view):
-			float_view.queue_free()
+		if PlacementPreview.is_valid_object(float_view):
+			PlacementPreview.dismiss(float_view)
 	_floats.clear()
 	_float_offsets.clear()
 	for id in _hidden:
 		var hidden_view := canvas.view_of(id)
-		if hidden_view != null and is_instance_valid(hidden_view):
+		if PlacementPreview.is_valid_object(hidden_view):
 			hidden_view.visible = _hidden[id]
 	_hidden.clear()
 	_release_shift()
-	if _ghost != null and is_instance_valid(_ghost):
-		_ghost.queue_free()
+	if PlacementPreview.is_valid_object(_ghost):
+		PlacementPreview.dismiss(_ghost)
 	_ghost = null
 	_active = false
 	_delete_hover = false
@@ -401,10 +401,10 @@ func _zoom() -> float:
 ## 给拖动副本压一层暗红，提示「松手就删」；离开时恢复本色。
 func _apply_delete_hint(on: bool) -> void:
 	var tint := Color(1.0, 0.45, 0.45, 0.85) if on else Color.WHITE
-	if _ghost != null and is_instance_valid(_ghost):
+	if PlacementPreview.is_valid_object(_ghost):
 		_ghost.modulate = tint
 	for float_view in _floats:
-		if is_instance_valid(float_view):
+		if PlacementPreview.is_valid_object(float_view):
 			float_view.modulate = tint
 
 

@@ -79,7 +79,7 @@ func _unhandled_input(event: InputEvent) -> void:
 #region 框选
 
 func _try_begin_band() -> void:
-	if area == null or not is_instance_valid(area):
+	if not PlacementPreview.is_valid_object(area):
 		return
 	var screen := get_viewport().get_mouse_position()
 	if not area.get_global_rect().has_point(screen):

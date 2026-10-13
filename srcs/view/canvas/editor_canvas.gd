@@ -80,8 +80,8 @@ func _attach_graph(p_graph: LogicGraph) -> void:
 func rebuild() -> void:
 	for id in _views.keys():
 		var view: BlockView = _views[id]
-		if is_instance_valid(view):
-			view.queue_free()
+		if PlacementPreview.is_valid_object(view):
+			PlacementPreview.dismiss(view)
 	_views.clear()
 	for id in graph.all_ids():
 		_create_view(id)
@@ -97,7 +97,7 @@ func relayout() -> void:
 	layout = LayoutSolver.solve(graph, _measure)
 	for id in _views:
 		var view: BlockView = _views[id]
-		if not is_instance_valid(view):
+		if not PlacementPreview.is_valid_object(view):
 			continue
 		var rect := layout.rect_of(id)
 		view.position = rect.position
@@ -109,12 +109,12 @@ func relayout() -> void:
 func set_elements_enabled(enabled: bool) -> void:
 	for id in _views:
 		var view: BlockView = _views[id]
-		if is_instance_valid(view):
+		if PlacementPreview.is_valid_object(view):
 			view.set_elements_enabled(enabled)
 
 func _measure(node: LogicNode, slot_extents: Dictionary[StringName, Vector2]) -> BlockMetrics:
 	var view: BlockView = _views.get(node.id)
-	if view == null or not is_instance_valid(view):
+	if not PlacementPreview.is_valid_object(view):
 		# 视图还没建（首次求解）时先建出来再量
 		view = _create_view(node.id)
 	if view == null:
@@ -133,7 +133,7 @@ func content_rect() -> Rect2:
 	var first := true
 	for id in _views:
 		var view: BlockView = _views[id]
-		if view == null or not is_instance_valid(view):
+		if not PlacementPreview.is_valid_object(view):
 			continue
 		var rect := Rect2(view.position, view.size)
 		out = rect if first else out.merge(rect)
@@ -162,7 +162,7 @@ func set_selected_ids(ids: Array[int]) -> void:
 
 func _set_view_selected(id: int, on: bool) -> void:
 	var view: BlockView = _views.get(id)
-	if view != null and is_instance_valid(view):
+	if PlacementPreview.is_valid_object(view):
 		view.set_selected_highlight(on)
 
 
@@ -237,8 +237,8 @@ func spawn_entry_block() -> void:
 	if def == null:
 		return
 	var node := _make_node(def.id)
-	var chain := graph.create_chain(Vector2(40, 40))
-	graph.insert_node(node, LogicGraph.ROOT, chain, -1)
+	# 可能在撤销闭包里被调用（clear_graph）：用一次信号完成「建链 + 插节点」，避免发两次结构变更
+	graph.insert_in_new_chain(node, Vector2(40, 40))
 
 
 func insert_new_node(type_id: StringName, owner_id: int, slot_id: StringName, index: int, label: String = "添加块") -> LogicNode:
@@ -252,17 +252,30 @@ func insert_new_node(type_id: StringName, owner_id: int, slot_id: StringName, in
 func insert_new_chain(type_id: StringName, world_pos: Vector2, label: String = "添加块") -> LogicNode:
 	var node := _make_node(type_id)
 	history.record(label, func() -> void:
-		var chain := graph.create_chain(world_pos)
-		graph.insert_node(node, LogicGraph.ROOT, chain, -1))
+		graph.insert_in_new_chain(node, world_pos))
 	return node
 
 
-func move_node(id: int, owner_id: int, slot_id: StringName, index: int) -> bool:
-	if not graph.has(id):
+## 把一串有先后顺序的块整体搬到目标容器，一次撤销记录；空集或首块不在图上时不动数据。
+func relocate(ids: Array[int], owner_id: int, slot_id: StringName, index: int) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
 		return false
 	history.record("移动块", func() -> void:
-		graph.move_node(id, owner_id, slot_id, index))
+		graph.move_nodes(ids, owner_id, slot_id, index))
 	return true
+
+
+## 搬到画布上新的一条链（落点由 [param world_pos] 定），一次撤销记录。
+func relocate_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
+	if ids.is_empty() or not graph.has(ids[0]):
+		return false
+	history.record("移动块", func() -> void:
+		graph.move_nodes_to_new_chain(ids, world_pos))
+	return true
+
+
+func move_node(id: int, owner_id: int, slot_id: StringName, index: int) -> bool:
+	return relocate([id] as Array[int], owner_id, slot_id, index)
 
 
 func move_tail(ids: Array[int], owner_id: int, slot_id: StringName, index: int) -> bool:
@@ -274,31 +287,16 @@ func move_tail(ids: Array[int], owner_id: int, slot_id: StringName, index: int) 
 
 
 func move_tail_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
-	if ids.is_empty() or not graph.has(ids[0]):
-		return false
-	history.record("移动块", func() -> void:
-		var chain := graph.create_chain(world_pos)
-		graph.move_tail(ids, LogicGraph.ROOT, chain, -1))
-	return true
+	return relocate_to_new_chain(ids, world_pos)
 
 
 ## 任意集合一起搬（多选组拖用），一次撤销记录；顺序 = 选中时的视觉顺序。
 func move_nodes(ids: Array[int], owner_id: int, slot_id: StringName, index: int) -> bool:
-	if ids.is_empty() or not graph.has(ids[0]):
-		return false
-	history.record("移动块", func() -> void:
-		graph.move_nodes(ids, owner_id, slot_id, index))
-	return true
+	return relocate(ids, owner_id, slot_id, index)
 
 
 func move_nodes_to_new_chain(ids: Array[int], world_pos: Vector2) -> bool:
-	if ids.is_empty() or not graph.has(ids[0]):
-		return false
-	history.record("移动块", func() -> void:
-		var chain := graph.create_chain(world_pos)
-		graph.move_nodes(ids, LogicGraph.ROOT, chain, -1))
-	return true
-
+	return relocate_to_new_chain(ids, world_pos)
 
 ## 删除任意集合（多选组拖的整组删除），一次撤销记录；语义同 [method remove_tail]。
 func remove_nodes(ids: Array[int]) -> bool:
@@ -312,7 +310,7 @@ func remove_nodes(ids: Array[int]) -> bool:
 	history.record("删除块", func() -> void:
 		for id in doomed:
 			graph.remove_node(id)
-		_clear_links_to(links))
+		graph.clear_links_to(links, _reference_fields_of))
 	return true
 
 
@@ -476,7 +474,7 @@ func node_at_world(point: Vector2, exclude: Dictionary = {}) -> int:
 		if exclude.has(id):
 			continue
 		var view: BlockView = _views[id]
-		if view == null or not is_instance_valid(view) or not view.contains_world_point(point):
+		if not PlacementPreview.is_valid_object(view) or not view.contains_world_point(point):
 			continue
 		var area := view.size.x * view.size.y
 		if area < best_area:
@@ -490,12 +488,11 @@ func set_link(source_id: int, field_id: StringName, target_id: int) -> bool:
 	var node := graph.get_node_by_id(source_id)
 	if node == null:
 		return false
-	if String(node.get_field(field_id, "")) == LogicGraph.make_link_ref(target_id):
+	if graph.link_target(node, field_id) == target_id:
 		return true
 	return _record_field(node, field_id, LogicGraph.make_link_ref(target_id),
 			"锁定跳转目标" if target_id > 0 else "解除跳转目标",
 			func(view: BlockView) -> void: view.sync_from_data())
-
 
 ## 写一个字段并记一条撤销（值没变时由撤销栈的快照比对兜底，不在这里早退 ——
 ## 视图提交后总要刷新可见性与布局）。视图自己发起的改动不回灌控件（避免打断输入），
@@ -508,7 +505,7 @@ func _record_field(node: LogicNode, field_id: StringName, value: Variant, label:
 		graph.set_field(node.id, field_id, value), merge_key)
 	_applying_field = false
 	var view: BlockView = _views.get(node.id)
-	if view != null and is_instance_valid(view):
+	if PlacementPreview.is_valid_object(view):
 		if sync.is_valid():
 			sync.call(view)
 		else:
@@ -533,11 +530,11 @@ func set_link_highlight(id: int) -> void:
 	if _highlight_id == id:
 		return
 	var previous: BlockView = _views.get(_highlight_id)
-	if previous != null and is_instance_valid(previous):
+	if PlacementPreview.is_valid_object(previous):
 		previous.set_link_highlight(false)
 	_highlight_id = id
 	var current: BlockView = _views.get(id)
-	if current != null and is_instance_valid(current):
+	if PlacementPreview.is_valid_object(current):
 		current.set_link_highlight(true)
 
 
@@ -546,11 +543,10 @@ func _link_label(node_id: int, field_id: StringName) -> String:
 	var node := graph.get_node_by_id(node_id)
 	if node == null:
 		return tr("LINK_UNLOCKED")
-	var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
+	var target := graph.link_target(node, field_id)
 	if target <= 0:
 		return tr("LINK_UNLOCKED")
-	var target_node := graph.get_node_by_id(target)
-	return String(target_node.type_id) if target_node != null else tr("LINK_INVALID")
+	return String(graph.get_node_by_id(target).type_id)
 
 
 ## 重算全部跳线（布局一变就跑）。
@@ -559,26 +555,10 @@ func _refresh_links() -> void:
 	_redraw_links()
 
 func _redraw_links() -> void:
-	if nLinks != null and is_instance_valid(nLinks):
+	if PlacementPreview.is_valid_object(nLinks):
 		nLinks.queue_redraw()
 
 
-
-## 目标块被删时清掉指向它的引用（与删除同处一条撤销记录）。
-func _clear_links_to(doomed: Dictionary) -> void:
-	if library == null:
-		return
-	for id in graph.all_ids():
-		var node := graph.get_node_by_id(id)
-		if node == null:
-			continue
-		var def := library.by_id(node.type_id)
-		if def == null:
-			continue
-		for field_id in def.reference_fields():
-			var target := LogicGraph.parse_link_ref(node.get_field(field_id, ""))
-			if target > 0 and doomed.has(target):
-				graph.set_field(id, field_id, "")
 
 
 #endregion
@@ -599,7 +579,7 @@ func _on_field_changed(id: int, _field_id: StringName, _value: Variant) -> void:
 	if _applying_field:
 		return
 	var view: BlockView = _views.get(id)
-	if view != null and is_instance_valid(view):
+	if PlacementPreview.is_valid_object(view):
 		view.sync_from_data()
 	relayout()
 
@@ -609,13 +589,13 @@ func _sync_views() -> void:
 	var alive: Dictionary[int, bool] = {}
 	for id in graph.all_ids():
 		alive[id] = true
-		if not _views.has(id) or not is_instance_valid(_views[id]):
+		if not _views.has(id) or not PlacementPreview.is_valid_object(_views[id]):
 			_create_view(id)
 	for id in _views.keys():
 		if not alive.has(id):
 			var view: BlockView = _views[id]
-			if is_instance_valid(view):
-				view.queue_free()
+			if PlacementPreview.is_valid_object(view):
+				PlacementPreview.dismiss(view)
 			_views.erase(id)
 
 #endregion

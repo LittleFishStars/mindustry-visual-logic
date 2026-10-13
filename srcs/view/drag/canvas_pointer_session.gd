@@ -87,14 +87,14 @@ func _world_mouse() -> Vector2:
 func _over_delete_zone() -> bool:
 	var mouse := get_viewport().get_mouse_position()
 	for zone in delete_zones:
-		if is_instance_valid(zone) and zone.is_visible_in_tree() and zone.get_global_rect().has_point(mouse):
+		if PlacementPreview.is_valid_object(zone) and zone.is_visible_in_tree() and zone.get_global_rect().has_point(mouse):
 			return true
 	return false
 
 
 ## 鼠标是否还在画布区域内（在外面松手 = 取消）。
 func _inside_canvas() -> bool:
-	if area == null or not is_instance_valid(area):
+	if not PlacementPreview.is_valid_object(area):
 		return false
 	return area.get_global_rect().has_point(get_viewport().get_mouse_position())
 

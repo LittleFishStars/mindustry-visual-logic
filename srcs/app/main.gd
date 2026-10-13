@@ -97,7 +97,7 @@ func _current_editor() -> LogicEditorTab:
 
 
 func _refresh_tab_title(editor: LogicEditorTab) -> void:
-	if editor == null or not is_instance_valid(editor):
+	if not PlacementPreview.is_valid_object(editor):
 		return
 	var index := editor.get_index()
 	if index >= 0 and index < self.nEditors.get_tab_count():

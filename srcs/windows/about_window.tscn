@@ -4,16 +4,6 @@
 [ext_resource type="Texture2D" path="res://icon.png" id="2_icon"]
 [ext_resource type="Script" path="res://srcs/windows/about_window.gd" id="3_script"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.207843, 0.180392, 0.25098, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar"]
-content_margin_top = 10.0
-content_margin_bottom = 6.0
-bg_color = Color(0.258824, 0.22352941, 0.30980393, 1)
-border_width_top = 5
-border_color = Color(0, 0, 0, 0.419608)
-
 [node name="AboutWindow" type="Window"]
 title = "ABOUT_TITLE"
 size = Vector2i(520, 440)
@@ -29,7 +19,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="Layout" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
@@ -84,7 +73,6 @@ selection_enabled = true
 
 [node name="BottomBar" type="PanelContainer" parent="Panel/Layout"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bar")
 
 [node name="Buttons" type="HBoxContainer" parent="Panel/Layout/BottomBar"]
 layout_mode = 2

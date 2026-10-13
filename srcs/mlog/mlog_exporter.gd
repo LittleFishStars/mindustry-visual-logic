@@ -29,7 +29,7 @@ static func export(graph: LogicGraph, library: BlockLibrary, warnings: Array[Str
 static func _ends_with_halt(lines: PackedStringArray) -> bool:
 	for i in range(lines.size() - 1, -1, -1):
 		var line := String(lines[i])
-		if not is_instruction(line):
+		if not MlogText.is_instruction(line):
 			continue
 		var head := line.split(" ", false)
 		return not head.is_empty() and (head[0] == "stop" or head[0] == "end")
@@ -162,9 +162,9 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 		# 尾跳也占一行，但「这个块在第几行」说的是它的头部那一条
 		if not bool(entry.get("tail", false)):
 			fallback[node.id] = count
-			if is_instruction(text):
+			if MlogText.is_instruction(text):
 				line_of[node.id] = count
-		if is_instruction(text):
+		if MlogText.is_instruction(text):
 			count += 1
 	lines_at.append(count)
 	var loop_tail: Dictionary = {}
@@ -195,13 +195,6 @@ static func _table_of(walk: Array[Dictionary]) -> Dictionary:
 		loop[node.id] = target
 	return {"line_of": line_of, "fallback": fallback, "after": after, "loop": loop, "count": count}
 
-
-## 这一行会不会成为一条指令（导入侧数指令序号用的是同一套规则）。
-## 标签行 `label:` 已经造不出来了（跳转目标改成块引用），但别人手写的 mlog 里还有，仍按 LParser 的数法不占行号。
-static func is_instruction(text: String) -> bool:
-	if text == "" or text.begins_with("#"):
-		return false
-	return not (text.ends_with(":") and not text.contains(" "))
 
 
 ## 引用字段 → 行号；未锁定或目标已失效都按 -1 导出并记一条警告。

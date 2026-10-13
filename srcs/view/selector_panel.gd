@@ -12,19 +12,7 @@ const COLUMNS: int = 7
 const PANEL_SIZE: Vector2 = Vector2(344, 384)
 const GRID_HEIGHT: float = 236.0
 
-## 配色与设置窗/公告窗一致：主主题没有覆盖 PanelContainer，得自己带 StyleBoxFlat。
-const COLOR_PANEL: Color = Color(0.207843, 0.180392, 0.25098, 1.0)      # #35304A
-const COLOR_BAR: Color = Color(0.258824, 0.22352941, 0.30980393, 1.0)   # #423956
-const COLOR_BORDER: Color = Color(0.101961, 0.086275, 0.121569, 1.0)
 const COLOR_BACKDROP: Color = Color(0.0, 0.0, 0.0, 0.45)
-const COLOR_EDIT: Color = Color(0.212113, 0.181757, 0.255897, 1.0)
-const COLOR_EDIT_FOCUS: Color = Color(0.398337, 0.3869, 0.73, 1.0)
-const CELL_COLORS: Dictionary = {
-	&"normal": [Color(0.212113, 0.181757, 0.255897, 1.0), Color(0.142885, 0.124547, 0.161226, 1.0)],
-	&"hover": [Color(0.258824, 0.22352941, 0.30980393, 1.0), Color(0.142885, 0.124547, 0.161226, 1.0)],
-	&"pressed": [Color(0.30980393, 0.27058825, 0.36862746, 1.0), Color(0.101961, 0.086275, 0.121569, 1.0)],
-}
-
 ## kind → 标题的翻译键（认不出就用 kind 本身）。
 const TITLES: Dictionary[StringName, String] = {
 	&"units": "SELECTOR_TITLE_UNITS",
@@ -69,7 +57,7 @@ func _ready() -> void:
 
 	_panel = PanelContainer.new()
 	_panel.custom_minimum_size = PANEL_SIZE
-	_panel.add_theme_stylebox_override("panel", _make_panel_style())
+	_panel.add_theme_stylebox_override("panel", UiStyle.panel_style())
 	add_child(_panel)
 
 	var box := VBoxContainer.new()
@@ -78,7 +66,7 @@ func _ready() -> void:
 
 	# 顶部标题条（与设置窗/公告窗同一套）。
 	var bar := PanelContainer.new()
-	bar.add_theme_stylebox_override("panel", _make_bar_style())
+	bar.add_theme_stylebox_override("panel", UiStyle.bar_style())
 	box.add_child(bar)
 	_title = Label.new()
 	_title.add_theme_font_size_override("font_size", 13)
@@ -100,8 +88,8 @@ func _ready() -> void:
 	_search.placeholder_text = "SELECTOR_SEARCH"
 	_search.clear_button_enabled = true
 	# 主主题没有 LineEdit 条目，不自己带样式就会顶着引擎默认的浅色皮肤
-	_search.add_theme_stylebox_override("normal", _make_edit_style(false))
-	_search.add_theme_stylebox_override("focus", _make_edit_style(true))
+	_search.add_theme_stylebox_override("normal", UiStyle.edit_style(false))
+	_search.add_theme_stylebox_override("focus", UiStyle.edit_style(true))
 	var font := load("res://assets/fonts/font.woff") as Font
 	if font != null:
 		_search.add_theme_font_override("font", font)
@@ -136,54 +124,6 @@ func _ready() -> void:
 	# 面板尺寸可能因内容变化（字体/滚动条），居中要跟着走
 	_panel.resized.connect(_recenter)
 
-
-## StyleBoxFlat 的统一起手（主主题没有 PanelContainer / LineEdit 条目，样式得自带）。
-static func _box(bg: Color, border: Color = Color(0, 0, 0, 0), border_width: int = 0,
-		radius: int = 0) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	if border_width > 0:
-		style.set_border_width_all(border_width)
-		style.border_color = border
-	if radius > 0:
-		style.set_corner_radius_all(radius)
-	return style
-
-
-func _make_panel_style() -> StyleBoxFlat:
-	var style := _box(COLOR_PANEL, COLOR_BORDER, 2)
-	style.shadow_color = Color(0, 0, 0, 0.35)
-	style.shadow_size = 6
-	# 子控件要紧贴边框：内容留白交给里面的 MarginContainer，否则标题条两端会缩进去
-	style.set_content_margin_all(0.0)
-	return style
-
-
-## 格子的紧凑样式：主题里 Button 的 content margin 高达 30，会把 40px 的格子撑成 115px。
-func _make_cell_style(state: StringName) -> StyleBoxFlat:
-	var style := _box(CELL_COLORS[state][0], CELL_COLORS[state][1], 2)
-	style.set_content_margin_all(4.0)
-	return style
-
-
-func _make_edit_style(focused: bool) -> StyleBoxFlat:
-	var style := _box(COLOR_EDIT, COLOR_EDIT_FOCUS if focused else COLOR_BORDER, 2, 2)
-	style.content_margin_left = 8.0
-	style.content_margin_right = 8.0
-	style.content_margin_top = 4.0
-	style.content_margin_bottom = 4.0
-	return style
-
-
-func _make_bar_style() -> StyleBoxFlat:
-	var style := _box(COLOR_BAR)
-	style.border_width_top = 5
-	style.border_color = Color(0, 0, 0, 0.419608)
-	style.content_margin_left = 10.0
-	style.content_margin_right = 10.0
-	style.content_margin_top = 6.0
-	style.content_margin_bottom = 4.0
-	return style
 
 
 ## 居中打开弹窗。
@@ -220,7 +160,7 @@ func is_open() -> bool:
 
 ## 面板居中：父级矩形中心减去自身一半；父级比面板小就贴左上角，别跑出可视区。
 func _recenter() -> void:
-	if _panel == null or not is_instance_valid(_panel):
+	if not PlacementPreview.is_valid_object(_panel):
 		return
 	var span := size - _panel.size
 	_panel.position = Vector2(maxf(span.x * 0.5, 0.0), maxf(span.y * 0.5, 0.0))
@@ -228,7 +168,7 @@ func _recenter() -> void:
 
 ## 按内容重新定尺寸再居中：Control 只会变大不会自己缩回，最小尺寸又要等一帧，所以 deferred。
 func _fit_and_center() -> void:
-	if _panel == null or not is_instance_valid(_panel):
+	if not PlacementPreview.is_valid_object(_panel):
 		return
 	_panel.reset_size()
 	_panel.size = Vector2(
@@ -254,8 +194,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 ## 分组按钮：全部 + 数据里的各组（没有分组数据时整条不显示）。
 func _build_groups() -> void:
 	for child in _groups_bar.get_children():
-		_groups_bar.remove_child(child)
-		child.queue_free()
+		PlacementPreview.dismiss(child)
 	_groups_bar.visible = not _groups.is_empty()
 	if _groups.is_empty():
 		return
@@ -279,8 +218,7 @@ func _add_group_button(id: StringName, text: String) -> void:
 func _build_cells() -> void:
 	for child in _grid.get_children():
 		# 先摘掉再 free：queue_free 到帧末才生效，那一帧里旧按钮还可能被回车选中
-		_grid.remove_child(child)
-		child.queue_free()
+		PlacementPreview.dismiss(child)
 	_cells.clear()
 	# 分组数据在 open() 里已经取过一次（_groups），这里直接用 —— 数据源只读一处
 	if _groups.is_empty():
@@ -354,9 +292,9 @@ func _make_cell(value: String, icon_path: String) -> Button:
 	button.custom_minimum_size = CELL_SIZE
 	button.tooltip_text = value
 	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_stylebox_override("normal", _make_cell_style(&"normal"))
-	button.add_theme_stylebox_override("hover", _make_cell_style(&"hover"))
-	button.add_theme_stylebox_override("pressed", _make_cell_style(&"pressed"))
+	button.add_theme_stylebox_override("normal", UiStyle.cell_style(&"normal"))
+	button.add_theme_stylebox_override("hover", UiStyle.cell_style(&"hover"))
+	button.add_theme_stylebox_override("pressed", UiStyle.cell_style(&"pressed"))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	var texture := _texture_of(icon_path)
 	if texture != null:
@@ -377,7 +315,7 @@ func _pick_first() -> void:
 	var best_index := 1 << 30
 	for cell in _cells:
 		var button: Button = cell["button"]
-		if button == null or not is_instance_valid(button) or not button.visible:
+		if not PlacementPreview.is_valid_object(button) or not button.visible:
 			continue
 		if button.get_index() < best_index:
 			best_index = button.get_index()

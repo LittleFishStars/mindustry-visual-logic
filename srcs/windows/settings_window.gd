@@ -30,7 +30,7 @@ func open() -> void:
 
 func _ready() -> void:
 	nLanguageOption.item_selected.connect(_on_language_selected)
-
+	_apply_styles()
 
 func setup(p_settings: AppSettings) -> void:
 	settings = p_settings
@@ -138,3 +138,24 @@ func _on_close_pressed() -> void:
 	closed.emit()
 
 #endregion
+
+
+## 样式统一由 [UiStyle] 提供（场景里不再内联 StyleBox）。
+func _apply_styles() -> void:
+	var panel := get_node_or_null("Panel")
+	if panel is PanelContainer:
+		panel.add_theme_stylebox_override("panel", UiStyle.panel_style())
+	var bottom := get_node_or_null("Panel/Layout/BottomBar")
+	if bottom is PanelContainer:
+		bottom.add_theme_stylebox_override("panel", UiStyle.bar_style())
+	for edit in [nMaxFpsEdit, nUiScaleEdit]:
+		edit.add_theme_stylebox_override("normal", UiStyle.edit_style(false))
+		edit.add_theme_stylebox_override("focus", UiStyle.edit_style(true))
+	for slider in [nMaxFpsSlider, nUiScaleSlider]:
+		slider.add_theme_stylebox_override("slider", UiStyle.slider_track_style())
+		slider.add_theme_stylebox_override("grabber_area", UiStyle.slider_fill_style())
+		slider.add_theme_stylebox_override("grabber_area_highlight", UiStyle.slider_fill_style())
+	for toggle in [nLanguageOption, nExportToggle]:
+		toggle.add_theme_stylebox_override("normal", UiStyle.toggle_style(false))
+		toggle.add_theme_stylebox_override("hover", UiStyle.toggle_style(false, true))
+		toggle.add_theme_stylebox_override("pressed", UiStyle.toggle_style(true))

@@ -28,54 +28,8 @@ static func parse(
 	var src_lines: Array[int] = []
 	var lines := text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 	for line_index in lines.size():
-		var line := String(lines[line_index]).strip_edges()
-		if line == "":
-			continue
-		# 注释行：整行余下部分就是注释块的文本（行尾标记只认指令行）
-		if line.begins_with("#"):
-			if library.has(&"Expression"):
-				out.append(_make_node(graph, library.by_id(&"Expression"), {&"text": line.substr(1).strip_edges()}, {}))
-				ends.append(-1)
-				src_lines.append(line_index)
-			continue
-		var marker := _read_marker(line, markers, warnings)
-		for piece in split_statements(line):
-			var statement := piece.strip_edges()
-			if statement == "":
-				continue
-			var tokens := tokenize(statement)
-			if tokens.is_empty():
-				continue
-			# 标签行没有对应的块了：出声说明，不静默丢掉这一行
-			if tokens.size() == 1 and String(tokens[0]).ends_with(":"):
-				warnings.append("mlog 的标签行（%s）不再支持：跳转目标改为在 Jump 上拖块锁定" % statement)
-				continue
-			# 带标记的行：按结构块自己的模板认，`<AfterSubtree/>` 那一格就是巢结束的行号
-			if not marker.is_empty():
-				var marked: Variant = _match_marked(marker["def"], tokens)
-				if marked != null:
-					var values: Dictionary = marked["values"]
-					var raw_after := String(values.get(AFTER_KEY, ""))
-					var after := raw_after.to_int() if raw_after.is_valid_int() else -1
-					if after < 0:
-						warnings.append("结构标记 %s 的巢结束行号不是数字：%s" % [marker["def"].marker, raw_after])
-					values.erase(AFTER_KEY)
-					# 注释里的字段为准：模板里的比较是取反导出的，从行里认不回来
-					values.merge(marker["fields"], true)
-					out.append(_make_node(graph, marker["def"], values, marked["states"]))
-					# 没有巢的标记块（Break / Continue）不参与结构还原
-					ends.append(after if _nest_slot(marker["def"]) != &"" else -1)
-					src_lines.append(line_index)
-					continue
-				warnings.append("结构标记 %s 与这一行不符，已按普通语句导入：%s" % [marker["def"].marker, statement])
-			var candidates: Array = index.get(StringName(tokens[0]), [])
-			var hit: Variant = _try_defs(candidates, tokens)
-			if hit == null:
-				warnings.append("无法识别的 mlog 行：%s" % statement)
-				continue
-			out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
-			ends.append(-1)
-			src_lines.append(line_index)
+		_import_line(String(lines[line_index]).strip_edges(), line_index,
+				index, markers, graph, library, warnings, out, ends, src_lines)
 	var structure := _build_structure(out, ends, library, warnings)
 	var dropped: Dictionary = structure["dropped"]
 	if not dropped.is_empty():
@@ -91,6 +45,86 @@ static func parse(
 		src_lines.assign(kept_lines)
 	_resolve_links(out, structure["line_of"], src_lines, library, warnings)
 	return out
+
+
+## 导入一行：整行注释 / 带标记的指令行 / 普通语句行，各自的处理都在这一处。
+static func _import_line(
+	line: String,
+	line_index: int,
+	index: Dictionary,
+	markers: Dictionary,
+	graph: LogicGraph,
+	library: BlockLibrary,
+	warnings: Array[String],
+	out: Array[LogicNode],
+	ends: Array[int],
+	src_lines: Array[int]
+) -> void:
+	if line == "":
+		return
+	# 注释行：整行余下部分就是注释块的文本（行尾标记只认指令行）
+	if line.begins_with("#"):
+		if library.has(&"Expression"):
+			out.append(_make_node(graph, library.by_id(&"Expression"), {&"text": line.substr(1).strip_edges()}, {}))
+			ends.append(-1)
+			src_lines.append(line_index)
+		return
+	var marker := _read_marker(line, markers, warnings)
+	for piece in MlogText.split_statements(line):
+		var statement := piece.strip_edges()
+		if statement == "":
+			continue
+		var tokens := MlogText.tokenize(statement)
+		if tokens.is_empty():
+			continue
+		# 标签行没有对应的块了：出声说明，不静默丢掉这一行
+		if tokens.size() == 1 and String(tokens[0]).ends_with(":"):
+			warnings.append("mlog 的标签行（%s）不再支持：跳转目标改为在 Jump 上拖块锁定" % statement)
+			continue
+		# 带标记的行：按结构块自己的模板认，`<AfterSubtree/>` 那一格就是巢结束的行号
+		if not marker.is_empty() and _import_marked(marker, tokens, statement, graph,
+				warnings, out, ends, src_lines, line_index):
+			continue
+		var candidates: Array = index.get(StringName(tokens[0]), [])
+		var hit: Variant = _try_defs(candidates, tokens)
+		if hit == null:
+			warnings.append("无法识别的 mlog 行：%s" % statement)
+			continue
+		out.append(_make_node(graph, hit["def"], hit["values"], hit["states"]))
+		ends.append(-1)
+		src_lines.append(line_index)
+
+
+## 按结构标记导入一行（`#if 字段=值…`）；认不下来时报警并返回 false（调用方按普通语句再试）。
+static func _import_marked(
+	marker: Dictionary,
+	tokens: PackedStringArray,
+	statement: String,
+	graph: LogicGraph,
+	warnings: Array[String],
+	out: Array[LogicNode],
+	ends: Array[int],
+	src_lines: Array[int],
+	line_index: int
+) -> bool:
+	var def: BlockDef = marker["def"]
+	var marked: Variant = _match_marked(def, tokens)
+	if marked == null:
+		warnings.append("结构标记 %s 与这一行不符，已按普通语句导入：%s" % [def.marker, statement])
+		return false
+	var values: Dictionary = marked["values"]
+	var raw_after := String(values.get(AFTER_KEY, ""))
+	var after := raw_after.to_int() if raw_after.is_valid_int() else -1
+	if after < 0:
+		warnings.append("结构标记 %s 的巢结束行号不是数字：%s" % [def.marker, raw_after])
+	values.erase(AFTER_KEY)
+	# 注释里的字段为准：模板里的比较是取反导出的，从行里认不回来
+	values.merge(marker["fields"], true)
+	out.append(_make_node(graph, def, values, marked["states"]))
+	# 没有巢的标记块（Break / Continue）不参与结构还原
+	ends.append(after if _nest_slot(def) != &"" else -1)
+	src_lines.append(line_index)
+	return true
 
 
 ## 把 [method parse] 的结果摊成若干棵子树（每棵是根在前、深度优先的节点表），形状正好给
@@ -123,53 +157,15 @@ static func _collect_subtree(by_id: Dictionary, node: LogicNode, out: Array[Logi
 				_collect_subtree(by_id, child, out)
 
 
-## 把一行切成若干条语句：`;` 分隔语句，`#` 起行尾注释（引号里的不算，同 LParser）。
-static func split_statements(line: String) -> PackedStringArray:
-	return _scan(line, &"statement")
-
-
-## 引号外按空白切 token（引号里的空白属于字面量）。
-static func tokenize(line: String) -> PackedStringArray:
-	return _scan(line, &"token")
-
-
-## 引号感知的行扫描：一个循环服务上面两套切法 —— 引号里的字符一律原样保留。
-## 只有 statement 模式把引号外的 `#` 当行尾注释截断；token 模式的调用方自带完整行（含标记行），
-## 截断会误删标记内容。
-static func _scan(line: String, mode: StringName) -> PackedStringArray:
-	var out := PackedStringArray()
-	var current := ""
-	var in_quote := false
-	for i in line.length():
-		var ch := line[i]
-		if ch == "\"":
-			in_quote = not in_quote
-			current += ch
-			continue
-		if mode == &"statement" and not in_quote and ch == "#":
-			break
-		if not in_quote and (ch == ";" if mode == &"statement" else ch == " "):
-			if mode == &"statement" or current != "":
-				out.append(current)
-				current = ""
-			continue
-		current += ch
-	if mode == &"statement" or current != "":
-		out.append(current)
-	return out
-
-
 ## 把跳转目标绑回块引用。数字行号指的是[b]这段文本自己[/b]的第 N 条指令（[param line_of] 由
 ## [method _build_structure] 按同一套数法算出），不查当前文档的行号表 —— 片段自成一体，不会连到已有的块上。
+## 节点此刻尚未入图，不能用 graph.each_link_ref：按字段文本直接改写。
 static func _resolve_links(nodes: Array[LogicNode], line_of: Dictionary, src_lines: Array[int],
 		library: BlockLibrary, warnings: Array[String]) -> void:
 	for i in nodes.size():
 		var node := nodes[i]
-		var def := library.by_id(node.type_id)
-		if def == null:
-			continue
 		var at := int(src_lines[i]) + 1 if i < src_lines.size() else 0
-		for field_id in def.reference_fields():
+		for field_id in _reference_fields_of(library, node):
 			var raw := String(node.get_field(field_id, "")).strip_edges()
 			if raw == "":
 				continue
@@ -186,6 +182,12 @@ static func _resolve_links(nodes: Array[LogicNode], line_of: Dictionary, src_lin
 			else:
 				warnings.append("mlog 第 %d 行的跳转目标（第 %d 行）不在导入的这段文本里，已按未锁定处理" % [at, want + 1])
 				node.put_field(field_id, "")
+
+
+## 某节点的块引用字段（「哪些字段是引用」的真相在块定义上；库换成了另一种语言也能用）。
+static func _reference_fields_of(library: BlockLibrary, node: LogicNode) -> Array[StringName]:
+	var def := library.by_id(node.type_id) if library != null else null
+	return def.reference_fields() if def != null else [] as Array[StringName]
 
 
 
@@ -386,24 +388,6 @@ static func _value_reader(def: BlockDef, values: Dictionary, states: Dictionary)
 		return element.default_value if element != null else ""
 
 
-## 行尾注释（不在引号里的第一个 `#` 之后的部分）；没有则返回 ""。
-## 与 _scan 同一套「引号外才认 #」规则，但不切分、只找注释起点。
-## 必须用 while：GDScript 的 for 循环变量在循环体内赋值不会影响迭代。
-static func trailing_comment(line: String) -> String:
-	var i := 0
-	while i < line.length():
-		var ch := line[i]
-		if ch == "\"":
-			# 跳过整段字符串；无闭引号时走到行尾（注释不会从字符串里开始）
-			i += 1
-			while i < line.length() and line[i] != "\"":
-				i += 1
-		elif ch == "#":
-			return line.substr(i + 1).strip_edges()
-		i += 1
-	return ""
-
-
 ## marker 名 → 块定义（结构块在 XML 里用 `<Block marker="if">` 声明）。
 static func _marker_index(library: BlockLibrary) -> Dictionary:
 	var out: Dictionary = {}
@@ -416,7 +400,7 @@ static func _marker_index(library: BlockLibrary) -> Dictionary:
 
 ## 解析行尾标记：`#<名字> 字段=值 …`（值可带引号）；不是本程序的标记就返回空字典。
 static func _read_marker(line: String, markers: Dictionary, warnings: Array[String]) -> Dictionary:
-	var tokens := tokenize(trailing_comment(line))
+	var tokens := MlogText.tokenize(MlogText.trailing_comment(line))
 	if tokens.is_empty():
 		return {}
 	var def: BlockDef = markers.get(StringName(tokens[0]))
@@ -494,7 +478,7 @@ static func _is_tail(library: BlockLibrary, def: BlockDef, node: LogicNode, head
 	var node_def := library.by_id(node.type_id)
 	if node_def == null:
 		return false
-	var tokens := tokenize(MlogExporter.render_node(node_def, node))
+	var tokens := MlogText.tokenize(MlogExporter.render_node(node_def, node))
 	for shape in _tail_shapes(def):
 		var values: Variant = _match(def, shape["tokens"], shape["states"], tokens, true)
 		if values == null:
@@ -507,8 +491,7 @@ static func _is_tail(library: BlockLibrary, def: BlockDef, node: LogicNode, head
 
 static func _is_instruction_node(library: BlockLibrary, node: LogicNode) -> bool:
 	var def := library.by_id(node.type_id)
-	return def != null and MlogExporter.is_instruction(MlogExporter.render_node(def, node))
-
+	return def != null and MlogText.is_instruction(MlogExporter.render_node(def, node))
 
 ## 结构块装巢的槽位：它的第一个槽位（XML 里的 `<Nest>`）。
 static func _nest_slot(def: BlockDef) -> StringName:

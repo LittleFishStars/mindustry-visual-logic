@@ -23,6 +23,37 @@ static func parse_link_ref(value: Variant) -> int:
 	return int(digits) if digits.is_valid_int() else ROOT
 
 
+## 引用字段现在指向的节点 id；值不是 `#<id>` 或节点已不在图上时返回 0（视为未锁定）。
+func link_target(node: LogicNode, field_id: StringName) -> int:
+	if node == null:
+		return ROOT
+	var target := parse_link_ref(node.get_field(field_id, ""))
+	return target if target > 0 and _nodes.has(target) else ROOT
+
+
+## 遍历每个节点的全部块引用字段：[param fields_of] 是 `节点 -> Array[StringName]`
+## （「哪些字段是引用」的真相在块定义上，由调用方给），逐个回调 `{node, field_id, target}`。
+## 值为空 / 指向不在图上的节点的目标按 0 上报（未锁定），与 [method link_target] 同一口径。
+func each_link_ref(fields_of: Callable, emit: Callable) -> void:
+	for id in all_ids():
+		var node := get_node_by_id(id)
+		if node == null:
+			continue
+		for field_id in fields_of.call(node):
+			emit.call({
+				"node": node,
+				"field_id": field_id,
+				"target": link_target(node, field_id),
+			})
+
+
+## 清掉指向 [param doomed] 里任一 id 的全部引用字段（删除块时与删除同处一条撤销记录）。
+func clear_links_to(doomed: Dictionary, fields_of: Callable) -> void:
+	each_link_ref(fields_of, func(ref: Dictionary) -> void:
+		var target: int = ref["target"]
+		if target > 0 and doomed.has(target):
+			set_field((ref["node"] as LogicNode).id, ref["field_id"], ""))
+
 signal structure_changed()
 signal field_changed(id: int, field_id: StringName, value: Variant)
 ## 整体被替换（读档 / 撤销 / 重做），视图层应重建。
@@ -167,28 +198,9 @@ func remove_node(id: int) -> bool:
 	return true
 
 
-## 移动节点；拒绝把自己移进自己或自己的子孙（否则成环）。
+## 移动单个节点；拒绝把自己移进自己或自己的子孙（否则成环）。
 func move_node(id: int, owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
-	if not _nodes.has(id) or not _can_host(owner_id, slot_id):
-		return false
-	if owner_id != ROOT and (owner_id == id or _is_descendant(owner_id, id)):
-		return false
-	var where := locate(id)
-	if where.is_empty():
-		return false
-	var same_container: bool = where["owner_id"] == owner_id and where["slot"] == slot_id
-	var old_index: int = where["index"]
-	_detach(where)
-	var target := index
-	if target < 0:
-		target = slot_items(owner_id, slot_id).size()
-	elif same_container and old_index < target:
-		target -= 1
-	_insert_at(_container_ref(owner_id, slot_id, true), id, target)
-	_drop_empty_container(where)
-	structure_changed.emit()
-	return true
-
+	return move_nodes([id] as Array[int], owner_id, slot_id, index)
 
 ## 同一容器里「这个块及其后面的所有块」（拖动时一起走）。
 func tail_ids(id: int) -> Array[int]:
@@ -205,22 +217,22 @@ func tail_ids(id: int) -> Array[int]:
 ## 把一串有先后顺序的节点整体搬到目标容器（逐个搬会因下标变化而错位）。
 ## 通用入口：按参数顺序落位；链式搬移（后面的跟着走）用 [method move_tail]。
 func move_nodes(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
-	if ids.is_empty():
+	if ids.is_empty() or not _can_host(owner_id, slot_id):
 		return false
 	for id in ids:
 		if not _nodes.has(id):
 			return false
 		if owner_id != ROOT and (owner_id == id or _is_descendant(owner_id, id)):
 			return false
-	if not _can_host(owner_id, slot_id):
-		return false
 	var places: Array[Dictionary] = []
 	var same_container := true
 	var removed_before := 0
 	for id in ids:
 		var at := locate(id)
+		if at.is_empty():
+			return false
 		places.append(at)
-		if at.is_empty() or at["owner_id"] != owner_id or at["slot"] != slot_id:
+		if at["owner_id"] != owner_id or at["slot"] != slot_id:
 			same_container = false
 		elif index >= 0 and int(at["index"]) < index:
 			removed_before += 1
@@ -240,7 +252,6 @@ func move_nodes(ids: Array[int], owner_id: int, slot_id: StringName = &"", index
 	structure_changed.emit()
 	return true
 
-
 ## 把「一个块 + 它后面的所有块」一起搬（拖拽搬移的直觉：后面的跟着走，顺序不乱）。
 ## 展开的序列一定在原容器内连续，照旧按参数顺序落位，只是追加一个空位让位。
 func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index: int = -1) -> bool:
@@ -254,7 +265,36 @@ func move_tail(ids: Array[int], owner_id: int, slot_id: StringName = &"", index:
 		index += 1
 	return move_nodes(ids, owner_id, slot_id, index)
 
+## 新建一条链并把尚未入图的节点作为首成员（只发一次结构变更；撤销闭包里也能安全调用）。
+func insert_in_new_chain(node: LogicNode, pos: Vector2) -> StringName:
+	var chain_id := StringName("c%d" % _next_chain)
+	if node == null or _nodes.has(node.id):
+		return &""
+	_next_chain += 1
+	var ids: Array[int] = [node.id]
+	_chains[chain_id] = ids
+	_chain_positions[chain_id] = pos
+	_nodes[node.id] = node
+	_sync_next_id(node.id)
+	structure_changed.emit()
+	return chain_id
 
+
+## 把一组节点搬到画布上新开的一条链（只发一次结构变更；搬不动时不留空链）。
+func move_nodes_to_new_chain(ids: Array[int], pos: Vector2) -> StringName:
+	if ids.is_empty():
+		return &""
+	var chain_id := StringName("c%d" % _next_chain)
+	_next_chain += 1
+	var ids_empty: Array[int] = []
+	_chains[chain_id] = ids_empty
+	_chain_positions[chain_id] = pos
+	if move_nodes(ids, ROOT, chain_id, -1):
+		return chain_id
+	# 搬不动（不在图上 / 成环）：把刚建的空链收掉，不留空壳
+	_chains.erase(chain_id)
+	_chain_positions.erase(chain_id)
+	return &""
 func set_field(id: int, field_id: StringName, value: Variant) -> bool:
 	var node := get_node_by_id(id)
 	if node == null:

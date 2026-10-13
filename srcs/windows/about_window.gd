@@ -11,6 +11,7 @@ const DISPLAY_NAME: String = "Mindustry Visual Logic"
 
 
 func _ready() -> void:
+	_apply_styles()
 	refresh_language()
 
 
@@ -36,3 +37,13 @@ func _on_meta_clicked(meta: Variant) -> void:
 
 func _on_close_pressed() -> void:
 	hide()
+
+
+## 样式统一由 [UiStyle] 提供（场景里不再内联 StyleBox）。
+func _apply_styles() -> void:
+	var panel := get_node_or_null("Panel")
+	if panel is PanelContainer:
+		panel.add_theme_stylebox_override("panel", UiStyle.panel_style())
+	var bottom := get_node_or_null("Panel/Layout/BottomBar")
+	if bottom is PanelContainer:
+		bottom.add_theme_stylebox_override("panel", UiStyle.bar_style())

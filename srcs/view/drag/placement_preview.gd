@@ -13,6 +13,18 @@ var _ids: Array[int] = []
 var _def_id: StringName = &""
 
 
+## 引擎对象仍然活着（非 null 且未被 free）；视图层到处都是这个判断，收成一个词。
+static func is_valid_object(value: Variant) -> bool:
+	return value != null and is_instance_valid(value)
+
+
+## 从父节点摘掉并 queue_free（先摘掉：queue_free 到帧末才生效，这一帧里它仍可能被遍历到）。
+static func dismiss(node: Node) -> void:
+	if node == null:
+		return
+	if node.get_parent() != null:
+		node.get_parent().remove_child(node)
+	node.queue_free()
 func _init(canvas: EditorCanvas) -> void:
 	_canvas = canvas
 
@@ -35,9 +47,8 @@ func show_existing(ids: Array[int], offset: Vector2) -> void:
 			_views.append(ghost)
 			_origins.append(_canvas.layout.rect_of(id).position if _canvas.layout != null else Vector2.ZERO)
 	for i in _views.size():
-		if i < _origins.size():
+		if i < _origins.size() and is_valid_object(_views[i]):
 			_views[i].position = _origins[i] + offset
-
 
 ## 摆出「从调色板拖出的新块会落到哪」：占位块就是要新建的那个块（默认值）。
 func show_new(def: BlockDef, top_left: Vector2) -> void:
@@ -52,23 +63,22 @@ func show_new(def: BlockDef, top_left: Vector2) -> void:
 			ghost.modulate = Color(1, 1, 1, 0.5)
 			_views.append(ghost)
 	for view in _views:
-		if is_instance_valid(view):
+		if is_valid_object(view):
 			view.position = top_left
-
 
 ## 占位块的总高度（插在中间时用它给后面的块让位）。
 func height() -> float:
 	var total := 0.0
 	for view in _views:
-		if is_instance_valid(view):
+		if is_valid_object(view):
 			total += maxf(view.metrics.size.y if view.metrics != null else view.size.y, 1.0)
 	return total
 
 
 func clear() -> void:
 	for view in _views:
-		if is_instance_valid(view):
-			view.queue_free()
+		if is_valid_object(view):
+			dismiss(view)
 	_views.clear()
 	_origins.clear()
 	_ids.clear()

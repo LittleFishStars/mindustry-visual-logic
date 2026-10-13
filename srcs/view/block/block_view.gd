@@ -146,7 +146,7 @@ func apply_picker_value(element: ElementDef, control: Control, value: String) ->
 	if element == null:
 		return
 	var builder: Variant = ElementRegistry.builder(element.type)
-	if builder != null and control != null and is_instance_valid(control):
+	if builder != null and PlacementPreview.is_valid_object(control):
 		builder.apply_value(element, control, value, true)
 	commit_field(element.id, value)
 
@@ -213,7 +213,7 @@ func control_style(base: Color, hover: bool = false, pressed: bool = false) -> S
 
 func _build() -> void:
 	for child in get_children():
-		child.queue_free()
+		PlacementPreview.dismiss(child)
 	_rows.clear()
 	_row_kind.clear()
 	_row_slot.clear()
@@ -323,7 +323,7 @@ func _apply_row_orders(value_of: Callable) -> void:
 		var order := _ordered_cells(cells, value_of)
 		for i in order.size():
 			var control: Control = order[i]["control"]
-			if control == null or not is_instance_valid(control) or control.get_parent() == null:
+			if not PlacementPreview.is_valid_object(control) or control.get_parent() == null:
 				continue
 			control.get_parent().move_child(control, i)
 
@@ -511,7 +511,7 @@ func _apply_visibility() -> void:
 	for entry in _element_entries:
 		var element: ElementDef = entry["element"]
 		var control: Control = entry["control"]
-		if control != null and is_instance_valid(control):
+		if PlacementPreview.is_valid_object(control):
 			control.visible = def.is_element_active(element, value_of)
 
 
@@ -536,7 +536,7 @@ func _sync_control(field_id: StringName) -> void:
 func _sync_entry(entry: Dictionary) -> void:
 	var element: ElementDef = entry["element"]
 	var control: Control = entry["control"]
-	if element == null or control == null or not is_instance_valid(control):
+	if element == null or not PlacementPreview.is_valid_object(control):
 		return
 	var builder: Variant = ElementRegistry.builder(element.type)
 	if builder != null:
@@ -561,7 +561,7 @@ func set_elements_enabled(enabled: bool) -> void:
 	for entry in _element_entries:
 		var element: ElementDef = entry["element"]
 		var control: Control = entry["control"]
-		if element == null or control == null or not is_instance_valid(control):
+		if element == null or not PlacementPreview.is_valid_object(control):
 			continue
 		var builder: Variant = ElementRegistry.builder(element.type)
 		if builder != null:

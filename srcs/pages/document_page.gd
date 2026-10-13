@@ -22,14 +22,20 @@ var _current: int = -1
 
 
 func _ready() -> void:
+	var content := get_node_or_null("Split/Content")
+	if content is PanelContainer:
+		var style := UiStyle.panel_style()
+		style.content_margin_left = 14.0
+		style.content_margin_top = 12.0
+		style.content_margin_right = 14.0
+		style.content_margin_bottom = 12.0
+		content.add_theme_stylebox_override("panel", style)
 	reload_language()
-
 
 ## 按当前界面语言重读文档（语言切换时由 [Main] 再调一次）。
 func reload_language() -> void:
 	for child in nChapters.get_children():
-		nChapters.remove_child(child)
-		child.queue_free()
+		PlacementPreview.dismiss(child)
 	_sections = _load_sections()
 	for index in _sections.size():
 		var button := Button.new()

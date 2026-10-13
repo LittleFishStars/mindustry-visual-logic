@@ -70,7 +70,7 @@ func _close_session() -> void:
 	_field = &""
 	_hover_id = 0
 	set_process(false)
-	if _control != null and is_instance_valid(_control):
+	if PlacementPreview.is_valid_object(_control):
 		# 松开事件被本控制器消费了，按钮收不到 mouse-up：手动把它从按下态放回来
 		if _control is BaseButton:
 			(_control as BaseButton).set_pressed_no_signal(false)
