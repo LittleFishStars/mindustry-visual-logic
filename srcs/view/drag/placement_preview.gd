@@ -78,7 +78,7 @@ func height() -> float:
 func clear() -> void:
 	for view in _views:
 		if is_valid_object(view):
-			dismiss(view)
+			_canvas.release_ghost(view)
 	_views.clear()
 	_origins.clear()
 	_ids.clear()

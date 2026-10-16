@@ -552,6 +552,17 @@ func sync_from_data() -> void:
 	_apply_row_orders(_value_reader())
 	_apply_visibility()
 
+## 复用同一棵控件树去显示另一个同类型的节点（拖动幽灵池用）。
+## 新建一棵控件树是拖动起手里最贵的一步（带中文文本的 Label 首次入树约 3 ms/个），复用只在 1 ms 上下。
+## [param slot_extents] 是新节点各嵌套槽位的尺寸，与 [method measure] 同义，由调用方给。
+func retarget(p_def: BlockDef, p_node: LogicNode, slot_extents: Dictionary[StringName, Vector2]) -> bool:
+	if def == null or def != p_def:
+		return false
+	node = p_node
+	sync_from_data()
+	measure(slot_extents)
+	return true
+
 
 ## 拖拽期间统一禁用/恢复本块的可交互控件（preview 始终保持禁用）。
 func set_elements_enabled(enabled: bool) -> void:

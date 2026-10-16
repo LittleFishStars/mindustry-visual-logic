@@ -353,7 +353,7 @@ func cancel() -> void:
 func _close_session() -> void:
 	for float_view in _floats:
 		if PlacementPreview.is_valid_object(float_view):
-			PlacementPreview.dismiss(float_view)
+			canvas.release_ghost(float_view)
 	_floats.clear()
 	_float_offsets.clear()
 	for id in _hidden:
@@ -363,7 +363,7 @@ func _close_session() -> void:
 	_hidden.clear()
 	_release_shift()
 	if PlacementPreview.is_valid_object(_ghost):
-		PlacementPreview.dismiss(_ghost)
+		canvas.release_ghost(_ghost)
 	_ghost = null
 	_active = false
 	_delete_hover = false

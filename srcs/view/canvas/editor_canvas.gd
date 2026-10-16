@@ -26,6 +26,10 @@ var history: GraphHistory
 var layout: LayoutResult = null
 
 var _views: Dictionary[int, BlockView] = {}
+## 幽灵视图池：父节点 → { 块类型 id → 空闲幽灵 }。幽灵只显示、不吃鼠标、用完就扔，
+## 而「新建一棵控件树」正是拖动起手里最贵的一步（带中文文本的 Label 首次入树约 3 ms）——留着重用。
+const GHOST_POOL_LIMIT: int = 64
+var _ghost_pool: Dictionary = {}
 var _applying_field: bool = false
 ## 跳线数据（线段 + 颜色），每次布局后由 [method _refresh_links] 重算。
 var _segments: Array[Dictionary] = []
@@ -42,6 +46,7 @@ var _selection_band_on := false
 
 func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	library = p_library
+	_flush_ghost_pool()
 	_placement = PlacementPreview.new(self)
 	nLinks.canvas = self
 	_selection = SelectionController.new()
@@ -78,6 +83,7 @@ func _attach_graph(p_graph: LogicGraph) -> void:
 
 ## 按当前图整体重建块视图（撤销/读档/首次打开走这里）。
 func rebuild() -> void:
+	_flush_ghost_pool()
 	for id in _views.keys():
 		var view: BlockView = _views[id]
 		if PlacementPreview.is_valid_object(view):
@@ -418,19 +424,77 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 	var def := library.by_id(type_id) if library != null else null
 	if def == null:
 		return null
+	var host: Node = parent if parent != null else nBlocks
 	var temp := source if source != null else LogicNode.new(0, type_id)
 	if source == null:
 		def.apply_defaults(temp)
-	var ghost := BlockView.new()
+	var extents: Dictionary[StringName, Vector2] = slot_extents_of(source.id) if source != null else {}
+	var ghost := _take_pooled_ghost(host, type_id)
+	# 池里那个已经建好控件树（preview、不吃鼠标、link_labeler 都就位了）：换节点刷新即可；
+	# 换不了（池里的是旧库的定义，正常不会发生）就丢掉重来。
+	if ghost != null:
+		if ghost.retarget(def, temp, extents):
+			ghost.visible = true
+			ghost.modulate = Color.WHITE
+			ghost.scale = Vector2.ONE
+			ghost.z_index = 50
+			return ghost
+		PlacementPreview.dismiss(ghost)
+	ghost = BlockView.new()
 	ghost.interactive = false
 	# 幽灵也要显示「锁到了哪一块」：不注入这个标签器，跳转目标会一律显示未锁定
 	ghost.link_labeler = _link_label
-	(parent if parent != null else nBlocks).add_child(ghost)
+	host.add_child(ghost)
 	ghost.setup(def, temp, true)
 	if source != null:
-		ghost.measure(slot_extents_of(source.id))
+		ghost.measure(extents)
 	ghost.z_index = 50
 	return ghost
+
+
+## 归还幽灵：留在池里等下次拖动复用。真实视图不走这里（那些该被 dismiss）。
+func release_ghost(ghost: BlockView) -> void:
+	if not PlacementPreview.is_valid_object(ghost) or ghost.def == null:
+		return
+	var host := ghost.get_parent()
+	if host == null:
+		return
+	var bucket: Dictionary = _ghost_pool.get(host, {})
+	var free: Array = bucket.get(ghost.def.id, [])
+	if free.size() >= GHOST_POOL_LIMIT:
+		PlacementPreview.dismiss(ghost)
+		return
+	ghost.visible = false
+	ghost.modulate = Color.WHITE
+	ghost.scale = Vector2.ONE
+	free.append(ghost)
+	bucket[ghost.def.id] = free
+	_ghost_pool[host] = bucket
+
+
+func _take_pooled_ghost(host: Node, type_id: StringName) -> BlockView:
+	var bucket: Variant = _ghost_pool.get(host)
+	if not (bucket is Dictionary):
+		return null
+	var free: Array = (bucket as Dictionary).get(type_id, [])
+	while not free.is_empty():
+		var ghost: BlockView = free.pop_back()
+		if PlacementPreview.is_valid_object(ghost) and ghost.def != null:
+			return ghost
+	return null
+
+
+## 池里的幽灵绑的是旧库的块定义（换语言会整库重建），一律作废。
+func _flush_ghost_pool() -> void:
+	for host in _ghost_pool:
+		if not is_instance_valid(host):
+			continue
+		var bucket: Dictionary = _ghost_pool[host]
+		for type_id in bucket:
+			for ghost in bucket[type_id]:
+				if PlacementPreview.is_valid_object(ghost):
+					PlacementPreview.dismiss(ghost)
+	_ghost_pool.clear()
 
 
 func show_placement_preview(ids: Array[int], offset: Vector2) -> void:

@@ -53,6 +53,11 @@ var placeholder: String = ""
 
 var items: Array[OptionItem] = []
 
+## `<Option>` 控件的宽度预算：引擎的 fit_to_longest_item 会让每个新实例自己把全部候选量一遍
+## （45 项约 90 ms），而拖动起手要为每个被拖块新建整棵控件 —— 首次建控件时让引擎量一次真实宽度存在这里，
+## 同定义的块之后直接复用。-1 表示尚未量过。
+var option_text_width: float = -1.0
+
 var default_index: int = 0
 
 ## 字段默认值：新块入图时写进节点；未写 default 时用 [member placeholder]。

@@ -104,6 +104,7 @@ class OptionBuilder extends FieldBuilder:
 			option.add_item(item.text)
 		host.style_button(option)
 		apply_value(element, option, String(host.field_value(element.id, "")))
+		_fit_width(option, element, host)
 		if host.is_preview():
 			option.disabled = true
 		else:
@@ -112,6 +113,31 @@ class OptionBuilder extends FieldBuilder:
 					host.commit_field(element.id, element.items[selected].value_or_text(), false)
 				host.refresh_visibility())
 		return option
+
+	## OptionButton 默认 fit_to_longest_item：每个新实例都要把全部候选量一遍（45 项约 90 ms），
+	## 而拖动起手要为每个被拖块新建整棵控件树，这笔钱会把整帧卡住。
+	## 做法：第一次让引擎量出真实宽度（保证逐像素一致）并缓存在元素定义上，之后的实例直接关掉 fit 沿用。
+	func _fit_width(option: OptionButton, element: ElementDef, _host: Object) -> void:
+		if element.option_text_width >= 0.0:
+			_shrink(option, element.option_text_width)
+			return
+		option.ready.connect(_cache_fit_width.bind(option, element), CONNECT_ONE_SHOT)
+
+	## 入树之后才能拿到带主题字号的真实宽度：量一次、记住、然后关掉 fit。
+	func _cache_fit_width(option: OptionButton, element: ElementDef) -> void:
+		if not is_instance_valid(option):
+			return
+		var width := option.get_combined_minimum_size().x
+		if width > 0.0:
+			element.option_text_width = width
+		_shrink(option, width)
+		# 关掉 fit 会把最小尺寸重新作废，让宿主按新宽度再量一次
+		option.update_minimum_size()
+
+	func _shrink(option: OptionButton, width: float) -> void:
+		option.fit_to_longest_item = false
+		if width > 0.0:
+			option.custom_minimum_size.x = maxf(option.custom_minimum_size.x, width)
 
 	func apply_value(element: ElementDef, control: Control, value: String, _force: bool = false) -> void:
 		if control is OptionButton and not element.items.is_empty():
