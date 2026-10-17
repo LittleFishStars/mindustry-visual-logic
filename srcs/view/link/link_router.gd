@@ -3,9 +3,15 @@ extends RefCounted
 
 ## 跳线路由（纯函数）：把「谁引用了谁」算成一组可直接画的折线。
 ## 从源块左侧中点绕到母线、竖直走到目标高度再进块；竖直区间重叠的线错开道次，否则复用同一条母线。
+## 拐角不是死直角：按「母线保底长度」反推可用斜率做动态斜切 —— 近跳保持直角，远跳观感同原版梯形。
 
 const LANE_GAP: float = 14.0
 const LANE_STEP: float = 10.0
+## 斜切的斜率上限：0.5 = 2:1 ≈ 26.6°（同原版 LCanvas:707 的 dy = uiHeight × 0.5，角度恒定）。
+const CUT_RATIO: float = 0.5
+## 母线保底长度（≈ 3/4 行积木高，行高 40px）：竖直空间不足这个值完全不切（直角折线）；
+## 充足时斜率逐级放大、母线始终至少剩这么多 —— 两条切角加起来在数学上不可能吃穿母线（负数斜率归零）。
+const MIN_BUS: float = 30.0
 
 
 ## 全部跳线：`[{points, color}]`；[param layout] 为空（还没求解）时返回空数组。
@@ -38,11 +44,18 @@ static func segments(graph: LogicGraph, library: BlockLibrary, layout: LayoutRes
 		var start: Vector2 = segment["start"]
 		var end: Vector2 = segment["end"]
 		var lane_x := minf(start.x, end.x) - LANE_GAP - float(segment["lane"]) * LANE_STEP
+		# 可用斜率：竖直空间先扣掉母线保底，剩下的分摊到两侧横跨上；
+		# 充足时被封在 CUT_RATIO（恒角 2:1），不足时收缩，负数归零（同高 / 极近 → 直角不切）。
+		var free_slope := (absf(end.y - start.y) - MIN_BUS) / (absf(lane_x - end.x) + absf(lane_x - start.x))
+		var slope := clampf(free_slope, 0.0, CUT_RATIO)
+		var dir_y := signf(end.y - start.y)
+		var start_tilt := dir_y * (start.x - lane_x) * slope
+		var end_tilt := dir_y * (end.x - lane_x) * slope
 		out.append({
 			"points": PackedVector2Array([
 				start,
-				Vector2(lane_x, start.y),
-				Vector2(lane_x, end.y),
+				Vector2(lane_x, start.y + start_tilt),
+				Vector2(lane_x, end.y - end_tilt),
 				end,
 			]),
 			"color": color_for(int(segment["target"])),
