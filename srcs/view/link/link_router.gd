@@ -3,9 +3,13 @@ extends RefCounted
 
 ## 跳线路由（纯函数）：把「谁引用了谁」算成一组可直接画的折线。
 ## 从源块左侧中点绕到母线、竖直走到目标高度再进块；竖直区间重叠的线错开道次，否则复用同一条母线。
+## 拐角不是死直角：按「母线保底长度」反推可用斜率做动态斜切 —— 近跳保持直角，远跳观感同原版梯形。
 
 const LANE_GAP: float = 14.0
 const LANE_STEP: float = 10.0
+const CUT_RATIO: float = 0.5
+const MIN_BUS: float = 30.0
+const END_DROP: float = 4.0
 
 
 ## 全部跳线：`[{points, color}]`；[param layout] 为空（还没求解）时返回空数组。
@@ -38,12 +42,16 @@ static func segments(graph: LogicGraph, library: BlockLibrary, layout: LayoutRes
 		var start: Vector2 = segment["start"]
 		var end: Vector2 = segment["end"]
 		var lane_x := minf(start.x, end.x) - LANE_GAP - float(segment["lane"]) * LANE_STEP
+		var slope := clampf(
+				(absf(end.y - start.y) - MIN_BUS) / (absf(lane_x - end.x) + absf(lane_x - start.x)), 
+				0.0, CUT_RATIO)
+		var dir_y := signf(end.y - start.y)
 		out.append({
 			"points": PackedVector2Array([
 				start,
-				Vector2(lane_x, start.y),
-				Vector2(lane_x, end.y),
-				end,
+				Vector2(lane_x, start.y + dir_y * (start.x - lane_x) * slope),
+				Vector2(lane_x, end.y - dir_y * (end.x - lane_x) * slope - END_DROP),
+				Vector2(end.x,end.y - END_DROP),
 			]),
 			"color": color_for(int(segment["target"])),
 		})
