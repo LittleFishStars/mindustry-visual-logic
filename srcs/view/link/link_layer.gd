@@ -3,8 +3,11 @@ extends Node2D
 
 ## 跳线层：把 [LinkRouter] 算出的折线画出来（本层不做几何计算）；它是 Blocks 的第一个子节点，线只在块间空隙露出。
 
-const LINE_WIDTH: float = 2.0
-const ARROW_SIZE: float = 9.0
+const LINE_WIDTH: float = 4.0
+## 箭头边长（对标原版 = JumpButton 宽，≈ 2/5 行高）。
+const ARROW_SIZE: float = 16
+## 箭头相对线体的加深系数：同色相更深，实心感突出落点（0 = 同色）。
+const ARROW_DARKEN: float = 0.1
 const PREVIEW_COLOR: Color = Color(1.0, 0.9, 0.4, 0.95)
 const PREVIEW_CANCEL_COLOR: Color = Color(1.0, 1.0, 1.0, 0.4)
 const BAND_FILL: Color = Color(0.30, 0.55, 1.0, 0.10)
@@ -23,7 +26,9 @@ func _draw() -> void:
 			continue
 		var color: Color = segment["color"]
 		draw_polyline(points, color, LINE_WIDTH, true)
+		# 两端箭头：落点端朝右（扎进目标块），出发端朝左（块内出口，指向跳出方向）
 		_draw_arrow(points[points.size() - 2], points[points.size() - 1], color)
+		_draw_arrow(points[1], points[0], color, true)
 	var preview: Dictionary = canvas.link_preview()
 	if not preview.is_empty():
 		_draw_preview(preview)
@@ -34,17 +39,28 @@ func _draw() -> void:
 		draw_rect(band, BAND_EDGE, false, 1.5)
 
 
-## 目标端箭头：贴着终点朝目标块内侧（不沿最后一段延长）。
-func _draw_arrow(from: Vector2, to: Vector2, color: Color) -> void:
-	var direction := (to - from).normalized()
-	if direction == Vector2.ZERO:
-		direction = Vector2.RIGHT
-	var normal := Vector2(-direction.y, direction.x)
-	draw_colored_polygon(PackedVector2Array([
-		to,
-		to - direction * ARROW_SIZE + normal * ARROW_SIZE * 0.5,
-		to - direction * ARROW_SIZE - normal * ARROW_SIZE * 0.5,
-	]), color)
+## 端点箭头：恒水平、与曲线末段方向解耦（同原版——末段斜切进来，箭头独立横贴）。
+## [param flip] 为真时以 [param to] 为轴左右镜像（出发端朝左用）。
+## 几何：总高 s，水平覆盖 to.x ± 0.4s，尖端截平（竖边 tip_half × 2）扎进块边 0.4s；矢量绘制缩放不糊。
+func _draw_arrow(_from: Vector2, to: Vector2, color: Color, flip: bool = false) -> void:
+	var s := ARROW_SIZE
+	var left := to.x - s * 0.4
+	var shoulder := left + s * 0.3
+	var tip := left + s * 0.8
+	var half := s * 0.5
+	var tip_half := 1.0
+	var pts := PackedVector2Array([
+		Vector2(left, to.y - half),
+		Vector2(shoulder, to.y - half),
+		Vector2(tip, to.y - tip_half),
+		Vector2(tip, to.y + tip_half),
+		Vector2(shoulder, to.y + half),
+		Vector2(left, to.y + half),
+	])
+	if flip:
+		for i in pts.size():
+			pts[i] = Vector2(2.0 * to.x - pts[i].x, pts[i].y)
+	draw_colored_polygon(pts, color.darkened(ARROW_DARKEN))
 
 
 ## 锁定拖拽中的预览线：命中候选时暖色实线，悬在空白处灰白虚线。
