@@ -4,9 +4,7 @@ extends Node2D
 ## 跳线层：把 [LinkRouter] 算出的折线画出来（本层不做几何计算）；它是 Blocks 的第一个子节点，线只在块间空隙露出。
 
 const LINE_WIDTH: float = 4.0
-## 箭头边长（对标原版 = JumpButton 宽，≈ 2/5 行高）。
 const ARROW_SIZE: float = 16
-## 箭头相对线体的加深系数：同色相更深，实心感突出落点（0 = 同色）。
 const ARROW_DARKEN: float = 0.1
 const PREVIEW_COLOR: Color = Color(1.0, 0.9, 0.4, 0.95)
 const PREVIEW_CANCEL_COLOR: Color = Color(1.0, 1.0, 1.0, 0.4)
@@ -39,9 +37,7 @@ func _draw() -> void:
 		draw_rect(band, BAND_EDGE, false, 1.5)
 
 
-## 端点箭头：恒水平、与曲线末段方向解耦（同原版——末段斜切进来，箭头独立横贴）。
-## [param flip] 为真时以 [param to] 为轴左右镜像（出发端朝左用）。
-## 几何：总高 s，水平覆盖 to.x ± 0.4s，尖端截平（竖边 tip_half × 2）扎进块边 0.4s；矢量绘制缩放不糊。
+## 端点箭头：恒水平、与曲线末段方向解耦。
 func _draw_arrow(_from: Vector2, to: Vector2, color: Color, flip: bool = false) -> void:
 	var s := ARROW_SIZE
 	var left := to.x - s * 0.4
