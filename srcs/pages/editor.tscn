@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://ba61nhstol3lv" path="res://srcs/view/canvas/editor_canvas.gd" id="2_canvas"]
 [ext_resource type="Script" uid="uid://b53fyu6tp4klc" path="res://srcs/view/canvas/editor_camera.gd" id="3_camera"]
 [ext_resource type="Script" uid="uid://bo00f80eayfyo" path="res://srcs/view/drag/drag_controller.gd" id="5_drag"]
-[ext_resource type="Script" path="res://srcs/view/link/link_layer.gd" id="6_links"]
-[ext_resource type="Script" path="res://srcs/view/link/link_controller.gd" id="7_link"]
+[ext_resource type="Script" uid="uid://3xatsnop50gh" path="res://srcs/view/link/link_layer.gd" id="6_links"]
+[ext_resource type="Script" uid="uid://bqc2txv188bhw" path="res://srcs/view/link/link_controller.gd" id="7_link"]
 
 [node name="Editor" type="Control" unique_id=614836996]
 layout_mode = 3
@@ -51,15 +51,15 @@ size = Vector2i(884, 648)
 render_target_update_mode = 4
 script = ExtResource("2_canvas")
 
-[node name="Links" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace"]
-script = ExtResource("6_links")
-
 [node name="Blocks" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1906459448]
+
+[node name="Links" type="Node2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=982738444]
+script = ExtResource("6_links")
 
 [node name="Camera" type="Camera2D" parent="Split/EditorSplit/EditArea/EditSpace" unique_id=1714148892]
 script = ExtResource("3_camera")
 
-[node name="DragLayer" type="Control" parent="."]
+[node name="DragLayer" type="Control" parent="." unique_id=2092214721]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -71,5 +71,5 @@ mouse_filter = 2
 [node name="Drag" type="Node" parent="." unique_id=65624684]
 script = ExtResource("5_drag")
 
-[node name="Link" type="Node" parent="."]
+[node name="Link" type="Node" parent="." unique_id=330491524]
 script = ExtResource("7_link")
