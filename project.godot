@@ -31,7 +31,6 @@ config/icon="uid://vve5nvl1huwc"
 
 [display]
 
-window/subwindows/embed_subwindows=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/per_pixel_transparency/allowed=true
