@@ -112,7 +112,7 @@ assets/
 |---|---|---|
 | 布局求解 | [LayoutSolver] | 纯函数（图 + 度量 → 矩形/锚点） |
 | 跳线几何 | [LinkRouter] | 纯函数（图 + 库 + 布局 → 折线） |
-| 落点占位块 | [PlacementPreview] | 有状态，但只认识画布的两个方法 |
+| 落点占位块 | [PlacementPreview] | 有状态；对画布只持 `Object` 弱引用（断类名环，冷加载才不报 `_init` 解析错） |
 | 子树深拷贝 | [GraphCloner] | 纯数据（defs 层面的事靠 Callable 注入） |
 
 搬块与锁定跳转目标是同一个交互的两个变体，共用 [CanvasPointerSession]（开始 / 每帧 /

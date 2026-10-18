@@ -4,7 +4,10 @@ extends RefCounted
 ## 落点占位块：拖拽时摆一组半透明幽灵视图，指示「现在放下会怎么样」。
 ## 视图只在目标集合变化时重建，之后每帧只更新位置；状态全在这里，画布只转发。
 
-var _canvas: EditorCanvas
+## 画布只认这三个方法（幽灵工厂 / 幽灵回收 / 布局查询）——不直接引用 EditorCanvas 类型，
+## 免得与画布构成类名环：编辑器冷加载时全局类缓存还没建好，环上的 `PlacementPreview.new(...)`
+## 会报 "Could not resolve external class member \"_init\""（AGENTS.md 记载的坑）。
+var _canvas: Object
 ## 当前幽灵视图与各自的原始位置（按下标一一对应）。
 var _views: Array[BlockView] = []
 var _origins: Array[Vector2] = []
@@ -25,7 +28,9 @@ static func dismiss(node: Node) -> void:
 	if node.get_parent() != null:
 		node.get_parent().remove_child(node)
 	node.queue_free()
-func _init(canvas: EditorCanvas) -> void:
+
+
+func _init(canvas: Object) -> void:
 	_canvas = canvas
 
 
@@ -36,11 +41,11 @@ func show_existing(ids: Array[int], offset: Vector2) -> void:
 		_ids = ids.duplicate()
 		_origins.clear()
 		for id in ids:
-			var node := _canvas.graph.get_node_by_id(id)
+			var node: LogicNode = _canvas.graph.get_node_by_id(id)
 			if node == null:
 				continue
 			# make_ghost(source) 已带真实字段值、不吃鼠标，并按本体布局量过巢的尺寸
-			var ghost := _canvas.make_ghost(node.type_id, null, node)
+			var ghost: BlockView = _canvas.make_ghost(node.type_id, null, node)
 			if ghost == null:
 				continue
 			ghost.modulate = Color(1, 1, 1, 0.5)
@@ -58,7 +63,7 @@ func show_new(def: BlockDef, top_left: Vector2) -> void:
 	if _def_id != def.id:
 		clear()
 		_def_id = def.id
-		var ghost := _canvas.make_ghost(def.id)
+		var ghost: BlockView = _canvas.make_ghost(def.id)
 		if ghost != null:
 			ghost.modulate = Color(1, 1, 1, 0.5)
 			_views.append(ghost)
