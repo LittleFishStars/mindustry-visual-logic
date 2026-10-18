@@ -74,7 +74,8 @@ func setup(p_def: BlockDef, p_node: LogicNode, p_preview: bool = false) -> void:
 	_build()
 	_apply_visibility()
 	# 先量一次：调色板样品需要最小尺寸，画布上的块稍后会由求解器重算
-	measure({})
+	var empty_extents: Dictionary[StringName, Vector2] = {}
+	measure(empty_extents)
 
 
 func color() -> Color:

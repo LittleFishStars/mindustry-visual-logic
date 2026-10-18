@@ -428,7 +428,9 @@ func make_ghost(type_id: StringName, parent: Node = null, source: LogicNode = nu
 	var temp := source if source != null else LogicNode.new(0, type_id)
 	if source == null:
 		def.apply_defaults(temp)
-	var extents: Dictionary[StringName, Vector2] = slot_extents_of(source.id) if source != null else {}
+	var extents: Dictionary[StringName, Vector2] = {}
+	if source != null:
+		extents = slot_extents_of(source.id)
 	var ghost := _take_pooled_ghost(host, type_id)
 	# 池里那个已经建好控件树（preview、不吃鼠标、link_labeler 都就位了）：换节点刷新即可；
 	# 换不了（池里的是旧库的定义，正常不会发生）就丢掉重来。

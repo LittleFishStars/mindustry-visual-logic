@@ -231,6 +231,9 @@ func _on_settings_closed() -> void:
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_APPLICATION_FOCUS_OUT or _settings == null:
 		return
+	# 编辑器里子场景是占位实例，调它的方法会报 placeholder instance 错（AGENTS.md 记载的坑）
+	if Engine.is_editor_hint():
+		return
 	if not _settings.export_on_focus_lost:
 		return
 	var editor := self._current_editor()

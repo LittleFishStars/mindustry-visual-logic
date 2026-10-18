@@ -101,7 +101,8 @@ func _make_sample(block: BlockDef) -> BlockView:
 	view.name = "Sample_%s" % block.id
 	view.setup(block, temp, true)
 	view.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	view.measure({})
+	var empty_extents: Dictionary[StringName, Vector2] = {}
+	view.measure(empty_extents)
 	view.drag_requested.connect(func(_view: BlockView, offset: Vector2) -> void:
 		nDrag.start_from_palette(block, offset))
 	return view
