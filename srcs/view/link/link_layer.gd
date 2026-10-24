@@ -1,16 +1,14 @@
 class_name LinkLayer
 extends Node2D
 
-## 跳线层：把 [LinkRouter] 算出的折线画出来（本层不做几何计算）；它是 Blocks 的第一个子节点，线只在块间空隙露出。
+## 纯静态跳线层：把 [LinkRouter] 算出的折线画出来（本层不做几何计算与动态选区绘制）。
+## 仅在布局或连线关系改变时重绘，框选与拖拽预览已完全剥离至动态覆盖层 CanvasOverlay。
 
-const LINE_WIDTH: float = 2.0
-const ARROW_SIZE: float = 9.0
-const PREVIEW_COLOR: Color = Color(1.0, 0.9, 0.4, 0.95)
-const PREVIEW_CANCEL_COLOR: Color = Color(1.0, 1.0, 1.0, 0.4)
-const BAND_FILL: Color = Color(0.30, 0.55, 1.0, 0.10)
-const BAND_EDGE: Color = Color(0.45, 0.72, 1.0, 0.95)
+const LINE_WIDTH: float = 4.0
+const ARROW_SIZE: float = 16.0
+const ARROW_TIP_HALF: float = 1.0
+const ARROW_DARKEN: float = 0.1
 
-## 数据由画布提供（它是唯一知道图与布局的地方）。
 var canvas: EditorCanvas
 
 
@@ -19,40 +17,31 @@ func _draw() -> void:
 		return
 	for segment in canvas.link_segments():
 		var points: PackedVector2Array = segment["points"]
-		if points.size() < 2:
+		var count := points.size()
+		if count < 2:
 			continue
 		var color: Color = segment["color"]
+		# 跨链跳转线淡化显示（弱化视觉噪音，突出同链控制流）
+		if bool(segment.get("is_cross", false)):
+			color.a = 0.45
+
 		draw_polyline(points, color, LINE_WIDTH, true)
-		_draw_arrow(points[points.size() - 2], points[points.size() - 1], color)
-	var preview: Dictionary = canvas.link_preview()
-	if not preview.is_empty():
-		_draw_preview(preview)
-	# 框选矩形与跳线同层：都是画布上的叠加提示，不遮挡块身
-	if canvas.selection_band_on():
-		var band := canvas.selection_band()
-		draw_rect(band, BAND_FILL, true)
-		draw_rect(band, BAND_EDGE, false, 1.5)
+
+		# 两端箭头方向由首末段水平走向物理自动推导（兼容同链左进左出与跨链右出右/进）
+		draw_arrow(self, points[count - 1], color, points[count - 1].x < points[count - 2].x)
+		draw_arrow(self, points[0], color, points[1].x <= points[0].x)
 
 
-## 目标端箭头：贴着终点朝目标块内侧（不沿最后一段延长）。
-func _draw_arrow(from: Vector2, to: Vector2, color: Color) -> void:
-	var direction := (to - from).normalized()
-	if direction == Vector2.ZERO:
-		direction = Vector2.RIGHT
-	var normal := Vector2(-direction.y, direction.x)
-	draw_colored_polygon(PackedVector2Array([
-		to,
-		to - direction * ARROW_SIZE + normal * ARROW_SIZE * 0.5,
-		to - direction * ARROW_SIZE - normal * ARROW_SIZE * 0.5,
-	]), color)
-
-
-## 锁定拖拽中的预览线：命中候选时暖色实线，悬在空白处灰白虚线。
-func _draw_preview(preview: Dictionary) -> void:
-	var from: Vector2 = preview.get("from", Vector2.ZERO)
-	var to: Vector2 = preview.get("to", Vector2.ZERO)
-	var valid: bool = bool(preview.get("valid", false))
-	var color := PREVIEW_COLOR if valid else PREVIEW_CANCEL_COLOR
-	draw_dashed_line(from, to, color, LINE_WIDTH, 7.0, true)
-	if valid:
-		_draw_arrow(from, to, color)
+## 端点箭头（公共静态绘制）：恒水平、朝向由 [param flip] 决定（false = 朝右，true = 朝左）。
+## 供 LinkLayer 与 CanvasOverlay 共用，消灭跨文件重复代码。
+static func draw_arrow(ci: CanvasItem, to: Vector2, color: Color, flip: bool = false) -> void:
+	var dx := (-1.0 if flip else 1.0) * ARROW_SIZE
+	var dy := ARROW_SIZE * 0.5
+	ci.draw_colored_polygon(PackedVector2Array([
+		to + Vector2(-0.4 * dx, -dy),
+		to + Vector2(-0.1 * dx, -dy),
+		to + Vector2(0.4 * dx, -ARROW_TIP_HALF),
+		to + Vector2(0.4 * dx, ARROW_TIP_HALF),
+		to + Vector2(-0.1 * dx, dy),
+		to + Vector2(-0.4 * dx, dy),
+	]), color.darkened(ARROW_DARKEN))

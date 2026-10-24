@@ -14,11 +14,13 @@ static func solve(graph: LogicGraph, measure: Callable) -> LayoutResult:
 		for head_id in graph.slot_items(LogicGraph.ROOT, chain_id):
 			_measure_node(graph, measure, head_id, result, measured)
 	var placed: Dictionary[int, bool] = {}
+	var chain_idx := 0
 	for chain_id in graph.chain_ids():
 		_place_chain(
 			graph, result, graph.slot_items(LogicGraph.ROOT, chain_id),
-			graph.chain_position(chain_id), LogicGraph.ROOT, chain_id, placed
+			graph.chain_position(chain_id), LogicGraph.ROOT, chain_id, chain_idx, placed
 		)
+		chain_idx += 1
 	return result
 
 
@@ -71,6 +73,7 @@ static func _place_chain(
 	origin: Vector2,
 	owner_id: int,
 	slot_id: StringName,
+	chain_idx: int,
 	placed: Dictionary[int, bool]
 ) -> void:
 	var cursor := origin
@@ -83,6 +86,10 @@ static func _place_chain(
 			continue
 		placed[id] = true
 		result.rects[id] = Rect2(cursor, metrics.size)
+		# 跳线路由查表用：链序号、链内行号、父级 C 形块 id
+		result.chain_ids[id] = chain_idx
+		result.orders[id] = result.orders.size()
+		result.owners[id] = owner_id
 		# 尾部锚点：插在这个块之后。
 		result.anchors.append({
 			"owner_id": owner_id,
@@ -106,7 +113,7 @@ static func _place_chain(
 			})
 			_place_chain(
 				graph, result, graph.slot_items(id, slot_key),
-				cursor + metrics.slot_offsets[slot_key], id, slot_key, placed
+				cursor + metrics.slot_offsets[slot_key], id, slot_key, chain_idx, placed
 			)
 		cursor += metrics.tail_offset
 
