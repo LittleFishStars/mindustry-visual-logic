@@ -129,7 +129,7 @@ assets/
   [SelectionController.prune] 清掉失效 id。
 - **交互在 [SelectionController]（`view/canvas/selection_controller.gd`）**：画布的子节点，
   用引擎原生 `_unhandled_input` 收画布内未处理事件 —— 空白按住左键拖 = 框选
-  （矩形实时命中顶层块，交 [LinkLayer] 画），位移 < `BAND_MIN_DRAG`(6px) = 点击空白清空；
+  （矩形实时命中顶层块，交画布覆盖层 [EditorCanvas.CanvasOverlay] 画），位移 < `BAND_MIN_DRAG`(6px) = 点击空白清空；
   `ctrl` 点击 = 切换、`shift` 点击 = 范围选（锚点基于视觉顺序）；点已选中的组（>1）= 整组拖动。
   [b]按下时不选中[/b]：等拖拽会话结束按位移判定（< `CLICK_MAX_MOVE` = 点击选中、≥ = 真拖动则 clear，
   放下不残留选中），与上游 v0.3 实锤的手感一致。
@@ -200,7 +200,8 @@ assets/
    在它上面按下 → `BlockView.link_requested` → `LinkController` 接管：拖到某一块上松手 = 锁定到那块，
    拖到自己/左侧块列表 = 解除，空白处松手、右键、Esc = 取消（原样不动；原地松手只算点了一下）。
    落地只写一条撤销记录（`EditorCanvas.set_link`），图发出 `field_changed` 后重算布局并重绘跳线。
-   跳线由 `LinkLayer` 画：从源块左侧出发、按“竖直区间是否相交”贪心分层错开、颜色由目标块派生；
+   跳线由 `LinkLayer` 画：同链按「宿主 C 形块通道 + 目标 + 方向」合并母线束排轨道（跨度小的占内道、
+   回跳的退外道包住内部），跨链走独立走廊过桥；颜色由目标块派生；
    悬停中的候选块由 `BlockView.set_link_highlight` 描边。目标块被删时，指向它的引用会在删除的
    同一条撤销记录里被清掉（`EditorCanvas._clear_links_to`）。
 

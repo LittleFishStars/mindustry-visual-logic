@@ -12,13 +12,14 @@ signal drag_requested(view: BlockView, offset: Vector2)
 signal press_requested(view: BlockView, offset: Vector2, ctrl: bool, shift: bool)
 
 @onready var nBlocks: Node2D = $Blocks
-## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
+## 跳线层（在 Blocks 之后，线画在块上面，见 [LinkLayer]）。
 @onready var nLinks: LinkLayer = $Links
 ## 落点占位块（幽灵视图）：状态在 [PlacementPreview] 里，画布只转发。
 var _placement: PlacementPreview = null
 @onready var nCamera: EditorCamera = $Camera
 ## 「框选 / 多选 / 组拖」控制器（[method setup] 里创建，选区真相在它手里）。
 var _selection: SelectionController = null
+var _overlay: CanvasOverlay = null
 
 var library: BlockLibrary
 var graph: LogicGraph
@@ -53,6 +54,10 @@ func setup(p_library: BlockLibrary, p_graph: LogicGraph = null) -> void:
 	_selection.name = "Selection"
 	_selection.canvas = self
 	add_child(_selection)
+	_overlay = CanvasOverlay.new()
+	_overlay.name = "Overlay"
+	_overlay.canvas = self
+	add_child(_overlay)
 	_attach_graph(p_graph)
 
 
@@ -176,7 +181,7 @@ func _set_view_selected(id: int, on: bool) -> void:
 func set_selection_band(rect: Rect2, on: bool) -> void:
 	_selection_band = rect
 	_selection_band_on = on
-	_redraw_links()
+	_redraw_overlay()
 
 func selection_band() -> Rect2:
 	return _selection_band
@@ -529,7 +534,7 @@ func link_preview() -> Dictionary:
 
 
 func link_anchor(id: int) -> Vector2:
-	return LinkRouter.anchor(layout, id)
+	return LinkRouter.anchor_left(layout, id)
 
 
 ## 世界坐标命中哪一块（嵌套时取面积最小的，返回 0 = 空白）。
@@ -583,13 +588,13 @@ func _record_field(node: LogicNode, field_id: StringName, value: Variant, label:
 func set_link_preview(from: Vector2, to: Vector2, hover_id: int) -> void:
 	_preview = {"from": from, "to": to, "valid": hover_id > 0}
 	set_link_highlight(hover_id)
-	_redraw_links()
+	_redraw_overlay()
 
 
 func clear_link_preview() -> void:
 	_preview = {}
 	set_link_highlight(0)
-	_redraw_links()
+	_redraw_overlay()
 
 
 func set_link_highlight(id: int) -> void:
@@ -623,6 +628,43 @@ func _refresh_links() -> void:
 func _redraw_links() -> void:
 	if PlacementPreview.is_valid_object(nLinks):
 		nLinks.queue_redraw()
+
+
+func _redraw_overlay() -> void:
+	if PlacementPreview.is_valid_object(_overlay):
+		_overlay.queue_redraw()
+
+
+class CanvasOverlay extends Node2D:
+	const LINE_WIDTH: float = 4.0
+	const PREVIEW_DASH: float = 7.0
+	const BAND_WIDTH: float = 1.5
+	const PREVIEW_COLOR: Color = Color(1.0, 0.9, 0.4, 0.95)
+	const PREVIEW_CANCEL_COLOR: Color = Color(1.0, 1.0, 1.0, 0.4)
+	const BAND_FILL: Color = Color(0.30, 0.55, 1.0, 0.10)
+	const BAND_EDGE: Color = Color(0.45, 0.72, 1.0, 0.95)
+
+	var canvas: Object
+
+	func _draw() -> void:
+		if canvas == null:
+			return
+		# 1. 动态连线预览（仅在拖线时绘制）
+		var preview: Dictionary = canvas.link_preview()
+		if not preview.is_empty():
+			var from: Vector2 = preview["from"]
+			var to: Vector2 = preview["to"]
+			var valid: bool = bool(preview["valid"])
+			var color: Color = PREVIEW_COLOR if valid else PREVIEW_CANCEL_COLOR
+			draw_dashed_line(from, to, color, LINE_WIDTH, PREVIEW_DASH, true)
+			if valid:
+				LinkLayer.draw_arrow(self, to, color)
+
+		# 2. 动态框选矩形（仅在框选时绘制）
+		if canvas.selection_band_on():
+			var band: Rect2 = canvas.selection_band()
+			draw_rect(band, BAND_FILL, true)
+			draw_rect(band, BAND_EDGE, false, BAND_WIDTH)
 
 
 
