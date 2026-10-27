@@ -9,15 +9,12 @@ const LANE_GAP: float = 14.0        # 第 0 号母线到积木左边缘的间距
 const LANE_STEP: float = 10.0       # 每外扩一道母线再加的间距
 const CUT_RATIO: float = 0.5        # 同链梯形拐角最大斜率（2:1 斜切）
 const MIN_BUS: float = 20.0         # 同链母线竖直段保底长度
-const ROW_HEIGHT: float = 40.0      # 积木标题行高度
-const HEADER_HALF: float = 20.0     # 标题行正中偏移
-const NEST_INDENT: float = 24.0     # C 形块内部子块的缩进
+const ROW_HEIGHT: float = 40.0      # 积木标题行高度（与 BlockView.row_height 默认值耦合，改那边要同步）
+const HEADER_HALF: float = 20.0     # 标题行正中偏移（= ROW_HEIGHT / 2）
+const NEST_INDENT: float = 24.0     # 巢内缩进兜底值（真值从 metrics.slot_offsets 读，见 _nest_indent）
 const END_DROP: float = 4.0         # 到达端上移量（错开同块进出双箭头）
 const CROSS_CHAMFER: float = 12.0   # 跨链过桥折线的最大 45 度倒角
 
-# ── 同链排序权重（单位：跨越的积木行数） ──
-const BRANCH_PENALTY: int = 2       # 每多一条支线汇入，权重减 2 行（优先占内道）
-const LOOP_BONUS: int = 3           # 回跳的线权重加 3 行（退到外道包住内部）
 
 
 ## 计算画布上全部跳线的折线顶点与颜色。
@@ -99,6 +96,8 @@ static func segments(graph: LogicGraph, library: BlockLibrary, layout: LayoutRes
 			var target_id: int = int(bundle["target"])
 			var end := anchor_left(layout, target_id, true) - Vector2(0.0, END_DROP)
 			var color := color_for(target_id)
+			# 巢内通道（宿主 C 形块）竖条只容得下 2 道：lane 0 在缩进内、lane 1 贴左缘，
+			# lane ≥ 2 的母线会溢出竖条与外层母线重叠 —— 等布局能预知道数后把竖条加宽。
 			var lane_x: float = float(bundle["anchor_x"]) - LANE_GAP - float(bundle["lane"]) * LANE_STEP
 			for src_id: int in bundle["starts"]:
 				out.append({
@@ -111,18 +110,28 @@ static func segments(graph: LogicGraph, library: BlockLibrary, layout: LayoutRes
 
 
 ## 顺着 owners 向上找能完整包住 [top_y, bottom_y] 的最小 C 形块（顶层返回 host_id = 0）。
+## owners 理论无环也不缺键（_place_chain 用 placed 去重），这里防的是损坏数据：环用 visited 断开、
+## 缺矩形当链断处理，别把编辑器卡死。
 static func _find_scope_by_owner(source_id: int, top_y: float, bottom_y: float, layout: LayoutResult) -> Dictionary:
 	var cur := source_id
+	var seen: Dictionary = {cur: true}
 	var owner: int = layout.owners.get(cur, 0)
-	while owner != 0:
+	while owner != 0 and not seen.has(owner):
+		seen[owner] = true
 		var r := layout.rect_of(owner)
+		if r == Rect2():
+			break
 		# [top_y, bottom_y] 必须整个落在该 C 形块的肚子里（标题行以下、底边以上）
 		if r.position.y + ROW_HEIGHT <= top_y and r.end.y >= bottom_y:
-			return {"host_id": owner, "anchor_x": r.position.x + NEST_INDENT}
+			return {"host_id": owner, "anchor_x": r.position.x + _nest_indent(layout, owner)}
 		cur = owner
 		owner = layout.owners.get(cur, 0)
-	# 到顶了：cur 就是最外层积木，用它的左边缘作为整条链的基准线
-	return {"host_id": 0, "anchor_x": layout.rect_of(cur).position.x}
+	# 到顶了：cur 就是最外层积木，用它的左边缘作为整条链的基准线；
+	# 断链时兜底用源块自己的左边缘（源块一定有布局，否则上游早就 return 了）。
+	var base := layout.rect_of(cur)
+	if base == Rect2():
+		base = layout.rect_of(source_id)
+	return {"host_id": 0, "anchor_x": base.position.x}
 
 
 ## 积木左边缘锚点：[param mid_y] 为真取竖直中点（到达端），否则取标题行中点（出发端）。
@@ -143,6 +152,21 @@ static func _anchor(layout: LayoutResult, id: int, mid_y: bool, right: bool) -> 
 	return Vector2(rect.position.x + (rect.size.x if right else 0.0), y)
 
 
+## C 形块的巢内缩进：真值是 slot_offsets 里巢行的 x（BlockView 用 margin*4 算），
+## 拿不到时用 NEST_INDENT 兜底（与默认 margin=6 一致）。
+static func _nest_indent(layout: LayoutResult, id: int) -> float:
+	if layout == null:
+		return NEST_INDENT
+	var metrics: BlockMetrics = layout.metrics.get(id)
+	if metrics != null and not metrics.slot_offsets.is_empty():
+		var indent := INF
+		for offset in metrics.slot_offsets.values():
+			indent = minf(indent, offset.x)
+		if not is_inf(indent):
+			return indent
+	return NEST_INDENT
+
+
 ## C 形块的判据：只有 nest 行会写 slot_offsets。
 static func _has_nest(layout: LayoutResult, id: int) -> bool:
 	if layout == null:
@@ -157,23 +181,24 @@ static func color_for(target_id: int) -> Color:
 	return Color.from_hsv(float(h % 360) / 360.0, 0.65, 0.95)
 
 
-## 排序权重（单位：跨越行数，越小越先占内侧第 0 道）：跨度 - 多分支减分 + 回跳加分。
-static func _bundle_weight(b: Dictionary) -> int:
-	var branches: int = maxi(0, (b["starts"] as Array).size() - 1)
-	return int(b["bottom"]) - int(b["top"]) - branches * BRANCH_PENALTY + (LOOP_BONUS if bool(b["flipped"]) else 0)
-
-
-## 通道内纯整数装箱算法：基于整数行号区间 [top, bottom] 完成权重排序、包含让道与重叠避让。
+## 通道内纯整数装箱：排序主键是跨度，保证「内束先处理」恒成立 —— 包含让道是单向扫描，
+## 只看已处理束，若让回跳加分/支线减分能反转处理顺序，内束就会跑到外道横穿容器
+## （实测基线的 span 升序反而没这个问题）。支线与回跳只在同跨度内决先后：
+## 支线多的先占内道，回跳的退到外道包住内部。
 static func _assign_lanes(bundles: Array[Dictionary]) -> void:
 	bundles.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var wa := _bundle_weight(a)
-		var wb := _bundle_weight(b)
-		if wa != wb:
-			return wa < wb
-		var top_a: int = int(a["top"])
-		var top_b: int = int(b["top"])
-		if top_a != top_b:
-			return top_a < top_b
+		var span_a: int = int(a["bottom"]) - int(a["top"])
+		var span_b: int = int(b["bottom"]) - int(b["top"])
+		if span_a != span_b:
+			return span_a < span_b
+		var branches_a: int = maxi(0, (a["starts"] as Array).size() - 1)
+		var branches_b: int = maxi(0, (b["starts"] as Array).size() - 1)
+		if branches_a != branches_b:
+			return branches_a > branches_b
+		var flip_a: bool = bool(a["flipped"])
+		var flip_b: bool = bool(b["flipped"])
+		if flip_a != flip_b:
+			return not flip_a
 		return int(a["target"]) < int(b["target"])
 	)
 
@@ -219,7 +244,9 @@ static func _route_curve(start: Vector2, end: Vector2, lane_x: float) -> PackedV
 	])
 
 
-## 跨链走廊折线：按两块的水平位置关系选端点与走廊。
+## 跨链走廊折线：按两块的水平位置关系选端点与走廊；走廊落进任何块体内则退避到
+## 该竖直区间所有块的左侧（左出左进）。三条分支共用同一套锚点，谁都不检查走廊落点，
+## 这里统一兜底。
 static func _route_cross(layout: LayoutResult, source_id: int, target_id: int) -> PackedVector2Array:
 	var drop := Vector2(0.0, END_DROP)
 	var sl := anchor_left(layout, source_id)
@@ -246,9 +273,22 @@ static func _route_cross(layout: LayoutResult, source_id: int, target_id: int) -
 		end = tl
 		mid_x = minf(sl.x, tl.x) - LANE_GAP
 
+	var pts := _cross_polyline(start, end, mid_x, false)
+	if _poly_hits_block(layout, pts):
+		# 退避：改左出左进，竖直段挪到区间内所有块左侧。
+		# 残余情形（别的链与源块同行、挡在更左）任何左绕都要穿它，留给布局-路由回灌。
+		start = sl
+		end = tl
+		mid_x = _corridor_x(layout, start.y, end.y)
+		pts = _cross_polyline(start, end, mid_x, true)
+	return pts
+
+
+## 按 [param mid_x] 的竖直走廊生成跨链折线；两端几乎齐平时连直线（[param force_curved]
+## 为真时跳过直线特例 —— 退避后的走廊必须有竖直段才有意义）。
+static func _cross_polyline(start: Vector2, end: Vector2, mid_x: float, force_curved: bool) -> PackedVector2Array:
 	var dy := end.y - start.y
-	# 两端几乎齐平时直接连直线
-	if absf(dy) <= END_DROP and start.x != end.x:
+	if not force_curved and absf(dy) <= END_DROP and start.x != end.x:
 		return PackedVector2Array([start, end])
 
 	var dir_y := 1.0 if dy >= 0.0 else -1.0
@@ -256,9 +296,8 @@ static func _route_cross(layout: LayoutResult, source_id: int, target_id: int) -
 			minf(absf(mid_x - start.x), absf(end.x - mid_x)) * 0.4,
 			0.0, minf(absf(dy) * 0.3, CROSS_CHAMFER)
 	)
-	if chamfer < 2.0:
-		return PackedVector2Array([start, Vector2(mid_x, start.y), Vector2(mid_x, end.y), end])
-
+	# 不再回落 4 点直角版：chamfer→0 时倒角版自然退化为直角（中间点重合），
+	# 两版拐角位置不同会让相邻 dy 的竖直段长度跳变约 2.5 倍。
 	var out_dir := signf(mid_x - start.x)
 	var in_dir := signf(end.x - mid_x)
 	return PackedVector2Array([
@@ -269,3 +308,55 @@ static func _route_cross(layout: LayoutResult, source_id: int, target_id: int) -
 		Vector2(mid_x + in_dir * chamfer, end.y),
 		end,
 	])
+
+
+## [param pts] 是否穿过任何块体（与收缩 0.5px 的块矩形判定，锚点贴在块边缘不算穿）。
+static func _poly_hits_block(layout: LayoutResult, pts: PackedVector2Array) -> bool:
+	if layout == null:
+		return false
+	for id in layout.rects:
+		var r: Rect2 = layout.rects[id]
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if _poly_hits_rect(pts, r.grow(-0.5)):
+			return true
+	return false
+
+
+static func _poly_hits_rect(pts: PackedVector2Array, r: Rect2) -> bool:
+	for i in pts.size() - 1:
+		if _seg_hits_rect(pts[i], pts[i + 1], r):
+			return true
+	return false
+
+
+static func _seg_hits_rect(a: Vector2, b: Vector2, r: Rect2) -> bool:
+	# 段的包围盒先粗筛；轴对齐段宽或高为 0，grow 后才能与矩形相交（否则漏检）
+	if not Rect2(minf(a.x, b.x), minf(a.y, b.y), absf(b.x - a.x), absf(b.y - a.y)).grow(0.5).intersects(r):
+		return false
+	if _strictly_inside(a, r) or _strictly_inside(b, r):
+		return true
+	var corner := [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]
+	for i in 4:
+		if Geometry2D.segment_intersects_segment(a, b, corner[i], corner[(i + 1) % 4]) != null:
+			return true
+	return false
+
+
+static func _strictly_inside(p: Vector2, r: Rect2) -> bool:
+	return p.x > r.position.x and p.x < r.end.x and p.y > r.position.y and p.y < r.end.y
+
+
+## 走廊退避位：与 [y_from, y_to] 相交的所有块的左边缘最小值再往左 LANE_GAP ——
+## 竖直段就不会穿任何带内块。
+static func _corridor_x(layout: LayoutResult, y_from: float, y_to: float) -> float:
+	var top := minf(y_from, y_to)
+	var bottom := maxf(y_from, y_to)
+	var x := INF
+	for id in layout.rects:
+		var r: Rect2 = layout.rects[id]
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		if r.position.y < bottom and r.end.y > top:
+			x = minf(x, r.position.x)
+	return (x if not is_inf(x) else 0.0) - LANE_GAP

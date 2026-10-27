@@ -12,7 +12,7 @@ signal drag_requested(view: BlockView, offset: Vector2)
 signal press_requested(view: BlockView, offset: Vector2, ctrl: bool, shift: bool)
 
 @onready var nBlocks: Node2D = $Blocks
-## 跳线层（Blocks 的第一个子节点，见 [LinkLayer]）。
+## 跳线层（在 Blocks 之后，线画在块上面，见 [LinkLayer]）。
 @onready var nLinks: LinkLayer = $Links
 ## 落点占位块（幽灵视图）：状态在 [PlacementPreview] 里，画布只转发。
 var _placement: PlacementPreview = null
