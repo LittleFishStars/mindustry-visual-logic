@@ -64,6 +64,9 @@ var _chains: Dictionary[StringName, Array] = {}
 var _chain_positions: Dictionary[StringName, Vector2] = {}
 var _next_id: int = 1
 var _next_chain: int = 1
+var _owner_of: Dictionary[int, int] = {}
+var _slot_of: Dictionary[int, StringName] = {}
+var _index_of: Dictionary[int, int] = {}
 
 
 #region 查询
@@ -111,17 +114,52 @@ func slot_items(owner_id: int, slot_id: StringName = &"") -> Array[int]:
 func locate(id: int) -> Dictionary:
 	if not _nodes.has(id):
 		return {}
+	# 反向索引存在且数据对得上 → O(1)
+	if _owner_of.has(id):
+		var owner: int = _owner_of[id]
+		var slot: StringName = _slot_of.get(id, &"")
+		var idx: int = _index_of.get(id, -1)
+		var arr := _container_ref(owner, slot, true)
+		if idx >= 0 and idx < arr.size() and int(arr[idx]) == id:
+			return {"owner_id": owner, "slot": slot, "index": idx}
+	# 索引缺失或不一致 → 扫描所有容器找它
+	var found := _scan_for(id)
+	if found.is_empty():
+		# 孤儿节点（不在任何容器里，但 _nodes 里有）→ 重建所有索引
+		_rebuild_all_indexes()
+		return {}
+	_set_index(id, int(found["owner_id"]), StringName(found["slot"]), int(found["index"]))
+	return found
+
+func _scan_for(id: int) -> Dictionary:
 	for chain_id in _chains:
-		var index := slot_items(ROOT, chain_id).find(id)
-		if index >= 0:
-			return {"owner_id": ROOT, "slot": chain_id, "index": index}
+		var items := slot_items(ROOT, chain_id)
+		for i in items.size():
+			if int(items[i]) == id:
+				return {"owner_id": ROOT, "slot": chain_id, "index": i}
 	for owner_id in _nodes:
 		var node: LogicNode = _nodes[owner_id]
 		for slot_id in node.slots:
-			var index := node.peek_slot(slot_id).find(id)
-			if index >= 0:
-				return {"owner_id": owner_id, "slot": slot_id, "index": index}
+			var items := node.peek_slot(slot_id)
+			for i in items.size():
+				if int(items[i]) == id:
+					return {"owner_id": owner_id, "slot": slot_id, "index": i}
 	return {}
+
+func _rebuild_all_indexes() -> void:
+	_owner_of.clear()
+	_slot_of.clear()
+	_index_of.clear()
+	for chain_id in _chains:
+		var items := slot_items(ROOT, chain_id)
+		for i in items.size():
+			_set_index(int(items[i]), ROOT, chain_id, i)
+	for owner_id in _nodes:
+		var node: LogicNode = _nodes[owner_id]
+		for slot_id in node.slots:
+			var items := node.peek_slot(slot_id)
+			for i in items.size():
+				_set_index(int(items[i]), owner_id, slot_id, i)
 
 
 #endregion
@@ -164,7 +202,11 @@ func insert_node(node: LogicNode, owner_id: int, slot_id: StringName = &"", inde
 		return false
 	_nodes[node.id] = node
 	_sync_next_id(node.id)
-	_insert_at(_container_ref(owner_id, slot_id, true), node.id, index)
+	var arr: Array = _container_ref(owner_id, slot_id, true)
+	var pos: int = index if index >= 0 else arr.size()
+	_insert_at(arr, node.id, index)
+	_shift_index(owner_id, slot_id, pos + 1, 1)
+	_set_index(node.id, owner_id, slot_id, pos)
 	structure_changed.emit()
 	return true
 
@@ -181,6 +223,7 @@ func insert_subtrees(groups: Array, owner_id: int, slot_id: StringName = &"", in
 	var pos := index
 	if pos < 0:
 		pos = slot_items(owner_id, slot_id).size()
+	var total_roots := 0
 	for sub in groups:
 		var nodes: Array[LogicNode] = sub
 		if nodes.is_empty():
@@ -188,12 +231,17 @@ func insert_subtrees(groups: Array, owner_id: int, slot_id: StringName = &"", in
 		for node in nodes:
 			if node == null or _nodes.has(node.id):
 				return false
+		total_roots += 1
+	var arr: Array = _container_ref(owner_id, slot_id, true)
+	_shift_index(owner_id, slot_id, pos, total_roots)
 	for sub in groups:
 		var nodes: Array[LogicNode] = sub
 		for node in nodes:
 			_nodes[node.id] = node
 			_sync_next_id(node.id)
-		_insert_at(_container_ref(owner_id, slot_id, true), nodes[0].id, pos)
+		var root_id: int = nodes[0].id
+		_insert_at(arr, root_id, pos)
+		_set_index(root_id, owner_id, slot_id, pos)
 		pos += 1
 	structure_changed.emit()
 	return true
@@ -208,6 +256,7 @@ func remove_node(id: int) -> bool:
 	_detach(where)
 	_drop_empty_container(where)
 	for victim in doomed:
+		_clear_index(victim)
 		_nodes.erase(victim)
 	structure_changed.emit()
 	return true
@@ -260,8 +309,11 @@ func move_nodes(ids: Array[int], owner_id: int, slot_id: StringName = &"", index
 	for i in range(places.size() - 1, -1, -1):
 		_detach(places[i])
 	var container := _container_ref(owner_id, slot_id, true)
+	_shift_index(owner_id, slot_id, target, ids.size())
 	for i in ids.size():
-		_insert_at(container, ids[i], target + i)
+		var id: int = ids[i]
+		_insert_at(container, id, target + i)
+		_set_index(id, owner_id, slot_id, target + i)
 	for at in places:
 		_drop_empty_container(at)
 	structure_changed.emit()
@@ -291,6 +343,7 @@ func insert_in_new_chain(node: LogicNode, pos: Vector2) -> StringName:
 	_chain_positions[chain_id] = pos
 	_nodes[node.id] = node
 	_sync_next_id(node.id)
+	_set_index(node.id, ROOT, chain_id, 0)
 	structure_changed.emit()
 	return chain_id
 
@@ -327,6 +380,9 @@ func clear() -> void:
 	_chain_positions.clear()
 	_next_id = 1
 	_next_chain = 1
+	_owner_of.clear()
+	_slot_of.clear()
+	_index_of.clear()
 	reset.emit()
 
 
@@ -401,6 +457,7 @@ func load_dict(data: Dictionary) -> void:
 	_next_chain = int(data.get("next_chain", 1))
 	for id in _nodes:
 		_sync_next_id(id)
+	_rebuild_all_indexes()
 	reset.emit()
 
 
@@ -408,6 +465,27 @@ func load_dict(data: Dictionary) -> void:
 
 
 #region 内部
+
+func _set_index(id: int, owner: int, slot: StringName, idx: int) -> void:
+	_owner_of[id] = owner
+	_slot_of[id] = slot
+	_index_of[id] = idx
+
+func _clear_index(id: int) -> void:
+	_owner_of.erase(id)
+	_slot_of.erase(id)
+	_index_of.erase(id)
+
+## 某容器在 from_index 处插入（delta>0）或删除（delta<0）一个或多个节点后，
+## 从 from_index 起到末尾所有兄弟节点的 index 索引整体平移。
+func _shift_index(owner: int, slot: StringName, from_index: int, delta: int) -> void:
+	var arr := _container_ref(owner, slot, true)
+	for i in range(maxi(0, from_index), arr.size()):
+		var id: int = int(arr[i])
+		if not _owner_of.has(id):
+			continue
+		if _index_of[id] == i - delta:
+			_index_of[id] = i
 
 func _insert_at(arr: Array, value: int, index: int) -> void:
 	if index < 0 or index > arr.size():
@@ -436,9 +514,14 @@ func _can_host(owner_id: int, slot_id: StringName) -> bool:
 func _detach(where: Dictionary) -> void:
 	if where.is_empty():
 		return
-	var items := _container_ref(where["owner_id"], where["slot"])
+	var owner_id: int = where["owner_id"]
+	var slot: StringName = where["slot"]
 	var index: int = where["index"]
+	var items := _container_ref(owner_id, slot, true)
 	if index >= 0 and index < items.size():
+		var victim_id: int = int(items[index])
+		_shift_index(owner_id, slot, index + 1, -1)
+		_clear_index(victim_id)
 		items.remove_at(index)
 
 
