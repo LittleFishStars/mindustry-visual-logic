@@ -288,9 +288,9 @@ func _insert_parsed(text: String, label: String, place: Callable) -> int:
 		# place 只调一次：粘贴的落点闭包里会建新链，重复调会多出空链
 		var target: Dictionary = place.call()
 		# 结构块还原后子节点已经挂在它的巢里，按子树整体入图（逐个插会把子节点也塞进链里）
-		for group in MlogImporter.subtrees(nodes):
-			var subtree: Array[LogicNode] = group
-			nCanvas.graph.insert_subtree(subtree, int(target["owner_id"]), StringName(target["slot"]), -1))
+		# 结构块还原后子节点已经挂在它的巢里，按子树整体入图（逐个插会把子节点也塞进链里）
+		nCanvas.graph.insert_subtrees(MlogImporter.subtrees(nodes),
+			int(target["owner_id"]), StringName(target["slot"]), -1))
 	for message in warnings:
 		push_warning(message)
 	return nodes.size()

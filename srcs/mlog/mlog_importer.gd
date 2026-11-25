@@ -205,9 +205,10 @@ static func _make_node(graph: LogicGraph, def: BlockDef, values: Dictionary, sta
 
 static func _build_index(library: BlockLibrary) -> Dictionary:
 	var index: Dictionary = {}
+	var cache := _shape_cache(library)
 	for block_id in library.block_ids():
 		var def := library.by_id(block_id)
-		for shape in _shapes(def):
+		for shape in cache[def]:
 			var tokens: Array = shape["tokens"]
 			if tokens.is_empty():
 				continue
@@ -219,6 +220,13 @@ static func _build_index(library: BlockLibrary) -> Dictionary:
 				bucket.append(def)
 			index[StringName(head)] = bucket
 	return index
+
+static func _shape_cache(library: BlockLibrary) -> Dictionary:
+	var cache: Dictionary = {}
+	for block_id in library.block_ids():
+		var def := library.by_id(block_id)
+		cache[def] = _shapes(def)
+	return cache
 
 
 static func _shapes(def: BlockDef) -> Array[Dictionary]:
@@ -287,10 +295,11 @@ static func _parts_to_tokens(parts: Array[ExportPart]) -> Array[Dictionary]:
 
 ## 试一组候选块，返回 {def, values, states} 或 null；按选项取值合法性打分取最高 —— ucontrol 那种模板同构的变体只能这样分开。
 static func _try_defs(defs: Array, tokens: PackedStringArray) -> Variant:
+	var cache := _shape_cache_for(defs)
 	var best: Variant = null
 	var best_score := -2147483648
 	for def in defs:
-		for shape in _shapes(def):
+		for shape in cache[def]:
 			var values: Variant = _match(def, shape["tokens"], shape["states"], tokens)
 			if values == null:
 				continue
@@ -301,6 +310,12 @@ static func _try_defs(defs: Array, tokens: PackedStringArray) -> Variant:
 				best = {"def": def, "values": normalized, "states": shape["states"]}
 	return best
 
+static func _shape_cache_for(defs: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for def in defs:
+		if not out.has(def):
+			out[def] = _shapes(def)
+	return out
 
 ## 选项字段取值不合法就扣分（不是直接丢掉：认不出的新类型也比丢行强）。
 static func _score(def: BlockDef, values: Dictionary) -> int:
